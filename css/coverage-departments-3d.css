@@ -1,0 +1,959 @@
+/* =========================================================
+   SEPRIGUA V62 — COBERTURA: GUATEMALA 22 DEPARTAMENTOS 3D
+   ---------------------------------------------------------
+   El mapa ya NO usa assets/img/mapa-guatemala.png.
+
+   Las divisiones administrativas se generan desde TopoJSON real
+   de los 22 departamentos de Guatemala y se renderizan como SVG.
+
+   Estética:
+   - relieve / extrusión por departamento;
+   - perspectiva 3D;
+   - separación visible entre departamentos;
+   - hover/click por departamento;
+   - Guatemala y Quetzaltenango marcados como puntos operativos;
+   - tilt suave con mouse;
+   - totalmente responsive.
+   ========================================================= */
+
+:root {
+  --coverage-blue: #193E58;
+  --coverage-blue-rgb: 25, 62, 88;
+  --coverage-red: #F51F4B;
+  --coverage-red-rgb: 245, 31, 75;
+}
+
+
+/* =========================================================
+   WRAPPER
+   ========================================================= */
+
+.coverage-map-wrapper.coverage-departments-stage {
+  position: relative;
+  isolation: isolate;
+
+  overflow: visible;
+
+  min-height: 650px;
+
+  padding:
+    18px 18px 14px;
+
+  border-radius: 32px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.54),
+      rgba(240,247,253,.26)
+    );
+
+  border:
+    1px solid rgba(255,255,255,.80);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.92),
+    0 24px 58px rgba(25,62,88,.055);
+}
+
+
+/* =========================================================
+   CABECERA DEL MAPA
+   ========================================================= */
+
+.coverage-departments-head {
+  position: relative;
+  z-index: 30;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+
+  padding:
+    5px 8px 0;
+
+  pointer-events: none;
+}
+
+
+.coverage-departments-head > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+
+.coverage-departments-kicker {
+  font-size: 10px;
+  line-height: 1;
+
+  font-weight: 800;
+  letter-spacing: .17em;
+
+  color: var(--coverage-red);
+}
+
+
+.coverage-departments-head strong {
+  font-size: 16px;
+  line-height: 1.1;
+
+  color: #103E67;
+}
+
+
+.coverage-departments-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+
+.coverage-departments-badges span {
+  padding:
+    7px 11px;
+
+  border-radius:
+    999px;
+
+  font-size:
+    10px;
+
+  font-weight:
+    750;
+
+  color:
+    rgba(25,62,88,.78);
+
+  background:
+    rgba(255,255,255,.72);
+
+  border:
+    1px solid rgba(25,62,88,.075);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.90);
+}
+
+
+.coverage-departments-badges
+.coverage-majority-badge {
+  color:
+    #B71837;
+
+  border-color:
+    rgba(245,31,75,.13);
+
+  background:
+    rgba(255,245,248,.82);
+}
+
+
+/* =========================================================
+   ESCENA 3D
+   ========================================================= */
+
+.coverage-relief-scene {
+  --map-rx: 15deg;
+  --map-ry: -4deg;
+  --map-rz: -1.5deg;
+
+  position: relative;
+
+  min-height: 535px;
+
+  display: grid;
+  place-items: center;
+
+  perspective: 1250px;
+  perspective-origin: 50% 44%;
+}
+
+
+.coverage-relief-scene::before {
+  content: "";
+
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+
+  width: 76%;
+  height: 18%;
+
+  left: 13%;
+  bottom: 8%;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(25,62,88,.22) 0%,
+      rgba(25,62,88,.105) 34%,
+      rgba(25,62,88,.025) 60%,
+      transparent 76%
+    );
+
+  filter:
+    blur(20px);
+
+  transform:
+    rotate(-2deg)
+    translateY(15px);
+
+  opacity:
+    .70;
+}
+
+
+/* =========================================================
+   OBJETO COMPLETO
+   ========================================================= */
+
+.coverage-relief-object {
+  position: relative;
+  z-index: 4;
+
+  width: min(100%, 760px);
+
+  transform-style: preserve-3d;
+
+  transform:
+    rotateX(var(--map-rx))
+    rotateY(var(--map-ry))
+    rotateZ(var(--map-rz))
+    translateZ(0);
+
+  transform-origin:
+    50% 52%;
+
+  transition:
+    transform
+    .70s cubic-bezier(.16,1,.3,1);
+
+  will-change:
+    transform;
+}
+
+
+.coverage-relief-object::before {
+  content: "";
+
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;
+
+  inset:
+    12% 9% 8% 10%;
+
+  border-radius:
+    48%;
+
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(83,144,197,.11),
+      rgba(25,62,88,.025) 52%,
+      transparent 72%
+    );
+
+  filter:
+    blur(26px);
+
+  transform:
+    translateZ(-60px);
+}
+
+
+/* =========================================================
+   SVG
+   ========================================================= */
+
+.coverage-departments-svg {
+  display: block;
+
+  width: 100%;
+  height: auto;
+
+  overflow: visible;
+
+  transform-style:
+    preserve-3d;
+
+  filter:
+    url(#mapSoftShadow);
+}
+
+
+/* =========================================================
+   DEPARTAMENTOS — EXTRUSIÓN
+   ========================================================= */
+
+.department-relief-group {
+  cursor: pointer;
+
+  transform-box:
+    fill-box;
+
+  transform-origin:
+    center center;
+
+  transition:
+    transform .32s cubic-bezier(.16,1,.3,1),
+    filter .28s ease;
+}
+
+
+.department-depth {
+  pointer-events:
+    none;
+
+  stroke:
+    rgba(25,62,88,.12);
+
+  stroke-width:
+    1.05;
+
+  vector-effect:
+    non-scaling-stroke;
+}
+
+
+.department-top {
+  fill:
+    url(#departmentTopBlue);
+
+  stroke:
+    rgba(255,255,255,.90);
+
+  stroke-width:
+    2.15;
+
+  stroke-linejoin:
+    round;
+
+  vector-effect:
+    non-scaling-stroke;
+
+  transition:
+    fill .24s ease,
+    stroke .24s ease,
+    stroke-width .24s ease,
+    filter .24s ease;
+}
+
+
+.department-top::selection {
+  background:
+    transparent;
+}
+
+
+/*
+  Pequeño bisel en cada pieza.
+*/
+.department-highlight {
+  pointer-events:
+    none;
+
+  fill:
+    none;
+
+  stroke:
+    rgba(255,255,255,.44);
+
+  stroke-width:
+    1;
+
+  transform:
+    translate(-1px,-1px);
+
+  vector-effect:
+    non-scaling-stroke;
+}
+
+
+/* =========================================================
+   HOVER / SELECCIÓN
+   ========================================================= */
+
+.department-relief-group:hover,
+.department-relief-group.is-selected {
+  transform:
+    translateY(-8px);
+}
+
+
+.department-relief-group:hover
+.department-top,
+.department-relief-group.is-selected
+.department-top {
+  fill:
+    url(#departmentTopHover);
+
+  stroke:
+    rgba(255,255,255,.98);
+
+  stroke-width:
+    2.5;
+
+  filter:
+    url(#departmentHoverShadow);
+}
+
+
+.department-relief-group:hover
+.department-depth,
+.department-relief-group.is-selected
+.department-depth {
+  fill:
+    #9B1732 !important;
+
+  stroke:
+    rgba(115,12,35,.22);
+}
+
+
+/* =========================================================
+   PUNTOS OPERATIVOS
+   ========================================================= */
+
+.coverage-operational-marker {
+  pointer-events:
+    none;
+
+  transform-box:
+    fill-box;
+
+  transform-origin:
+    center;
+
+  filter:
+    drop-shadow(
+      0 5px 7px
+      rgba(245,31,75,.27)
+    );
+}
+
+
+.coverage-operational-marker
+.marker-pulse {
+  fill:
+    rgba(245,31,75,.17);
+
+  stroke:
+    rgba(245,31,75,.34);
+
+  stroke-width:
+    1;
+
+  transform-box:
+    fill-box;
+
+  transform-origin:
+    center;
+
+  animation:
+    mapMarkerPulse
+    2.2s ease-out
+    infinite;
+}
+
+
+.coverage-operational-marker
+.marker-core {
+  fill:
+    var(--coverage-red);
+
+  stroke:
+    white;
+
+  stroke-width:
+    4;
+
+  vector-effect:
+    non-scaling-stroke;
+}
+
+
+@keyframes mapMarkerPulse {
+  0% {
+    opacity: .90;
+    transform: scale(.62);
+  }
+
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.65);
+  }
+}
+
+
+/* =========================================================
+   LOADING
+   ========================================================= */
+
+.coverage-map-loading {
+  position: absolute;
+  z-index: 50;
+
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  color:
+    rgba(25,62,88,.68);
+
+  font-size:
+    12px;
+
+  font-weight:
+    650;
+
+  transition:
+    opacity .35s ease,
+    visibility .35s ease;
+}
+
+
+.coverage-map-loading.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+
+.coverage-map-loader {
+  width: 18px;
+  height: 18px;
+
+  border-radius: 50%;
+
+  border:
+    2px solid
+    rgba(25,62,88,.12);
+
+  border-top-color:
+    var(--coverage-red);
+
+  animation:
+    coverageLoaderSpin
+    .75s linear
+    infinite;
+}
+
+
+@keyframes coverageLoaderSpin {
+  to {
+    transform:
+      rotate(360deg);
+  }
+}
+
+
+/* =========================================================
+   TOOLTIP
+   ========================================================= */
+
+.coverage-department-tooltip {
+  position: absolute;
+  z-index: 70;
+  pointer-events: none;
+
+  left: 18px;
+  bottom: 53px;
+
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  min-width: 165px;
+
+  padding:
+    10px 13px;
+
+  border-radius:
+    15px;
+
+  background:
+    rgba(255,255,255,.87);
+
+  border:
+    1px solid rgba(255,255,255,.93);
+
+  box-shadow:
+    0 14px 30px rgba(25,62,88,.09),
+    inset 0 1px 0 rgba(255,255,255,.96);
+
+  -webkit-backdrop-filter:
+    blur(16px)
+    saturate(120%);
+
+  backdrop-filter:
+    blur(16px)
+    saturate(120%);
+
+  opacity: 0;
+  transform:
+    translateY(7px);
+
+  transition:
+    opacity .22s ease,
+    transform .28s cubic-bezier(.16,1,.3,1);
+}
+
+
+.coverage-department-tooltip.is-visible {
+  opacity: 1;
+
+  transform:
+    translateY(0);
+}
+
+
+.coverage-tooltip-dot {
+  flex: 0 0 auto;
+
+  width: 9px;
+  height: 9px;
+
+  border-radius: 50%;
+
+  background:
+    var(--coverage-red);
+
+  box-shadow:
+    0 0 0 5px
+    rgba(245,31,75,.10);
+}
+
+
+.coverage-department-tooltip div {
+  display: grid;
+  gap: 2px;
+}
+
+
+.coverage-department-tooltip small {
+  font-size:
+    8px;
+
+  letter-spacing:
+    .14em;
+
+  font-weight:
+    800;
+
+  color:
+    var(--coverage-red);
+}
+
+
+.coverage-department-tooltip strong {
+  font-size:
+    14px;
+
+  color:
+    #123F67;
+}
+
+
+/* =========================================================
+   LEYENDA
+   ========================================================= */
+
+.coverage-map-legend {
+  position: absolute;
+  z-index: 30;
+
+  right: 6px;
+  bottom: 9px;
+
+  display: flex;
+  align-items: center;
+  gap: 13px;
+
+  padding:
+    7px 10px;
+
+  border-radius:
+    999px;
+
+  background:
+    rgba(255,255,255,.55);
+
+  border:
+    1px solid rgba(255,255,255,.75);
+
+  font-size:
+    9px;
+
+  color:
+    rgba(25,62,88,.62);
+
+  -webkit-backdrop-filter:
+    blur(9px);
+
+  backdrop-filter:
+    blur(9px);
+}
+
+
+.coverage-map-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+
+.legend-swatch {
+  display: inline-block;
+
+  width: 8px;
+  height: 8px;
+
+  border-radius: 3px;
+}
+
+
+.legend-blue {
+  background:
+    #82B8E5;
+
+  box-shadow:
+    inset -1px -2px 0
+    rgba(25,62,88,.16);
+}
+
+
+.legend-red {
+  background:
+    var(--coverage-red);
+}
+
+
+/* =========================================================
+   ERROR
+   ========================================================= */
+
+.coverage-map-error {
+  position: absolute;
+  z-index: 55;
+
+  inset:
+    22% 15%;
+
+  display: grid;
+  place-items: center;
+
+  padding:
+    25px;
+
+  border-radius:
+    24px;
+
+  text-align:
+    center;
+
+  font-size:
+    12px;
+
+  line-height:
+    1.5;
+
+  color:
+    rgba(25,62,88,.72);
+
+  background:
+    rgba(255,255,255,.76);
+
+  border:
+    1px solid rgba(25,62,88,.08);
+}
+
+
+/* =========================================================
+   CAJA SOLUCIONES
+   ========================================================= */
+
+.coverage-departments-stage
+.coverage-service-box {
+  z-index: 90;
+
+  box-shadow:
+    0 18px 36px rgba(25,62,88,.08),
+    inset 0 1px 0 rgba(255,255,255,.93);
+
+  -webkit-backdrop-filter:
+    blur(16px)
+    saturate(115%);
+
+  backdrop-filter:
+    blur(16px)
+    saturate(115%);
+}
+
+
+/* =========================================================
+   ENTRADA
+   ========================================================= */
+
+.coverage-relief-object {
+  opacity:
+    .01;
+
+  transform:
+    translateY(24px)
+    rotateX(5deg)
+    rotateY(0deg)
+    scale(.965);
+}
+
+
+.coverage-departments-stage.is-map-ready
+.coverage-relief-object {
+  opacity:
+    1;
+
+  transform:
+    rotateX(var(--map-rx))
+    rotateY(var(--map-ry))
+    rotateZ(var(--map-rz))
+    scale(1);
+
+  transition:
+    opacity .70s ease,
+    transform .95s cubic-bezier(.16,1,.3,1);
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1120px) {
+  .coverage-map-wrapper.coverage-departments-stage {
+    min-height:
+      610px;
+  }
+
+  .coverage-relief-scene {
+    min-height:
+      500px;
+  }
+
+  .coverage-relief-object {
+    width:
+      min(100%, 680px);
+  }
+
+  .coverage-departments-badges {
+    display:
+      none;
+  }
+}
+
+
+@media (max-width: 820px) {
+  .coverage-map-wrapper.coverage-departments-stage {
+    min-height:
+      560px;
+
+    padding:
+      15px 12px 12px;
+  }
+
+  .coverage-departments-head {
+    align-items:
+      flex-start;
+  }
+
+  .coverage-departments-head strong {
+    font-size:
+      14px;
+  }
+
+  .coverage-relief-scene {
+    --map-rx: 8deg;
+    --map-ry: 0deg;
+    --map-rz: 0deg;
+
+    min-height:
+      460px;
+
+    perspective:
+      1000px;
+  }
+
+  .coverage-relief-object {
+    width:
+      100%;
+  }
+
+  .coverage-map-legend {
+    display:
+      none;
+  }
+
+  .coverage-department-tooltip {
+    left:
+      9px;
+
+    bottom:
+      23px;
+  }
+}
+
+
+@media (max-width: 540px) {
+  .coverage-map-wrapper.coverage-departments-stage {
+    min-height:
+      500px;
+  }
+
+  .coverage-relief-scene {
+    min-height:
+      405px;
+  }
+
+  .coverage-department-tooltip {
+    min-width:
+      145px;
+
+    padding:
+      8px 10px;
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .coverage-relief-object,
+  .department-relief-group,
+  .department-top,
+  .coverage-department-tooltip {
+    transition:
+      none !important;
+  }
+
+  .coverage-operational-marker
+  .marker-pulse {
+    animation:
+      none !important;
+
+    opacity:
+      .28;
+  }
+
+  .coverage-map-loader {
+    animation:
+      none !important;
+  }
+}

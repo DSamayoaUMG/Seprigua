@@ -1,0 +1,59 @@
+/* =========================================================
+   SEPRIGUA V78 — FLUJO DE SECCIONES / ANCLAS
+   ========================================================= */
+
+/*
+  Respeto visual entre Cobertura y Trabajos.
+  No cambia el tamaño del mapa; simplemente evita que el encabezado
+  de Trabajos se vea todavía mientras el usuario está en Cobertura.
+*/
+@media (min-width: 821px) {
+  #trabajos {
+    margin-top: 72px !important;
+  }
+}
+
+/*
+  El scroll real lo controla navbar-gear-indicator.js.
+  Esto funciona como respaldo si JS está deshabilitado o tarda.
+*/
+#inicio,
+#nosotros,
+#servicios,
+#cobertura,
+#trabajos,
+#contacto {
+  scroll-margin-top: 112px;
+}
+
+/*
+  Evita que encabezados decorativos de la siguiente sección
+  invadan visualmente la anterior por transformaciones.
+*/
+#trabajos .swg-section-heading {
+  position: relative;
+  z-index: 3;
+}
+
+/*
+  Contacto arranca limpio después de la galería.
+*/
+#contacto {
+  position: relative;
+  z-index: 2;
+}
+
+@media (max-width: 820px) {
+  #trabajos {
+    margin-top: 38px !important;
+  }
+
+  #inicio,
+  #nosotros,
+  #servicios,
+  #cobertura,
+  #trabajos,
+  #contacto {
+    scroll-margin-top: 82px;
+  }
+}
