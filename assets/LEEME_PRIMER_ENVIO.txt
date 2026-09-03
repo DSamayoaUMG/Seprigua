@@ -1,0 +1,20 @@
+PARCHE FORMSUBMIT - ENTREGA SEPRIGUA
+
+Reemplazar:
+- index.html
+- java/script.js
+
+No requiere SMTP, contraseña de aplicación ni cambios en la base de datos.
+
+PRIMER ENVÍO:
+FormSubmit enviará un correo de activación a:
+gadministracion@turamgt.com
+
+Abrir ese correo y confirmar/activar el formulario una sola vez.
+Después, las siguientes solicitudes llegarán directamente a ese correo.
+
+IMPORTANTE:
+- El envío funciona desde la página web.
+- No abre Gmail.
+- No abre WhatsApp.
+- El usuario permanece en SEPRIGUA y ve el mensaje de éxito.
