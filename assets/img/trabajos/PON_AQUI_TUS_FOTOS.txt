@@ -1,0 +1,20 @@
+PON AQUÍ TODAS LAS FOTOS DE TRABAJOS DE SEPRIGUA.
+
+NÓMBRALAS ASÍ:
+01.webp
+02.webp
+03.webp
+04.webp
+05.webp
+...
+
+Puedes llegar hasta 60.webp sin tocar el JavaScript.
+
+RECOMENDADO:
+- WebP
+- Buena resolución
+- Horizontal o vertical: ambas funcionan
+- Evita archivos demasiado pesados para que la landing siga rápida
+
+Si esta carpeta está vacía, la galería intentará usar automáticamente
+las 5 imágenes antiguas de Trabajos que ya existen en tu proyecto.

@@ -632,52 +632,353 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
 
+  /*
+    V78 — sección activa estable.
+    En vez de depender de cuánto "intersecta" cada sección,
+    usamos una línea virtual justo debajo del navbar.
+    La sección activa es la última cuyo inicio ya pasó esa línea.
+
+    Esto evita:
+    - Cobertura marcada al estar en Trabajos.
+    - Trabajos marcado al estar en Contacto.
+    - cambios erráticos por secciones altas/sticky.
+  */
   const getCurrentSection = () => {
-    const probeY =
+    const probeDocumentY =
+      window.scrollY +
       getProbeY();
 
-    let containing = null;
-    let nearest = null;
-    let nearestDistance =
-      Infinity;
+    let current =
+      entries[0];
 
 
     entries.forEach((entry) => {
-      const rect =
+      const sectionDocumentY =
+        window.scrollY +
         entry.section
-          .getBoundingClientRect();
+          .getBoundingClientRect()
+          .top;
 
 
       if (
-        rect.top <= probeY &&
-        rect.bottom > probeY
+        sectionDocumentY <=
+        probeDocumentY + 2
       ) {
-        containing = entry;
-      }
-
-
-      const distance =
-        Math.abs(
-          rect.top - probeY
-        );
-
-
-      if (
-        distance <
-        nearestDistance
-      ) {
-        nearestDistance =
-          distance;
-
-        nearest = entry;
+        current = entry;
       }
     });
 
 
-    return (
-      containing ||
-      nearest ||
-      entries[0]
+    /*
+      Al final de la página siempre debe quedar activo Contacto.
+    */
+    const nearBottom =
+      window.innerHeight +
+      window.scrollY >=
+      document.documentElement.scrollHeight - 8;
+
+
+    if (nearBottom) {
+      return entries[
+        entries.length - 1
+      ];
+    }
+
+
+    return current;
+  };
+
+
+  /*
+    Posición exacta al navegar desde el navbar.
+    No usamos el salto nativo del hash porque colocaba títulos
+    debajo del navbar o demasiado arriba.
+  */
+  const getScrollTarget = (
+    entry
+  ) => {
+    if (!entry) return 0;
+
+    const navbarBottom =
+      navbar
+        .getBoundingClientRect()
+        .bottom;
+
+
+    /*
+      V79 — NOSOTROS:
+      La sección tiene bastante padding superior.
+      Si navegábamos al inicio de #nosotros, el contenido
+      quedaba demasiado abajo.
+
+      Ahora usamos .about-top como referencia real:
+      la galería queda apenas debajo del navbar y el bloque
+      de texto queda centrado exactamente como en el diseño.
+    */
+    if (
+      entry.id === "nosotros"
+    ) {
+      const aboutTop =
+        entry.section.querySelector(
+          ".about-top"
+        );
+
+      if (aboutTop) {
+        const aboutTopDocumentY =
+          window.scrollY +
+          aboutTop
+            .getBoundingClientRect()
+            .top;
+
+        const aboutGap = 8;
+
+        return Math.max(
+          0,
+          aboutTopDocumentY -
+          navbarBottom -
+          aboutGap
+        );
+      }
+    }
+
+
+    /*
+      V80 — SERVICIOS:
+      Al pulsar "Servicios" queremos que aparezca primero el
+      encabezado completo y, debajo, el carrusel; no que el
+      navegador aterrice ya metido dentro de la imagen.
+
+      Usamos .services-heading como punto visual real.
+    */
+    if (
+      entry.id === "servicios"
+    ) {
+      const servicesHeading =
+        entry.section.querySelector(
+          ".services-heading"
+        );
+
+      if (servicesHeading) {
+        const headingDocumentY =
+          window.scrollY +
+          servicesHeading
+            .getBoundingClientRect()
+            .top;
+
+        const servicesGap = 16;
+
+        return Math.max(
+          0,
+          headingDocumentY -
+          navbarBottom -
+          servicesGap
+        );
+      }
+    }
+
+
+    /*
+      V81 — COBERTURA:
+      Al pulsar "Cobertura" la composición debe quedar como
+      en el diseño aprobado: navbar arriba y, debajo, el bloque
+      completo de Cobertura alineado en una sola vista.
+
+      Tomamos .coverage-grid como referencia visual real en vez
+      del borde superior de toda la sección.
+    */
+    if (
+      entry.id === "cobertura"
+    ) {
+      const coverageGrid =
+        entry.section.querySelector(
+          ".coverage-grid"
+        );
+
+      if (coverageGrid) {
+        const coverageDocumentY =
+          window.scrollY +
+          coverageGrid
+            .getBoundingClientRect()
+            .top;
+
+        /*
+          Aproximadamente 38px de respiración entre navbar
+          y contenido, como en la captura indicada.
+        */
+        const coverageGap = 38;
+
+        return Math.max(
+          0,
+          coverageDocumentY -
+          navbarBottom -
+          coverageGap
+        );
+      }
+    }
+
+
+    /*
+      V82 — CONTACTO:
+      Queremos que al pulsar "Contacto" la composición quede
+      exactamente como el diseño aprobado:
+      navbar arriba y el encabezado premium inmediatamente debajo,
+      seguido por las tarjetas de ubicación y Google Maps.
+
+      Usamos .contact-premium-heading como referencia real en vez
+      del borde superior completo de #contacto.
+    */
+    if (
+      entry.id === "contacto"
+    ) {
+      const contactHeading =
+        entry.section.querySelector(
+          ".contact-premium-heading"
+        );
+
+      if (contactHeading) {
+        const contactDocumentY =
+          window.scrollY +
+          contactHeading
+            .getBoundingClientRect()
+            .top;
+
+        const contactGap = 28;
+
+        return Math.max(
+          0,
+          contactDocumentY -
+          navbarBottom -
+          contactGap
+        );
+      }
+    }
+
+
+    /*
+      V83 — TRABAJOS:
+      Al pulsar "Trabajos" queremos exactamente la composición
+      aprobada en pantalla:
+      navbar arriba y el encabezado
+      "EVIDENCIA EN CAMPO · SEPRIGUA"
+      inmediatamente debajo, seguido por
+      "Trabajos reales. Resultados que se ven."
+      y la galería.
+
+      Usamos .swg-section-heading como referencia visual real.
+    */
+    if (
+      entry.id === "trabajos"
+    ) {
+      const workHeading =
+        entry.section.querySelector(
+          ".swg-section-heading"
+        );
+
+      if (workHeading) {
+        const workDocumentY =
+          window.scrollY +
+          workHeading
+            .getBoundingClientRect()
+            .top;
+
+        /*
+          Separación pequeña para que el engranaje del navbar
+          no toque el kicker del encabezado.
+        */
+        const workGap = 10;
+
+        return Math.max(
+          0,
+          workDocumentY -
+          navbarBottom -
+          workGap
+        );
+      }
+    }
+
+
+    const sectionDocumentY =
+      window.scrollY +
+      entry.section
+        .getBoundingClientRect()
+        .top;
+
+    const safeGap =
+      entry.id === "inicio"
+        ? 0
+        : 18;
+
+    return Math.max(
+      0,
+      sectionDocumentY -
+      navbarBottom -
+      safeGap
+    );
+  };
+
+
+  const updateHashWithoutJump = (
+    id
+  ) => {
+    const nextHash =
+      `#${id}`;
+
+    if (
+      window.location.hash ===
+      nextHash
+    ) {
+      return;
+    }
+
+    try {
+      window.history.pushState(
+        null,
+        "",
+        nextHash
+      );
+    } catch {
+      /*
+        Fallback para navegadores/restricciones poco comunes.
+        No hacemos location.hash aquí porque provocaría
+        un segundo salto nativo.
+      */
+    }
+  };
+
+
+  const scrollToEntry = (
+    entry,
+    behavior = "smooth",
+    updateHash = true
+  ) => {
+    if (!entry) return;
+
+    expandNavbar();
+
+    /*
+      Dejamos que el navbar vuelva a su altura normal antes
+      de calcular el offset.
+    */
+    window.requestAnimationFrame(
+      () => {
+        window.requestAnimationFrame(
+          () => {
+            const top =
+              getScrollTarget(entry);
+
+            window.scrollTo({
+              top,
+              behavior
+            });
+
+            if (updateHash) {
+              updateHashWithoutJump(
+                entry.id
+              );
+            }
+          }
+        );
+      }
     );
   };
 
@@ -745,7 +1046,7 @@ document.addEventListener("DOMContentLoaded", () => {
   links.forEach((link) => {
     link.addEventListener(
       "click",
-      () => {
+      (event) => {
         const id =
           link
             .getAttribute("href")
@@ -753,17 +1054,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!id) return;
 
+        const entry =
+          entries.find(
+            (item) =>
+              item.id === id
+          );
+
+        if (!entry) return;
+
+        /*
+          Evitamos el salto nativo del navegador.
+          Nosotros colocamos la sección exactamente debajo
+          del navbar.
+        */
+        event.preventDefault();
+
 
         expandNavbar();
 
         clickedId = id;
 
+        /*
+          El bloqueo dura lo suficiente para un smooth scroll
+          largo, así otra sección no roba el estado activo.
+        */
         clickLockUntil =
-          performance.now() + 850;
+          performance.now() + 1800;
 
 
         activate(
           id,
+          true
+        );
+
+
+        scrollToEntry(
+          entry,
+          "smooth",
           true
         );
 
@@ -813,30 +1140,46 @@ document.addEventListener("DOMContentLoaded", () => {
         window.location.hash
           .slice(1);
 
+      const entry =
+        entries.find(
+          (item) =>
+            item.id === id
+        );
+
+      if (!entry) return;
+
+
       expandNavbar();
 
+      clickedId = id;
 
-      if (
-        entries.some(
-          (entry) =>
-            entry.id === id
-        )
-      ) {
-        clickedId = id;
+      clickLockUntil =
+        performance.now() + 1400;
 
-        clickLockUntil =
-          performance.now() + 600;
+      activate(
+        id,
+        true
+      );
 
-        activate(
-          id,
-          true
-        );
-      }
+
+      /*
+        Corrige hashes cambiados por historial/otros enlaces.
+      */
+      window.setTimeout(
+        () => {
+          scrollToEntry(
+            entry,
+            "smooth",
+            false
+          );
+        },
+        25
+      );
 
 
       window.setTimeout(
         requestSync,
-        650
+        900
       );
     }
   );
@@ -878,8 +1221,46 @@ document.addEventListener("DOMContentLoaded", () => {
     () => {
       window.setTimeout(
         () => {
+          /*
+            Si la URL abrió con #trabajos/#contacto/etc.,
+            corregimos la posición que el navegador hizo
+            antes de cargar nuestros scripts.
+          */
+          const hashId =
+            window.location.hash
+              .slice(1);
+
+          const hashEntry =
+            entries.find(
+              (entry) =>
+                entry.id === hashId
+            );
+
+          if (hashEntry) {
+            clickedId =
+              hashEntry.id;
+
+            clickLockUntil =
+              performance.now() + 1000;
+
+            activate(
+              hashEntry.id,
+              false
+            );
+
+            scrollToEntry(
+              hashEntry,
+              "auto",
+              false
+            );
+          }
+
           repositionActiveGear();
-          requestSync();
+
+          window.setTimeout(
+            requestSync,
+            80
+          );
         },
         90
       );

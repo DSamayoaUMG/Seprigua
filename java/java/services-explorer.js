@@ -23,8 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!cards.length) return;
 
-  // V80: Succión de lodos y residuos es el servicio inicial.
-  let activeIndex = 2;
+  let activeIndex = 0;
   let autoplayTimer = null;
   let paused = false;
 
@@ -216,118 +215,27 @@ document.addEventListener("DOMContentLoaded", () => {
     startAutoplay();
   }
 
-  /*
-    V80 — inicialización real usando activeIndex.
-    Así no hay un flash del servicio 01 antes de mostrar lodos.
-  */
-  cards.forEach((card, index) => {
-    const isActive =
-      index === activeIndex;
+  cards[0].setAttribute("aria-current", "true");
 
-    card.classList.toggle(
-      "is-active",
-      isActive
-    );
-
-    card.setAttribute(
-      "aria-current",
-      isActive ? "true" : "false"
-    );
-  });
-
-  const initialCard =
-    cards[activeIndex];
-
-  if (initialCard) {
+  if (bgWrap) {
     const initialImage =
-      initialCard.dataset.image ||
+      cards[0].dataset.image ||
       bg?.getAttribute("src") ||
       "";
 
-    const initialTitle =
-      initialCard.dataset.titleHtml ||
-      initialCard.dataset.title ||
-      "";
-
-    const initialDescription =
-      initialCard.dataset.description ||
-      "";
-
-    const initialMetaOne =
-      initialCard.dataset.metaOne ||
-      "Servicio respaldado";
-
-    const initialMetaTwo =
-      initialCard.dataset.metaTwo ||
-      "Equipo especializado";
-
-    if (
-      initialImage &&
-      bgWrap
-    ) {
+    if (initialImage) {
       bgWrap.style.setProperty(
         "--service-bg-image",
         `url("${initialImage}")`
       );
     }
-
-    if (
-      bg &&
-      initialImage
-    ) {
-      bg.src =
-        initialImage;
-    }
-
-    if (title) {
-      title.innerHTML =
-        initialTitle;
-    }
-
-    if (description) {
-      description.textContent =
-        initialDescription;
-    }
-
-    if (metaOne) {
-      metaOne.textContent =
-        initialMetaOne;
-    }
-
-    if (metaTwo) {
-      metaTwo.textContent =
-        initialMetaTwo;
-    }
-
-    if (eyebrow) {
-      eyebrow.textContent =
-        `SERVICIO ${formatIndex(activeIndex)} · SEPRIGUA`;
-    }
-
-    if (current) {
-      current.textContent =
-        formatIndex(activeIndex);
-    }
-
-    if (bigIndex) {
-      bigIndex.textContent =
-        formatIndex(activeIndex);
-    }
-
-    if (progress) {
-      progress.style.width =
-        `${((activeIndex + 1) / cards.length) * 100}%`;
-    }
-
-    requestAnimationFrame(
-      () => {
-        centerCard(
-          initialCard,
-          false
-        );
-      }
-    );
   }
+
+  if (progress) progress.style.width = `${100 / cards.length}%`;
+
+  requestAnimationFrame(() => {
+    centerCard(cards[0], false);
+  });
 
   window.lucide?.createIcons();
 });
