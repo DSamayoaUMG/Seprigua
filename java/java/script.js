@@ -39,79 +39,118 @@ document.addEventListener("DOMContentLoaded",()=>{
 
   const form = $("#contactForm");
   const msg = $("#formMessage");
-  const submitButton = form?.querySelector('button[type="submit"]');
+  const emailButton = $("#contactEmailButton");
 
-  const showFormMessage = (text, ok = true) => {
-    if (!msg) return;
+  const getContactData = () => {
+    if (!form) return null;
 
-    msg.style.display = "block";
-    msg.style.color = ok ? "#078343" : "#c92a43";
-    msg.textContent = text;
+    const data = new FormData(form);
+    const value = (name) =>
+      String(data.get(name) || "").trim();
+
+    return {
+      nombre: value("nombre"),
+      correo: value("correo"),
+      telefono: value("telefono"),
+      empresa: value("empresa"),
+      asunto: value("asunto"),
+      mensaje: value("mensaje")
+    };
   };
 
-  form?.addEventListener("submit", async (event) => {
-    event.preventDefault();
+  const validateContactForm = () => {
+    if (!form) return false;
 
     if (!form.checkValidity()) {
       form.reportValidity();
-      return;
+      return false;
     }
 
-    const originalButton = submitButton?.innerHTML || "";
+    return true;
+  };
 
-    if (submitButton) {
-      submitButton.disabled = true;
-      submitButton.setAttribute("aria-busy", "true");
-      submitButton.textContent = "Enviando solicitud…";
-    }
+  const buildContactMessage = (data) => {
+    const lines = [
+      "Hola SEPRIGUA, deseo solicitar atención.",
+      "",
+      `Nombre: ${data.nombre}`,
+      `Correo: ${data.correo}`,
+      data.telefono
+        ? `Teléfono: ${data.telefono}`
+        : null,
+      data.empresa
+        ? `Empresa: ${data.empresa}`
+        : null,
+      `Asunto: ${data.asunto}`,
+      "",
+      "Mensaje:",
+      data.mensaje
+    ];
 
-    showFormMessage("Enviando tu solicitud a SEPRIGUA…", true);
+    return lines.filter(Boolean).join("\n");
+  };
 
-    try {
-      const formData = new FormData(form);
+  const showContactMessage = (text) => {
+    if (!msg) return;
 
-      const response = await fetch(
-        "https://formsubmit.co/ajax/gadministracion@turamgt.com",
-        {
-          method: "POST",
-          headers: {
-            "Accept": "application/json"
-          },
-          body: formData
-        }
-      );
+    msg.style.display = "block";
+    msg.style.color = "#078343";
+    msg.textContent = text;
 
-      const data = await response.json().catch(() => null);
+    window.setTimeout(() => {
+      msg.style.display = "none";
+    }, 5000);
+  };
 
-      if (!response.ok || data?.success === "false") {
-        throw new Error(
-          data?.message ||
-          "No fue posible enviar la solicitud."
-        );
-      }
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
 
-      showFormMessage(
-        "✓ Solicitud enviada correctamente. Nuestro equipo se pondrá en contacto contigo.",
-        true
-      );
+    if (!validateContactForm()) return;
 
-      form.reset();
-    } catch (error) {
-      showFormMessage(
-        "No pudimos enviar la solicitud en este momento. Intenta nuevamente.",
-        false
-      );
-    } finally {
-      if (submitButton) {
-        submitButton.disabled = false;
-        submitButton.removeAttribute("aria-busy");
-        submitButton.innerHTML = originalButton;
+    const data = getContactData();
+    if (!data) return;
 
-        if (window.lucide) {
-          lucide.createIcons();
-        }
-      }
-    }
+    const text = buildContactMessage(data);
+    const whatsappUrl =
+      "https://wa.me/50254108947?text=" +
+      encodeURIComponent(text);
+
+    window.open(
+      whatsappUrl,
+      "_blank",
+      "noopener,noreferrer"
+    );
+
+    showContactMessage(
+      "Se abrió WhatsApp con tu solicitud preparada."
+    );
+  });
+
+  emailButton?.addEventListener("click", () => {
+    if (!validateContactForm()) return;
+
+    const data = getContactData();
+    if (!data) return;
+
+    const body = buildContactMessage(data);
+    const subject =
+      data.asunto || "Solicitud de atención SEPRIGUA";
+
+    const gmailUrl =
+      "https://mail.google.com/mail/?view=cm&fs=1" +
+      "&to=gadministracion%40turamgt.com" +
+      "&su=" + encodeURIComponent(subject) +
+      "&body=" + encodeURIComponent(body);
+
+    window.open(
+      gmailUrl,
+      "_blank",
+      "noopener,noreferrer"
+    );
+
+    showContactMessage(
+      "Se abrió Gmail con tu solicitud preparada."
+    );
   });
 
   $("#chatButton")?.addEventListener("click",()=>{}); scrollTopBtn?.addEventListener("click",()=>scrollTo({top:0,behavior:"smooth"}));

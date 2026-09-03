@@ -2,9 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import html
 import os
+import re
 import secrets
+import smtplib
+import ssl
+import time
 import uuid
+from email.message import EmailMessage
+from email.utils import formataddr
+from threading import Lock
 from datetime import datetime, timedelta
 from functools import wraps
 from pathlib import Path
@@ -41,6 +49,305 @@ def env_bool(name: str, default: bool = False) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "si", "sí", "on"}
+
+
+
+CONTACT_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+CONTACT_RATE_LOCK = Lock()
+CONTACT_RATE_BUCKETS: dict[str, list[float]] = {}
+
+
+def contact_rate_allowed(ip: str, limit: int = 5, window_seconds: int = 600) -> bool:
+    """Límite simple por IP para evitar spam masivo desde el formulario público."""
+    now = time.monotonic()
+    with CONTACT_RATE_LOCK:
+        recent = [
+            stamp
+            for stamp in CONTACT_RATE_BUCKETS.get(ip, [])
+            if now - stamp < window_seconds
+        ]
+        if len(recent) >= limit:
+            CONTACT_RATE_BUCKETS[ip] = recent
+            return False
+        recent.append(now)
+        CONTACT_RATE_BUCKETS[ip] = recent
+        return True
+
+
+def contact_text(value, *, max_length: int, required: bool = False, field_name: str = "Campo") -> str:
+    text = str(value or "").strip()
+    if required and not text:
+        raise ValueError(f"{field_name} es obligatorio.")
+    if len(text) > max_length:
+        raise ValueError(f"{field_name} supera el tamaño permitido.")
+    return text
+
+
+def smtp_settings() -> dict:
+    user = (os.getenv("SMTP_USER") or "").strip()
+    password = os.getenv("SMTP_PASSWORD") or ""
+    from_email = (os.getenv("SMTP_FROM_EMAIL") or user).strip()
+    recipient = (os.getenv("CONTACT_EMAIL_TO") or "gadministracion@turamgt.com").strip()
+
+    if not user or not password or not from_email:
+        raise RuntimeError(
+            "El servicio de correo no está configurado. "
+            "Define SMTP_USER, SMTP_PASSWORD y SMTP_FROM_EMAIL en .env."
+        )
+
+    return {
+        "host": (os.getenv("SMTP_HOST") or "smtp.gmail.com").strip(),
+        "port": int(os.getenv("SMTP_PORT", "587")),
+        "user": user,
+        "password": password,
+        "from_email": from_email,
+        "from_name": (os.getenv("SMTP_FROM_NAME") or "SEPRIGUA").strip(),
+        "recipient": recipient,
+        "use_tls": env_bool("SMTP_USE_TLS", True),
+        "use_ssl": env_bool("SMTP_USE_SSL", False),
+        "send_confirmation": env_bool("CONTACT_SEND_CONFIRMATION", True),
+    }
+
+
+def seprigua_email_shell(*, eyebrow: str, title: str, intro: str, body_html: str, footer_note: str) -> str:
+    """Plantilla HTML compatible con clientes de correo, usando estilos inline."""
+    return f"""<!doctype html>
+<html lang="es">
+  <body style="margin:0;padding:0;background:#eef4f8;font-family:Arial,Helvetica,sans-serif;color:#193e58;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+           style="width:100%;background:#eef4f8;margin:0;padding:28px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0"
+                 style="width:100%;max-width:640px;background:#ffffff;border-radius:24px;overflow:hidden;
+                        box-shadow:0 18px 45px rgba(8,46,78,.12);border:1px solid #dce8f0;">
+            <tr>
+              <td style="height:7px;background:linear-gradient(90deg,#193e58 0%,#193e58 68%,#f51f4b 68%,#f51f4b 100%);font-size:0;">&nbsp;</td>
+            </tr>
+
+            <tr>
+              <td align="center" style="padding:30px 28px 18px;">
+                <img src="cid:seprigua-logo" width="250" alt="SEPRIGUA Corporación Turam, S.A."
+                     style="display:block;width:250px;max-width:82%;height:auto;margin:0 auto 20px;">
+                <div style="display:inline-block;padding:7px 12px;border-radius:999px;background:#fff1f4;
+                            color:#f51f4b;font-size:11px;font-weight:700;letter-spacing:1.4px;">
+                  {html.escape(eyebrow)}
+                </div>
+                <h1 style="margin:15px 0 8px;color:#0b3764;font-size:30px;line-height:1.12;
+                           letter-spacing:-.6px;font-weight:800;">
+                  {html.escape(title)}
+                </h1>
+                <p style="margin:0 auto;max-width:520px;color:#6b8195;font-size:15px;line-height:1.6;">
+                  {html.escape(intro)}
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:6px 28px 26px;">
+                {body_html}
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:20px 28px;background:#0c355f;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td style="color:#ffffff;font-size:12px;line-height:1.55;">
+                      <strong style="display:block;font-size:13px;">SEPRIGUA · Corporación Turam, S.A.</strong>
+                      <span style="color:#bdd0df;">{html.escape(footer_note)}</span>
+                    </td>
+                    <td align="right" style="color:#ffffff;font-size:12px;white-space:nowrap;">
+                      <a href="https://wa.me/50254108947"
+                         style="display:inline-block;padding:9px 13px;border-radius:999px;background:#f51f4b;
+                                color:#ffffff;text-decoration:none;font-weight:700;">
+                        WhatsApp
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:14px 0 0;color:#91a4b5;font-size:11px;">
+            Mensaje generado automáticamente desde el sitio web oficial de SEPRIGUA.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>"""
+
+
+def request_summary_html(data: dict) -> str:
+    def row(label: str, value: str) -> str:
+        if not value:
+            return ""
+        return f"""
+          <tr>
+            <td style="width:145px;padding:10px 12px;color:#8194a5;font-size:12px;font-weight:700;
+                       text-transform:uppercase;letter-spacing:.7px;border-bottom:1px solid #edf2f6;">
+              {html.escape(label)}
+            </td>
+            <td style="padding:10px 12px;color:#183f63;font-size:14px;font-weight:600;
+                       border-bottom:1px solid #edf2f6;word-break:break-word;">
+              {html.escape(value)}
+            </td>
+          </tr>"""
+
+    return f"""
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+             style="width:100%;border:1px solid #e3ebf1;border-radius:17px;overflow:hidden;background:#fbfdff;">
+        {row("Nombre", data["nombre"])}
+        {row("Correo", data["correo"])}
+        {row("Teléfono", data["telefono"])}
+        {row("Empresa", data["empresa"])}
+        {row("Asunto", data["asunto"])}
+      </table>
+
+      <div style="margin-top:16px;padding:17px 18px;border-radius:17px;background:#f3f8fb;
+                  border-left:4px solid #f51f4b;">
+        <div style="margin-bottom:7px;color:#f51f4b;font-size:11px;font-weight:800;
+                    text-transform:uppercase;letter-spacing:1px;">
+          Mensaje del cliente
+        </div>
+        <div style="color:#315674;font-size:14px;line-height:1.65;white-space:pre-wrap;">
+          {html.escape(data["mensaje"])}
+        </div>
+      </div>"""
+
+
+def build_admin_email(data: dict) -> EmailMessage:
+    settings = smtp_settings()
+    msg = EmailMessage()
+    msg["Subject"] = f"Nueva solicitud web · {data['asunto']}"
+    msg["From"] = formataddr((settings["from_name"], settings["from_email"]))
+    msg["To"] = settings["recipient"]
+    msg["Reply-To"] = data["correo"]
+
+    plain = (
+        "NUEVA SOLICITUD DESDE EL SITIO WEB DE SEPRIGUA\n\n"
+        f"Nombre: {data['nombre']}\n"
+        f"Correo: {data['correo']}\n"
+        f"Teléfono: {data['telefono'] or 'No indicado'}\n"
+        f"Empresa: {data['empresa'] or 'No indicada'}\n"
+        f"Asunto: {data['asunto']}\n\n"
+        f"Mensaje:\n{data['mensaje']}\n"
+    )
+    msg.set_content(plain)
+
+    html_body = seprigua_email_shell(
+        eyebrow="NUEVA SOLICITUD WEB",
+        title="Un cliente necesita atención",
+        intro="Se recibió una nueva solicitud desde el formulario del sitio web de SEPRIGUA.",
+        body_html=request_summary_html(data),
+        footer_note="Respondé directamente a este correo para contactar al cliente.",
+    )
+    msg.add_alternative(html_body, subtype="html")
+    add_inline_logo(msg)
+    return msg
+
+
+def build_confirmation_email(data: dict) -> EmailMessage:
+    settings = smtp_settings()
+    msg = EmailMessage()
+    msg["Subject"] = "SEPRIGUA · Recibimos tu solicitud"
+    msg["From"] = formataddr((settings["from_name"], settings["from_email"]))
+    msg["To"] = data["correo"]
+
+    plain = (
+        f"Hola {data['nombre']},\n\n"
+        "Recibimos tu solicitud en SEPRIGUA. Nuestro equipo revisará la información "
+        "y se pondrá en contacto contigo.\n\n"
+        f"Asunto: {data['asunto']}\n"
+        f"Mensaje: {data['mensaje']}\n\n"
+        "SEPRIGUA · Corporación Turam, S.A.\n"
+        "WhatsApp: +502 5410 8947"
+    )
+    msg.set_content(plain)
+
+    summary = f"""
+      <div style="padding:18px;border-radius:17px;background:#f3f8fb;border:1px solid #e1ebf2;">
+        <div style="color:#8194a5;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">
+          Tu solicitud
+        </div>
+        <div style="margin-top:8px;color:#143f67;font-size:17px;font-weight:800;">
+          {html.escape(data["asunto"])}
+        </div>
+        <div style="margin-top:9px;color:#5e778d;font-size:14px;line-height:1.65;white-space:pre-wrap;">
+          {html.escape(data["mensaje"])}
+        </div>
+      </div>
+
+      <div style="margin-top:16px;text-align:center;">
+        <a href="https://wa.me/50254108947"
+           style="display:inline-block;padding:12px 18px;border-radius:12px;background:#f51f4b;
+                  color:#ffffff;text-decoration:none;font-size:13px;font-weight:800;">
+          Contactar por WhatsApp
+        </a>
+      </div>"""
+
+    html_body = seprigua_email_shell(
+        eyebrow="SOLICITUD RECIBIDA",
+        title=f"Gracias, {data['nombre']}",
+        intro="Tu solicitud llegó correctamente. Nuestro equipo podrá contactarte con la información que nos compartiste.",
+        body_html=summary,
+        footer_note="Atención profesional para mantenimiento, drenajes e infraestructura.",
+    )
+    msg.add_alternative(html_body, subtype="html")
+    add_inline_logo(msg)
+    return msg
+
+
+def add_inline_logo(message: EmailMessage) -> None:
+    logo = BASE_DIR / "assets" / "img" / "logo-seprigua-hd.png"
+    if not logo.exists():
+        return
+
+    html_part = message.get_payload()[-1]
+    html_part.add_related(
+        logo.read_bytes(),
+        maintype="image",
+        subtype="png",
+        cid="<seprigua-logo>",
+        filename="seprigua.png",
+    )
+
+
+def open_smtp(settings: dict):
+    if settings["use_ssl"]:
+        server = smtplib.SMTP_SSL(
+            settings["host"],
+            settings["port"],
+            timeout=15,
+            context=ssl.create_default_context(),
+        )
+    else:
+        server = smtplib.SMTP(settings["host"], settings["port"], timeout=15)
+        server.ehlo()
+        if settings["use_tls"]:
+            server.starttls(context=ssl.create_default_context())
+            server.ehlo()
+
+    server.login(settings["user"], settings["password"])
+    return server
+
+
+def send_contact_emails(data: dict) -> None:
+    settings = smtp_settings()
+    admin_message = build_admin_email(data)
+
+    with open_smtp(settings) as smtp:
+        smtp.send_message(admin_message)
+
+        if settings["send_confirmation"]:
+            try:
+                smtp.send_message(build_confirmation_email(data))
+            except Exception:
+                # La solicitud ya llegó a SEPRIGUA. Un fallo de la confirmación
+                # no debe provocar que el cliente vuelva a enviar el formulario.
+                app.logger.exception("No se pudo enviar la confirmación al cliente.")
 
 
 def get_db_connection() -> pyodbc.Connection:
@@ -2050,6 +2357,89 @@ def api_responder_cotizacion(session, cotizacion_id: int):
         return jsonify(ok=False,message=str(exc)),400
     except Exception as exc:
         return app_error(exc,"No fue posible responder la cotización.")
+
+
+# ---------------------------------------------------------------------------
+# Contacto público del sitio web
+# ---------------------------------------------------------------------------
+@app.post("/api/contacto")
+def api_contacto():
+    ip = client_ip() or "desconocida"
+
+    if not contact_rate_allowed(ip):
+        return jsonify(
+            ok=False,
+            message="Recibimos varios envíos seguidos. Espera unos minutos antes de intentar nuevamente.",
+        ), 429
+
+    try:
+        payload = request.get_json(silent=True) or request.form.to_dict()
+
+        data = {
+            "nombre": contact_text(
+                payload.get("nombre"),
+                max_length=120,
+                required=True,
+                field_name="Nombre completo",
+            ),
+            "correo": contact_text(
+                payload.get("correo"),
+                max_length=180,
+                required=True,
+                field_name="Correo electrónico",
+            ),
+            "telefono": contact_text(
+                payload.get("telefono"),
+                max_length=40,
+                field_name="Teléfono",
+            ),
+            "empresa": contact_text(
+                payload.get("empresa"),
+                max_length=160,
+                field_name="Empresa",
+            ),
+            "asunto": contact_text(
+                payload.get("asunto"),
+                max_length=180,
+                required=True,
+                field_name="Asunto",
+            ),
+            "mensaje": contact_text(
+                payload.get("mensaje"),
+                max_length=3000,
+                required=True,
+                field_name="Mensaje",
+            ),
+        }
+
+        if not CONTACT_EMAIL_RE.fullmatch(data["correo"]):
+            raise ValueError("Ingresa un correo electrónico válido.")
+
+        send_contact_emails(data)
+
+        return jsonify(
+            ok=True,
+            message="Solicitud enviada correctamente. Nuestro equipo se pondrá en contacto contigo.",
+        )
+
+    except ValueError as exc:
+        return jsonify(ok=False, message=str(exc)), 400
+    except RuntimeError as exc:
+        app.logger.exception("Configuración de correo incompleta.")
+        return jsonify(
+            ok=False,
+            message="El envío de correo todavía no está configurado en el servidor.",
+            detail=str(exc) if env_bool("FLASK_DEBUG", True) else None,
+        ), 503
+    except (smtplib.SMTPException, OSError) as exc:
+        app.logger.exception("No fue posible enviar la solicitud por correo.")
+        return jsonify(
+            ok=False,
+            message="No pudimos enviar la solicitud en este momento. Intenta nuevamente en unos minutos.",
+            detail=str(exc) if env_bool("FLASK_DEBUG", True) else None,
+        ), 502
+    except Exception as exc:
+        return app_error(exc, "No fue posible enviar la solicitud.")
 
 
 # ---------------------------------------------------------------------------
