@@ -1,0 +1,5 @@
+Flask
+pyodbc
+argon2-cffi
+python-dotenv
+waitress

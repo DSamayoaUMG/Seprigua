@@ -31,6 +31,7 @@
     <link rel="stylesheet" href="css/trabajos-gallery.css?v=76" />
       <link rel="stylesheet" href="css/contact-premium.css?v=77" />
       <link rel="stylesheet" href="css/section-flow-fix.css?v=78" />
+    <link rel="stylesheet" href="css/chatbot-embed.css?v=1">
 </head>
 
 <body>
@@ -55,6 +56,7 @@
                 <a href="#cobertura" class="nav-link">Cobertura</a>
                 <a href="#trabajos" class="nav-link">Trabajos</a>
                 <a href="#contacto" class="nav-link">Contacto</a>
+                <a href="login.html" class="system-login-link"><i data-lucide="log-in"></i><span>Ingresar al sistema</span></a>
 </nav>
         </div>
     </header>
@@ -990,7 +992,7 @@
                                     Correo
                                 </a>
 
-                                <a href="https://www.google.com/maps/search/?api=1&query=Calz.+San+Juan+18-73,+Zona+7,+Ciudad+de+Guatemala,+Guatemala"
+                                <a href="https://www.google.com/maps/search/?api=1&query=14.647553053055631%2C-90.57736836731371"
                                    target="_blank"
                                    rel="noopener noreferrer">
                                     <i data-lucide="navigation"></i>
@@ -1052,7 +1054,7 @@
                         </div>
 
                         <a class="contact-map-link"
-                           href="https://www.google.com/maps/search/?api=1&query=Calz.+San+Juan+18-73,+Zona+7,+Ciudad+de+Guatemala,+Guatemala"
+                           href="https://www.google.com/maps/search/?api=1&query=14.647553053055631%2C-90.57736836731371"
                            target="_blank"
                            rel="noopener noreferrer">
                             Abrir ubicación en Google Maps
@@ -1076,7 +1078,7 @@
                         <div class="contact-map-frame">
                             <iframe
                                 title="Ubicación de SEPRIGUA en Google Maps"
-                                src="https://www.google.com/maps?q=Calz.%20San%20Juan%2018-73,%20Zona%207,%20Ciudad%20de%20Guatemala,%20Guatemala&output=embed"
+                                src="https://maps.google.com/maps?hl=es&q=14.647553053055631%2C-90.57736836731371&z=18&output=embed"
                                 loading="lazy"
                                 referrerpolicy="no-referrer-when-downgrade"
                                 allowfullscreen>
@@ -1086,7 +1088,7 @@
                                 <span class="contact-map-dot"></span>
                                 <div>
                                     <small>SEPRIGUA</small>
-                                    <strong>Calz. San Juan, Zona 7</strong>
+                                    <strong>Ubicación exacta SEPRIGUA</strong>
                                 </div>
                             </div>
                         </div>
@@ -1257,6 +1259,22 @@
         <span class="chat-notification"></span>
     </button>
 
+    
+    <div class="chatbot-overlay" id="chatbotOverlay" aria-hidden="true">
+        <button class="chatbot-overlay-backdrop" type="button" aria-label="Cerrar asistente" data-chatbot-close></button>
+        <div class="chatbot-overlay-shell" role="dialog" aria-modal="true" aria-label="Asistente virtual SEPRIGUA">
+            <iframe
+                id="chatbotFrame"
+                title="Asistente virtual SEPRIGUA"
+                data-src="chatbot.html?embed=1"
+                src="about:blank"
+                loading="eager"
+                referrerpolicy="same-origin"
+            ></iframe>
+        </div>
+    </div>
+
+
     <button class="scroll-top" id="scrollTop">
         <i data-lucide="arrow-up"></i>
     </button>
@@ -1380,6 +1398,7 @@
     <script src="java/coverage-premium-map.js?v=71"></script>
     <script src="java/trabajos-gallery.js?v=76"></script>
     <script src="java/contact-premium.js?v=77"></script>
+    <script src="java/chatbot-embed.js?v=1"></script>
 </body>
 
 </html>

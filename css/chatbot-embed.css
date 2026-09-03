@@ -1,0 +1,74 @@
+
+/* Integración aislada del chatbot premium sobre la landing */
+.chatbot-overlay{
+  position:fixed;
+  inset:0;
+  z-index:99990;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transition:opacity .22s ease, visibility .22s ease;
+}
+.chatbot-overlay.is-open{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+}
+.chatbot-overlay-backdrop{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  border:0;
+  padding:0;
+  background:rgba(4,22,52,.18);
+  backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+  cursor:default;
+}
+.chatbot-overlay-shell{
+  position:absolute;
+  right:22px;
+  bottom:18px;
+  width:min(470px,calc(100vw - 34px));
+  height:min(820px,calc(100vh - 36px));
+  min-height:560px;
+  border-radius:22px;
+  overflow:hidden;
+  background:transparent;
+  filter:drop-shadow(0 25px 55px rgba(9,36,84,.25));
+  transform:translateY(14px) scale(.985);
+  transition:transform .22s cubic-bezier(.2,.8,.2,1);
+}
+.chatbot-overlay.is-open .chatbot-overlay-shell{
+  transform:none;
+}
+#chatbotFrame{
+  width:100%;
+  height:100%;
+  display:block;
+  border:0;
+  background:transparent;
+}
+body.chatbot-is-open{
+  overflow:hidden;
+}
+body.chatbot-is-open #chatButton{
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+}
+@media(max-width:700px){
+  .chatbot-overlay-backdrop{background:rgba(4,22,52,.24)}
+  .chatbot-overlay-shell{
+    inset:10px;
+    width:auto;
+    height:auto;
+    min-height:0;
+    border-radius:20px;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .chatbot-overlay,
+  .chatbot-overlay-shell{transition:none}
+}

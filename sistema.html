@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#062a61">
+  <title>Sistema | SEPRIGUA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/css/sistema.css?v=3">
+</head>
+<body>
+  <div class="system-shell">
+    <aside class="system-sidebar" id="sidebar">
+      <a class="system-brand" href="/" aria-label="SEPRIGUA"><img src="/assets/img/logo-seprigua-hd.png" alt="SEPRIGUA"></a>
+      <div class="role-chip" id="roleChip">CARGANDO...</div>
+      <nav class="system-nav" id="systemNav" aria-label="Módulos del sistema"></nav>
+      <button class="logout-button" id="logoutButton" type="button"><i data-lucide="log-out"></i><span>Cerrar sesión</span></button>
+    </aside>
+
+    <main class="system-main">
+      <header class="system-topbar">
+        <button class="menu-button" id="menuButton" type="button" aria-label="Abrir menú"><i data-lucide="menu"></i></button>
+        <div class="heading-block">
+          <span class="eyebrow" id="pageEyebrow">PORTAL SEPRIGUA</span>
+          <h1 id="pageTitle">Cargando...</h1>
+          <p id="pageSubtitle">Validando la sesión y la conexión con SQL Server.</p>
+        </div>
+        <div class="connection-badge" id="dbBadge"><span></span><span id="dbBadgeText">SQL Server</span></div>
+      </header>
+
+      <section id="appContent" class="app-content" aria-live="polite">
+        <div class="loading-card">Cargando sistema...</div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-header"><h2 id="modalTitle">Detalle</h2><button class="icon-button" id="modalClose" type="button" aria-label="Cerrar"><i data-lucide="x"></i></button></header>
+      <div class="modal-body" id="modalBody"></div>
+    </section>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="/java/sistema.js?v=6"></script>
+</body>
+</html>

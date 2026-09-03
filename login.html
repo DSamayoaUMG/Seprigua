@@ -1,157 +1,143 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="Acceso al sistema principal de SEPRIGUA."
-    />
-    <meta name="theme-color" content="#062a61" />
-    <title>Ingresar al sistema | SEPRIGUA</title>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Acceso al sistema principal de SEPRIGUA.">
+  <meta name="theme-color" content="#062a61">
+  <title>Ingresar al sistema | SEPRIGUA</title>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800;900&display=swap"
-      rel="stylesheet"
-    />
-    <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
 
-    <link rel="stylesheet" href="css/login.css" />
-  </head>
+  <link rel="stylesheet" href="css/login.css?v=5">
+</head>
 
-  <body>
-    <main class="login-page">
-      <img
-        class="login-bg"
-        src="assets/img/login-background-hd.jpg"
-        alt=""
-        aria-hidden="true"
-      />
+<body>
+  <main class="login-page">
+    <video
+      class="login-bg"
+      autoplay
+      muted
+      loop
+      playsinline
+      preload="auto"
+      poster="assets/img/login-background-hd.jpg"
+      aria-hidden="true"
+    >
+      <source src="assets/img/login-background-hd.mp4" type="video/mp4">
+    </video>
 
-      <a class="back-link" href="index.html">
-        <i data-lucide="arrow-left"></i>
-        <span>Volver al sitio web</span>
-      </a>
+    <div class="video-shade" aria-hidden="true"></div>
 
-      <section class="login-shell" aria-labelledby="loginTitle">
-        <div class="brand-column">
-          <div class="brand-content">
-            <img
-              class="login-logo"
-              src="assets/img/logo-seprigua.png"
-              alt="SEPRIGUA Corporación Turam, S.A."
-            />
+    <a class="back-link" href="index.html">
+      <i data-lucide="arrow-left"></i>
+      <span>Volver al sitio web</span>
+    </a>
 
-            <div class="welcome-copy">
-              <span class="access-label">ACCESO AL SISTEMA</span>
-              <h1 id="loginTitle">Bienvenido <span>de nuevo</span></h1>
-              <p>Ingresa tus credenciales para continuar.</p>
-            </div>
-          </div>
+    <section class="login-card" aria-labelledby="loginTitle">
+      <header class="login-brand">
+        <img
+          class="login-logo"
+          src="assets/img/logo-seprigua-hd.png"
+          alt="SEPRIGUA Corporación Turam, S.A."
+        >
+        <div class="brand-separator" aria-hidden="true">
+          <span></span>
+          <small>ACCESO AL SISTEMA</small>
+          <span></span>
         </div>
+        <h1 id="loginTitle">Bienvenido de nuevo</h1>
+        <p>Ingresa con las credenciales asignadas para continuar.</p>
+      </header>
 
-        <div class="form-column">
-          <form class="login-form" id="loginForm" novalidate>
-            <div class="form-heading">
-              <span>PORTAL SEPRIGUA</span>
-              <h2>Iniciar sesión</h2>
-              <p>Accede de forma segura con tu usuario asignado.</p>
-            </div>
-
-            <div class="field-group">
-              <label for="identity">USUARIO O EMAIL</label>
-              <div class="field-control">
-                <span class="field-icon"><i data-lucide="user-round"></i></span>
-                <input
-                  id="identity"
-                  name="identity"
-                  type="text"
-                  autocomplete="username"
-                  placeholder="usuario@seprigua.com"
-                  required
-                />
-              </div>
-              <p class="field-error" id="identityError"></p>
-            </div>
-
-            <div class="field-group">
-              <label for="password">CONTRASEÑA</label>
-              <div class="field-control">
-                <span class="field-icon"
-                  ><i data-lucide="lock-keyhole"></i
-                ></span>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autocomplete="current-password"
-                  placeholder="Ingresa tu contraseña"
-                  required
-                />
-                <button
-                  class="password-toggle"
-                  id="togglePassword"
-                  type="button"
-                  aria-label="Mostrar contraseña"
-                >
-                  <i data-lucide="eye"></i>
-                </button>
-              </div>
-              <p class="field-error" id="passwordError"></p>
-            </div>
-
-            <div class="login-options">
-              <label class="remember-option" for="remember">
-                <input id="remember" name="remember" type="checkbox" />
-                <span class="checkbox-ui" aria-hidden="true">
-                  <i data-lucide="check"></i>
-                </span>
-                <span>Recordarme</span>
-              </label>
-
-              <a
-                class="forgot-link"
-                href="mailto:gadministracion@turamgt.com?subject=Recuperaci%C3%B3n%20de%20acceso%20SEPRIGUA"
-              >
-                ¿Olvidaste tu contraseña?
-              </a>
-            </div>
-
-            <button class="login-submit" type="submit">
-              <span>INGRESAR</span>
-              <i data-lucide="arrow-right"></i>
-            </button>
-
-            <p
-              class="login-status"
-              id="loginStatus"
-              role="status"
-              aria-live="polite"
-            ></p>
-
-            <a
-              class="support-link"
-              href="mailto:gadministracion@turamgt.com?subject=Soporte%20de%20acceso%20SEPRIGUA"
+      <form class="login-form" id="loginForm" novalidate>
+        <div class="field-group">
+          <label for="identity">USUARIO O EMAIL</label>
+          <div class="field-control">
+            <span class="field-icon"><i data-lucide="user-round"></i></span>
+            <input
+              id="identity"
+              name="identity"
+              type="text"
+              autocomplete="username"
+              placeholder="Ej. daniel.tuc"
+              required
             >
-              <span class="support-icon"><i data-lucide="headphones"></i></span>
-              <span class="support-copy">
-                <small>¿Tienes problemas para iniciar sesión?</small>
-                <strong>Contacta a soporte</strong>
-              </span>
-              <i class="support-chevron" data-lucide="chevron-right"></i>
-            </a>
-
-            <div class="secure-note">
-              <i data-lucide="shield-check"></i>
-              <span>Acceso protegido para usuarios autorizados.</span>
-            </div>
-          </form>
+          </div>
+          <p class="field-error" id="identityError"></p>
         </div>
-      </section>
-    </main>
 
-    <script src="java/login.js"></script>
-  </body>
+        <div class="field-group">
+          <label for="password">CONTRASEÑA</label>
+          <div class="field-control">
+            <span class="field-icon"><i data-lucide="lock-keyhole"></i></span>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Ingresa tu contraseña"
+              required
+            >
+            <button
+              class="password-toggle"
+              id="togglePassword"
+              type="button"
+              aria-label="Mostrar contraseña"
+            >
+              <i data-lucide="eye"></i>
+            </button>
+          </div>
+          <p class="field-error" id="passwordError"></p>
+        </div>
+
+        <div class="login-options">
+          <label class="remember-option" for="remember">
+            <input id="remember" name="remember" type="checkbox">
+            <span class="checkbox-ui" aria-hidden="true">
+              <i data-lucide="check"></i>
+            </span>
+            <span>Recordarme</span>
+          </label>
+
+          <a
+            class="forgot-link"
+            href="mailto:gadministracion@turamgt.com?subject=Recuperaci%C3%B3n%20de%20acceso%20SEPRIGUA"
+          >
+            ¿Olvidaste tu contraseña?
+          </a>
+        </div>
+
+        <button class="login-submit" type="submit">
+          <span>INGRESAR</span>
+          <i data-lucide="arrow-right"></i>
+        </button>
+
+        <p class="login-status" id="loginStatus" role="status" aria-live="polite"></p>
+
+        <a
+          class="support-link"
+          href="mailto:gadministracion@turamgt.com?subject=Soporte%20de%20acceso%20SEPRIGUA"
+        >
+          <span class="support-icon"><i data-lucide="headphones"></i></span>
+          <span class="support-copy">
+            <small>¿Necesitas ayuda para ingresar?</small>
+            <strong>Contacta a soporte</strong>
+          </span>
+          <i class="support-chevron" data-lucide="chevron-right"></i>
+        </a>
+
+        <div class="secure-note">
+          <i data-lucide="shield-check"></i>
+          <span>Acceso protegido para usuarios autorizados.</span>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="java/login.js"></script>
+</body>
 </html>
