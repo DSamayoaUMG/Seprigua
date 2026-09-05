@@ -11,28 +11,42 @@
   const eyebrow = $("#pageEyebrow");
   const dbBadge = $("#dbBadge");
   const dbBadgeText = $("#dbBadgeText");
+  const topDate = $("#topDate");
+  const topUser = $("#topUser");
+  const topRole = $("#topRole");
+  const moduleHeroIcon = $("#moduleHeroIcon");
+  const notificationButton = $("#notificationButton");
+  const notificationDot = $("#notificationDot");
+  const notificationCount = $("#notificationCount");
+  const notificationPopover = $("#notificationPopover");
+  const notificationPreview = $("#notificationPreview");
+  const userMenuButton = $("#userMenuButton");
+  const userPopover = $("#userPopover");
+  const userPopoverName = $("#userPopoverName");
+  const userPopoverEmail = $("#userPopoverEmail");
+  const userPopoverRole = $("#userPopoverRole");
   const modalBackdrop = $("#modalBackdrop");
   const modalBody = $("#modalBody");
   const modalTitle = $("#modalTitle");
   const toast = $("#toast");
 
-  const state = { user: null, role: "", catalogs: {}, current: "dashboard" };
+  const state = { user: null, role: "", catalogs: {}, current: "dashboard", openOrderId: null, orderDetail: null, orderStep: "resumen", notifications: [], notificationFilter: "TODAS", unreadNotifications: 0, account: null };
   const rolePaths = { COORDINADOR: "/sistema/coordinador", TECNICO: "/sistema/tecnico", CLIENTE: "/sistema/cliente" };
   const modules = {
     COORDINADOR: [
       ["dashboard", "layout-dashboard", "Panel"], ["solicitudes", "inbox", "Solicitudes"], ["ordenes", "clipboard-list", "Órdenes"],
       ["clientes", "building-2", "Clientes"], ["personal", "users", "Personal"], ["equipos", "wrench", "Equipo"],
       ["mantenimientos", "settings", "Mantenimiento"], ["cotizaciones", "file-text", "Cotizaciones"], ["documentos", "files", "Documentos"],
-      ["notificaciones", "bell", "Notificaciones"], ["auditoria", "shield-check", "Auditoría"]
+      ["notificaciones", "bell", "Notificaciones"], ["cuenta", "user-cog", "Mi cuenta"], ["auditoria", "shield-check", "Auditoría"]
     ],
     TECNICO: [
       ["dashboard", "layout-dashboard", "Mi panel"], ["ordenes", "clipboard-check", "Mis órdenes"], ["equipos", "wrench", "Equipo"],
-      ["mantenimientos", "settings", "Mantenimiento"], ["vacaciones", "calendar-days", "Vacaciones"], ["notificaciones", "bell", "Notificaciones"]
+      ["mantenimientos", "settings", "Mantenimiento"], ["vacaciones", "calendar-days", "Vacaciones"], ["notificaciones", "bell", "Notificaciones"], ["cuenta", "user-cog", "Mi cuenta"]
     ],
     CLIENTE: [
       ["dashboard", "layout-dashboard", "Mi panel"], ["solicitudes", "circle-plus", "Solicitudes"], ["ordenes", "clipboard-list", "Mis servicios"],
       ["cotizaciones", "file-text", "Cotizaciones"], ["documentos", "files", "Documentos"], ["garantia", "shield-check", "Garantía"],
-      ["notificaciones", "bell", "Notificaciones"]
+      ["notificaciones", "bell", "Notificaciones"], ["cuenta", "user-cog", "Mi cuenta"]
     ]
   };
 
@@ -60,7 +74,26 @@
   }
   function openModal(name, html) { modalTitle.textContent = name; modalBody.innerHTML = html; modalBackdrop.hidden = false; window.lucide?.createIcons(); }
   function closeModal() { modalBackdrop.hidden = true; modalBody.innerHTML = ""; }
-  function setHeading(name, description) { eyebrow.textContent = `SEPRIGUA · ${state.role}`; title.textContent = name; subtitle.textContent = description; }
+  function currentModuleIcon(module = state.current) {
+    const item = (modules[state.role] || []).find(([key]) => key === module);
+    return item?.[1] || "layout-dashboard";
+  }
+  function syncPrototypeChrome() {
+    if (topDate) {
+      const now = new Date();
+      const weekday = now.toLocaleDateString("es-GT", { weekday: "long" });
+      const date = now.toLocaleDateString("es-GT", { day: "2-digit", month: "long", year: "numeric" });
+      topDate.innerHTML = `${esc(date)}<small>${esc(weekday.charAt(0).toUpperCase() + weekday.slice(1))}</small>`;
+    }
+    if (topUser) topUser.textContent = state.user?.nombre || state.user?.usuario || "Usuario SEPRIGUA";
+    if (topRole) topRole.textContent = String(state.role || "Portal operativo").replaceAll("_", " ");
+    if (userPopoverName) userPopoverName.textContent = state.user?.nombre || state.user?.usuario || "Usuario SEPRIGUA";
+    if (userPopoverEmail) userPopoverEmail.textContent = state.user?.correo || "Cuenta del sistema";
+    if (userPopoverRole) userPopoverRole.textContent = String(state.role || "Portal operativo").replaceAll("_", " ");
+    if (moduleHeroIcon) moduleHeroIcon.innerHTML = `<i data-lucide="${esc(currentModuleIcon())}"></i>`;
+    window.lucide?.createIcons();
+  }
+  function setHeading(name, description) { eyebrow.textContent = `SEPRIGUA · ${state.role}`; title.textContent = name; subtitle.textContent = description; syncPrototypeChrome(); }
   function loading() { content.innerHTML = `<div class="loading-card">Consultando SQL Server...</div>`; }
 
   async function api(url, opts = {}) {
@@ -81,17 +114,104 @@
     return data;
   }
 
+
+  function closeTopPopovers(except = null) {
+    [[notificationPopover, notificationButton], [userPopover, userMenuButton]].forEach(([popover, trigger]) => {
+      if (!popover || popover === except) return;
+      popover.hidden = true;
+      trigger?.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  function notificationIcon(type) {
+    const value = String(type || "").toUpperCase();
+    if (/SEGURIDAD/.test(value)) return "shield-check";
+    if (/COTIZ/.test(value)) return "receipt-text";
+    if (/CAMBIO|ALCANCE/.test(value)) return "route";
+    if (/ASIGN/.test(value)) return "hard-hat";
+    if (/SOLICIT/.test(value)) return "inbox";
+    if (/ESTADO|ORDEN|CONFIRM/.test(value)) return "clipboard-check";
+    return "bell-ring";
+  }
+
+  function notificationTargetLabel(entity) {
+    const value = String(entity || "").toLowerCase();
+    if (value === "ordentrabajo") return "Abrir OT";
+    if (value === "solicitudservicio") return "Abrir solicitud";
+    if (value === "cotizacion") return "Ir a cotización";
+    if (value === "cambioalcance") return "Ir a órdenes";
+    return "Ver detalle";
+  }
+
+  function notificationTargetButton(item, compact = false) {
+    if (!item?.entidad_id && !item?.entidad) return "";
+    return `<button class="btn small ${compact ? "ghost" : ""}" type="button" data-action="abrir-notificacion" data-id="${esc(item.id)}" data-entity="${esc(item.entidad || "")}" data-entity-id="${esc(item.entidad_id || "")}">${esc(notificationTargetLabel(item.entidad))}</button>`;
+  }
+
+  function renderNotificationPreview(items = []) {
+    if (!notificationPreview) return;
+    if (!items.length) {
+      notificationPreview.innerHTML = `<div class="popover-empty"><i data-lucide="bell-off"></i><strong>Sin notificaciones</strong><span>No tienes avisos pendientes.</span></div>`;
+      window.lucide?.createIcons(); return;
+    }
+    notificationPreview.innerHTML = items.map(x => `
+      <article class="preview-notification ${x.leida ? "read" : "unread"}">
+        <span class="notification-symbol"><i data-lucide="${notificationIcon(x.tipo)}"></i></span>
+        <div class="preview-notification-copy"><strong>${esc(x.titulo)}</strong><p>${esc(x.mensaje)}</p><small>${fmt(x.creada)}</small></div>
+        <div class="preview-notification-actions">${x.entidad ? `<button class="mini-open" type="button" data-action="abrir-notificacion" data-id="${esc(x.id)}" data-entity="${esc(x.entidad||"")}" data-entity-id="${esc(x.entidad_id||"")}" aria-label="Abrir notificación"><i data-lucide="arrow-up-right"></i></button>` : ""}${!x.leida ? `<button class="mini-read" type="button" data-action="leer-notificacion" data-id="${esc(x.id)}" aria-label="Marcar como leída"><i data-lucide="check"></i></button>` : ""}</div>
+      </article>`).join("");
+    window.lucide?.createIcons();
+  }
+
+  async function refreshNotificationBadge(loadPreview = false) {
+    const d = await api("/api/notificaciones/resumen");
+    const unread = normalizeNumber(d.no_leidas);
+    state.unreadNotifications = unread;
+    if (notificationDot) notificationDot.hidden = unread < 1;
+    if (notificationCount) {
+      notificationCount.hidden = unread < 1;
+      notificationCount.textContent = unread > 99 ? "99+" : String(unread);
+    }
+    if (state.role) renderNav();
+    if (loadPreview || (notificationPopover && !notificationPopover.hidden)) renderNotificationPreview(d.items || []);
+    return d;
+  }
+
+  async function openNotificationTarget(entity, entityId, notificationId = null) {
+    if (notificationId) {
+      try { await api(`/api/notificaciones/${notificationId}/leer`, { method: "POST", body: {} }); } catch (_) {}
+      refreshNotificationBadge().catch(()=>{});
+    }
+    closeTopPopovers();
+    const kind = String(entity || "").toLowerCase();
+    if (kind === "ordentrabajo" && entityId) return openOrder(entityId, "resumen", true);
+    if (kind === "solicitudservicio" && entityId && state.role !== "TECNICO") return openRequest(entityId);
+    if (kind === "cotizacion") return navigate("cotizaciones");
+    if (kind === "cambioalcance") return navigate("ordenes");
+    if (kind === "usuario") return navigate("cuenta");
+    return navigate("notificaciones");
+  }
+
+  async function performLogout() {
+    try { await api("/api/auth/logout", { method: "POST", body: {} }); } catch (_) {}
+    location.replace("/login");
+  }
+
   async function init() {
     try {
       const me = await api("/api/auth/me"); state.user = me.user; state.role = String(me.user.rol || "").toUpperCase();
       const expected = rolePaths[state.role]; if (!expected) return location.replace("/login");
       if (location.pathname !== expected) return location.replace(expected);
       roleChip.textContent = state.role;
+      syncPrototypeChrome();
       renderNav();
       const [cats, health] = await Promise.all([api("/api/catalogos"), api("/api/db/health")]);
       state.catalogs = cats;
       dbBadgeText.textContent = health.system_migration ? `${health.database} · lista` : `${health.database} · falta SQL 003`;
       if (!health.system_migration) dbBadge.classList.add("error");
+      refreshNotificationBadge().catch(()=>{});
+      clearInterval(init.notificationTimer);
+      init.notificationTimer = setInterval(()=>refreshNotificationBadge().catch(()=>{}), 60000);
       await navigate("dashboard");
     } catch (e) {
       dbBadge.classList.add("error"); dbBadgeText.textContent = "Sin conexión";
@@ -100,14 +220,17 @@
   }
 
   function renderNav() {
-    nav.innerHTML = (modules[state.role] || []).map(([key, icon, name]) => `<button class="nav-button ${key === state.current ? "active" : ""}" type="button" data-module="${key}"><i data-lucide="${icon}"></i><span>${esc(name)}</span></button>`).join("");
+    nav.innerHTML = (modules[state.role] || []).map(([key, icon, name]) => {
+      const count = key === "notificaciones" && state.unreadNotifications > 0 ? `<b class="nav-notification-count">${state.unreadNotifications > 99 ? "99+" : state.unreadNotifications}</b>` : "";
+      return `<button class="nav-button ${key === state.current ? "active" : ""}" type="button" data-module="${key}"><i data-lucide="${icon}"></i><span>${esc(name)}</span>${count}</button>`;
+    }).join("");
     window.lucide?.createIcons();
   }
 
   async function navigate(module) {
-    state.current = module; renderNav(); loading();
+    state.current = module; syncPrototypeChrome(); renderNav(); loading();
     try {
-      const map = { dashboard: renderDashboard, solicitudes: renderSolicitudes, ordenes: renderOrdenes, clientes: renderClientes, personal: renderPersonal, equipos: renderEquipos, mantenimientos: renderMantenimientos, vacaciones: renderVacaciones, cotizaciones: renderCotizaciones, documentos: renderDocumentos, notificaciones: renderNotificaciones, auditoria: renderAuditoria, garantia: renderGarantia };
+      const map = { dashboard: renderDashboard, solicitudes: renderSolicitudes, ordenes: renderOrdenes, clientes: renderClientes, personal: renderPersonal, equipos: renderEquipos, mantenimientos: renderMantenimientos, vacaciones: renderVacaciones, cotizaciones: renderCotizaciones, documentos: renderDocumentos, notificaciones: renderNotificaciones, cuenta: renderCuenta, auditoria: renderAuditoria, garantia: renderGarantia };
       await (map[module] || renderDashboard)();
     } catch (e) { content.innerHTML = `<div class="empty-state"><h3>No se pudo cargar</h3><p>${esc(e.message)}</p></div>`; }
   }
@@ -119,7 +242,14 @@
       solicitudes_pendientes:"Solicitudes pendientes", ordenes_activas:"Órdenes activas", emergencias:"Emergencias", tecnicos_disponibles:"Técnicos disponibles", equipos_disponibles:"Equipos disponibles", clientes_activos:"Clientes activos", cotizaciones_pendientes:"Cotizaciones pendientes", mantenimientos_pendientes:"Mantenimientos",
       hoy:"Órdenes de hoy", finalizadas:"Finalizadas", incidencias:"Incidencias", solicitudes:"Solicitudes", servicios_activos:"Servicios activos", completados:"Completados", documentos:"Documentos"
     };
-    const cards = Object.entries(d.cards || {}).map(([k,v]) => `<article class="stat-card"><span>${esc(labels[k] || k.replaceAll("_"," "))}</span><strong>${normalizeNumber(v)}</strong></article>`).join("");
+    const statIcons = {
+      solicitudes_pendientes:"inbox", ordenes_activas:"clipboard-check", emergencias:"siren", tecnicos_disponibles:"hard-hat",
+      equipos_disponibles:"wrench", clientes_activos:"building-2", cotizaciones_pendientes:"receipt-text", mantenimientos_pendientes:"settings",
+      hoy:"calendar-check-2", finalizadas:"circle-check-big", incidencias:"triangle-alert", solicitudes:"file-plus-2",
+      servicios_activos:"activity", completados:"badge-check", documentos:"folder-open"
+    };
+    const statTones = ["blue","red","violet","cyan","green","amber"];
+    const cards = Object.entries(d.cards || {}).map(([k,v], index) => `<article class="stat-card stat-${statTones[index % statTones.length]}"><div class="stat-icon" aria-hidden="true"><i data-lucide="${esc(statIcons[k] || "chart-no-axes-column-increasing")}"></i></div><div class="stat-copy"><span>${esc(labels[k] || k.replaceAll("_"," "))}</span><strong>${normalizeNumber(v)}</strong></div><span class="stat-spark" aria-hidden="true"></span></article>`).join("");
     const recentRows = (d.recent || []).map(x => `<tr><td>${esc(x.numero || x.tipo || `#${x.id}`)}</td><td>${esc(x.cliente || x.descripcion || "—")}</td><td>${esc(x.sede || x.clasificacion || "—")}</td><td>${badge(x.estado || x.prioridad || "")}</td><td>${fmt(x.programada || x.fecha)}</td>${x.numero ? `<td>${button("Ver","ver-orden",x.id)}</td>` : ""}</tr>`);
     let chart = "";
     if ((d.chart || []).length) {
@@ -127,6 +257,7 @@
       chart = `<section class="panel"><div class="panel-header"><h2>Órdenes de los últimos 6 meses</h2></div><div class="panel-body chart">${d.chart.map(x => `<div class="bar-row"><span>${esc(x.mes)}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.round(normalizeNumber(x.ordenes)/max*100)}%"></div></div><strong>${normalizeNumber(x.ordenes)}</strong></div>`).join("")}</div></section>`;
     }
     content.innerHTML = `<section class="stats-grid">${cards}</section><section class="panel"><div class="panel-header"><h2>Actividad reciente</h2></div>${table(["Registro","Cliente / detalle","Sede / tipo","Estado","Fecha", ...(state.role !== "CLIENTE" || (d.recent || []).some(x=>x.numero) ? ["Acción"] : [])], recentRows, "Todavía no hay actividad para mostrar.")}</section>${chart}`;
+    window.lucide?.createIcons();
   }
 
   async function renderSolicitudes() {
@@ -345,81 +476,166 @@
 
   function techStateChoices(x){
     const code=String(x.estado_codigo||"").toUpperCase(),states=state.catalogs.estados_orden||[];
-    const allowed=code==="PENDIENTE"||code==="PROGRAMADA"?["EN_PROCESO"]:code==="EN_PROCESO"?["POR_CONFIRMAR"]:[];
+    const allowed=(code==="PENDIENTE"||code==="PROGRAMADA")?["EN_PROCESO"]:(code==="EN_PROCESO"||code==="POR_CONFIRMAR")?["COMPLETADA"]:[];
     return states.filter(s=>allowed.includes(String(s.codigo).toUpperCase()));
   }
 
-  async function openOrder(id) {
-    state.openOrderId=Number(id);
-    const d=await api(`/api/ordenes/${id}`),x=d.item;
+  function orderStepButton(id,key,number,label,done,active){
+    return `<button class="order-step ${done?"done":""} ${active===key?"active":""}" type="button" data-action="orden-paso" data-id="${esc(id)}" data-step="${esc(key)}"><span class="order-step-number">${done?"✓":number}</span><span><strong>${esc(label)}</strong><small>${done?"Listo":"Pendiente"}</small></span></button>`;
+  }
+
+  function orderStepper(id,active,d,x){
+    const p=d.progress||{},code=String(x.estado_codigo||"").toUpperCase();
+    const step1=!!String(x.ticket||"").trim() && !!String(x.orden_papel||"").trim() && normalizeNumber(p.documentos_ot)>0;
+    const step2=normalizeNumber(p.fotos_trabajo)>=6;
+    const step3=normalizeNumber(p.actividades)>=1;
+    const step4=code==="COMPLETADA";
+    return `<section class="order-stepper" aria-label="Flujo de cierre técnico">
+      ${orderStepButton(id,"documento",1,"OT / OC y ticket",step1,active)}
+      ${orderStepButton(id,"evidencia",2,"Evidencia",step2,active)}
+      ${orderStepButton(id,"descripcion",3,"Descripción",step3,active)}
+      ${orderStepButton(id,"finalizar",4,"Finalizar OT",step4,active)}
+    </section>`;
+  }
+
+  function orderEvidenceBy(d,predicate){return (d.evidencias||[]).filter(predicate);}
+
+  async function uploadOrderFiles(id,files,{etapa="DURANTE",categoria="FOTO_TRABAJO",descripcion=""}={}){
+    for(const file of [...files]){
+      const fd=new FormData();
+      fd.append("archivo",file); fd.append("etapa",etapa); fd.append("categoria",categoria);
+      if(descripcion)fd.append("descripcion",descripcion);
+      await api(`/api/ordenes/${id}/evidencias`,{method:"POST",body:fd});
+    }
+  }
+
+  function orderHeader(id,x){
+    return `<div class="toolbar order-workspace-toolbar"><div class="toolbar-left"><button class="btn" type="button" data-action="volver-ordenes">← Volver a órdenes</button><span class="badge">${esc(x.numero)}</span>${badge(x.estado)}</div><div class="toolbar-right">${button("Resumen","orden-paso",id,"primary")}</div></div>`;
+  }
+
+  async function openOrder(id, step="resumen", refresh=true) {
+    closeModal();
+    state.openOrderId=Number(id); state.orderStep=step||"resumen";
+    if(refresh || !state.orderDetail || Number(state.orderDetail?.item?.id)!==Number(id)) state.orderDetail=await api(`/api/ordenes/${id}`);
+    const d=state.orderDetail,x=d.item;
     const tech=state.role==="TECNICO",coord=state.role==="COORDINADOR",client=state.role==="CLIENTE";
-    const allowedStates=tech
-      ? techStateChoices(x)
-      : (state.catalogs.estados_orden||[]).filter(s=>String(s.codigo||"").toUpperCase()!=="COMPLETADA");
+    if(client && state.orderStep!=="resumen")state.orderStep="resumen";
+    setHeading(`Orden ${x.numero}`, `${x.cliente} · ${x.tipo} · ${x.sede||"Sede sin nombre"}`);
+
     const activeTechs=(d.tecnicos||[]).filter(t=>String(t.estado||t.Estado).toUpperCase()==="ASIGNADO");
     const techs=activeTechs.map(t=>`${esc(t.nombre)} (${esc(t.funcion||"TECNICO")})`).join(", ")||"Sin técnicos asignados";
-    const quoteList=d.cotizaciones||[];
-    const currentQuote=quoteList[0]||null;
+    const quoteList=d.cotizaciones||[],currentQuote=quoteList[0]||null;
+    const orderCode=String(x.estado_codigo||"").toUpperCase();
+    const p=d.progress||{},photos=normalizeNumber(p.fotos_trabajo),acts=normalizeNumber(p.actividades),docs=normalizeNumber(p.documentos_ot),pendingScopes=normalizeNumber(p.cambios_pendientes);
+    const isCoralsa=/CORALSA/i.test(String(x.cliente||""));
+    const shellStart=`<div class="order-workspace">${orderHeader(id,x)}${(coord||tech)?orderStepper(id,state.orderStep,d,x):""}`;
+    const shellEnd=`</div>`;
+
+    if(state.orderStep==="documento" && (coord||tech)){
+      const docEvidence=orderEvidenceBy(d,e=>String(e.etapa||"").toUpperCase()==="DOCUMENTO"||String(e.categoria||"").toUpperCase()==="ORDEN_FISICA");
+      content.innerHTML=`${shellStart}<section class="panel order-screen"><div class="panel-header"><div><span class="eyebrow">PASO 1 DE 4</span><h2>Registrar ticket y OT / OC física</h2></div></div><div class="panel-body">
+        <div class="notice-card"><strong>Documento de respaldo</strong><p>${isCoralsa?"Para CORALSA, la fotografía de la OT u OC debe mostrar firma y sello.":"Sube la fotografía o PDF de la OT u OC firmada cuando corresponda."}</p></div>
+        <form id="orderDocForm" class="form-grid" autocomplete="off">
+          <div class="field"><label>Número de ticket</label><input name="ticket" maxlength="60" value="${esc(x.ticket||"")}" required></div>
+          <div class="field"><label>Número de OT u OC</label><input name="orden_papel" maxlength="60" value="${esc(x.orden_papel||"")}" required></div>
+          <div class="field full"><label>Foto o PDF de la OT / OC <small>${docs?"Ya existe un documento; puedes agregar otro si hace falta.":"Necesario para completar este paso."}</small></label><input type="file" name="archivos" multiple accept="image/*,application/pdf"></div>
+          <div class="field full"><label>Descripción del documento <small>(opcional)</small></label><textarea name="descripcion" placeholder="Ej. OT firmada por encargado de sede${isCoralsa?" y sellada":""}."></textarea></div>
+          <div class="field full"><div class="form-actions"><button class="btn" type="button" data-action="orden-paso" data-id="${esc(id)}" data-step="resumen">Volver al resumen</button><button class="btn primary" type="submit">Guardar y continuar</button></div></div>
+        </form>
+        <h3 class="section-title">Documentos cargados</h3><div class="evidence-grid">${docEvidence.map(evidenceCard).join("")||`<div class="muted">Todavía no hay OT / OC física adjunta.</div>`}</div>
+      </div></section>${shellEnd}`;
+      $("#orderDocForm")?.addEventListener("submit",async e=>{e.preventDefault();const form=e.currentTarget,fd=new FormData(form),files=form.querySelector('[name="archivos"]').files;try{await api(`/api/ordenes/${id}`,{method:"PATCH",body:{ticket:fd.get("ticket"),orden_papel:fd.get("orden_papel")}});if(files.length)await uploadOrderFiles(id,files,{etapa:"DOCUMENTO",categoria:"ORDEN_FISICA",descripcion:fd.get("descripcion")||""});showToast("Paso 1 guardado.");await openOrder(id,"evidencia",true);}catch(err){showToast(err.message,"error");}});
+      window.lucide?.createIcons(); return;
+    }
+
+    if(state.orderStep==="evidencia" && (coord||tech)){
+      const workEvidence=orderEvidenceBy(d,e=>String(e.categoria||"").toUpperCase()==="FOTO_TRABAJO");
+      content.innerHTML=`${shellStart}<section class="panel order-screen"><div class="panel-header"><div><span class="eyebrow">PASO 2 DE 4</span><h2>Subir evidencia del servicio</h2></div><span class="badge ${photos>=6?"green":"orange"}">${photos}/6 fotos</span></div><div class="panel-body">
+        <p class="muted">Carga las fotografías que demuestran el trabajo realizado. El cierre técnico requiere al menos 6 fotos.</p>
+        <form id="orderEvidenceForm" class="form-grid">
+          <div class="field full"><label>Fotografías</label><input type="file" name="archivos" multiple accept="image/*" required></div>
+          <div class="field"><label>Etapa</label><select name="etapa"><option>DURANTE</option><option selected>DESPUES</option></select></div>
+          <div class="field full"><label>Descripción <small>(opcional)</small></label><textarea name="descripcion" placeholder="Describe lo que muestran las fotografías."></textarea></div>
+          <div class="field full"><div class="form-actions"><button class="btn" type="button" data-action="orden-paso" data-id="${esc(id)}" data-step="documento">Anterior</button><button class="btn primary" type="submit">Subir y continuar</button></div></div>
+        </form>
+        <h3 class="section-title">Evidencia cargada</h3><div class="evidence-grid">${workEvidence.map(evidenceCard).join("")||`<div class="muted">Todavía no hay fotografías del trabajo.</div>`}</div>
+      </div></section>${shellEnd}`;
+      $("#orderEvidenceForm")?.addEventListener("submit",async e=>{e.preventDefault();const form=e.currentTarget,fd=new FormData(form),files=form.querySelector('[name="archivos"]').files;try{await uploadOrderFiles(id,files,{etapa:fd.get("etapa")||"DESPUES",categoria:"FOTO_TRABAJO",descripcion:fd.get("descripcion")||""});showToast(`${files.length} fotografía(s) guardada(s).`);await openOrder(id,"descripcion",true);}catch(err){showToast(err.message,"error");}});
+      window.lucide?.createIcons(); return;
+    }
+
+    if(state.orderStep==="descripcion" && (coord||tech)){
+      const activities=(d.actividades||[]).map(a=>`<div class="timeline-item"><strong>${esc(a.empleado)}</strong> · ${fmt(a.realizada||a.RealizadaEn)}<br>${esc(a.Descripcion||a.descripcion)}${a.Resultado||a.resultado?`<br><span class="muted">Observación: ${esc(a.Resultado||a.resultado)}</span>`:""}</div>`).join("")||`<div class="muted">Todavía no hay descripción final registrada.</div>`;
+      const employeeField=coord?`<div class="field"><label>Técnico responsable</label><select name="empleado_id" required><option value="">Seleccione...</option>${optionList(activeTechs,"empleado_id",t=>t.nombre)}</select></div>`:"";
+      content.innerHTML=`${shellStart}<section class="panel order-screen"><div class="panel-header"><div><span class="eyebrow">PASO 3 DE 4</span><h2>Descripción y observaciones del trabajo</h2></div><span class="badge ${acts?"green":"orange"}">${acts?"Registrado":"Pendiente"}</span></div><div class="panel-body">
+        <form id="orderDescriptionForm" class="form-grid">${employeeField}<div class="field full"><label>Descripción del servicio realizado</label><textarea name="descripcion" required placeholder="Detalla qué se realizó en la OT."></textarea></div><div class="field full"><label>Observaciones</label><textarea name="resultado" placeholder="Resultado, hallazgos, recomendaciones o notas para el cliente."></textarea></div><div class="field full"><div class="form-actions"><button class="btn" type="button" data-action="orden-paso" data-id="${esc(id)}" data-step="evidencia">Anterior</button><button class="btn primary" type="submit">Guardar y continuar</button></div></div></form>
+        <h3 class="section-title">Registros del servicio</h3><div class="timeline">${activities}</div>
+      </div></section>${shellEnd}`;
+      $("#orderDescriptionForm")?.addEventListener("submit",async e=>{e.preventDefault();try{await api(`/api/ordenes/${id}/actividades`,{method:"POST",body:Object.fromEntries(new FormData(e.currentTarget).entries())});showToast("Descripción y observaciones guardadas.");await openOrder(id,"finalizar",true);}catch(err){showToast(err.message,"error");}});
+      window.lucide?.createIcons(); return;
+    }
+
+    if(state.orderStep==="finalizar" && (coord||tech)){
+      const checks=[
+        [!!String(x.ticket||"").trim(),"Ticket registrado"],
+        [!!String(x.orden_papel||"").trim(),"Número de OT u OC registrado"],
+        [docs>0,`OT / OC física adjunta${isCoralsa?" con firma y sello":""}`],
+        [photos>=6,`Evidencia fotográfica (${photos}/6)`],
+        [acts>=1,"Descripción y observaciones registradas"],
+        [pendingScopes===0,"Sin cambios de alcance pendientes"]
+      ];
+      const ready=checks.every(c=>c[0]);
+      let finishAction="";
+      if(orderCode==="COMPLETADA") finishAction=`<div class="completion-banner"><strong>✓ OT finalizada</strong><span>El cierre técnico ya quedó registrado. La cotización puede enviarse antes o después y no modifica este estado.</span></div>`;
+      else if(tech && ["PENDIENTE","PROGRAMADA"].includes(orderCode)) finishAction=`<div class="notice-card"><strong>Primero inicia el trabajo</strong><p>La OT debe estar EN PROCESO antes de poder finalizarla.</p><button class="btn primary" type="button" data-action="iniciar-orden" data-id="${esc(id)}">Iniciar trabajo</button></div>`;
+      else if(tech && ["EN_PROCESO","POR_CONFIRMAR"].includes(orderCode)) finishAction=`<div class="final-action"><button class="btn finish-button" type="button" data-action="finalizar-tecnico" data-id="${esc(id)}" ${ready?"":"disabled"}>✓ Marcar OT como finalizada</button><p class="muted">${ready?"Este cierre es independiente de la cotización.":"Completa los puntos pendientes antes de finalizar."}</p></div>`;
+      else if(coord) finishAction=`<div class="notice-card"><strong>Cierre por técnico</strong><p>La OT la marca como finalizada un técnico asignado. Coordinación puede crear o enviar la cotización antes o después desde el resumen de esta OT o desde Cotizaciones.</p></div>`;
+      content.innerHTML=`${shellStart}<section class="panel order-screen"><div class="panel-header"><div><span class="eyebrow">PASO 4 DE 4</span><h2>Finalizar orden de trabajo</h2></div></div><div class="panel-body"><div class="check-list">${checks.map(([ok,label])=>`<div class="check-item ${ok?"ok":"pending"}"><span>${ok?"✓":"○"}</span><strong>${esc(label)}</strong></div>`).join("")}</div>${finishAction}<div class="form-actions"><button class="btn" type="button" data-action="orden-paso" data-id="${esc(id)}" data-step="descripcion">Anterior</button><button class="btn" type="button" data-action="orden-paso" data-id="${esc(id)}" data-step="resumen">Ir al resumen</button></div></div></section>${shellEnd}`;
+      window.lucide?.createIcons(); return;
+    }
+
     const quoteSummary=currentQuote
       ? `<div class="timeline-item"><strong>${esc(currentQuote.numero||`Cotización #${currentQuote.id}`)}</strong> ${badge(currentQuote.estado||"BORRADOR")}<br><span class="muted">Versión ${esc(currentQuote.version||"—")} · ${money(currentQuote.total,currentQuote.moneda)}</span></div>`
-      : `<div class="muted">Todavía no hay cotización vinculada a esta OT.</div>`;
-    const evidence=(d.evidencias||[]).map(evidenceCard).join("")||`<div class="muted">Sin evidencias.</div>`;
-    const activities=(d.actividades||[]).map(a=>`<div class="timeline-item"><strong>${esc(a.empleado)}</strong> · ${fmt(a.realizada||a.RealizadaEn)}<br>${esc(a.Descripcion||a.descripcion)}${a.Resultado||a.resultado?`<br><span class="muted">${esc(a.Resultado||a.resultado)}</span>`:""}</div>`).join("")||`<div class="muted">Sin actividades.</div>`;
-    const incidents=(d.incidencias||[]).map(i=>`<div class="timeline-item"><strong>${esc(i.tipo)}</strong> ${badge(i.Estado||i.estado)}<br>${esc(i.Descripcion||i.descripcion)}${i.accion?`<br><span class="muted">Acción: ${esc(i.accion)}</span>`:""}<br><span class="muted">${fmt(i.fecha)}</span>${coord&&!i.resuelta?`<div class="actions">${button("Resolver","resolver-incidencia",i.id)}</div>`:""}</div>`).join("")||`<div class="muted">Sin incidencias.</div>`;
-    const scopes=(d.cambios_alcance||[]).map(c=>`<div class="timeline-item"><strong>${badge(c.estado)} Cambio de alcance</strong><br>${esc(c.detectado)}<br><span class="muted">Motivo: ${esc(c.motivo||"—")}${c.propuesta?` · Propuesta: ${esc(c.propuesta)}`:""}</span>${c.respuesta?`<br><span class="muted">Respuesta: ${esc(c.respuesta)}</span>`:""}<div class="actions">${coord&&String(c.estado).toUpperCase()==="PENDIENTE"&&!c.informado_por?button("Enviar al cliente","enviar-cambio",c.id):""}${client&&String(c.estado).toUpperCase()==="PENDIENTE"&&c.informado_por?button("Responder","responder-cambio",c.id,"primary"):""}</div></div>`).join("")||`<div class="muted">Sin cambios de alcance.</div>`;
-    const history=(d.historial||[]).map(h=>`<div class="timeline-item">${esc(h.anterior||"Inicio")} → <strong>${esc(h.nuevo)}</strong><br><span class="muted">${fmt(h.fecha)} · ${esc(h.Comentario||h.comentario||"")}</span></div>`).join("")||`<div class="muted">Sin historial.</div>`;
-    const p=d.progress||{},photos=normalizeNumber(p.fotos_trabajo),acts=normalizeNumber(p.actividades),docs=normalizeNumber(p.documentos_ot);
-    const progress=`<section class="panel"><div class="panel-header"><h2>Avance para cierre técnico</h2></div><div class="panel-body"><div class="info-grid"><div class="info-item"><span>Fotos de trabajo</span><strong>${photos}/6 ${photos>=6?"✓":""}</strong></div><div class="info-item"><span>Actividades</span><strong>${acts}</strong></div><div class="info-item"><span>OT / documento físico</span><strong>${docs?"Adjunto ✓":"Opcional si hay actividad"}</strong></div><div class="info-item"><span>Cambios pendientes</span><strong>${normalizeNumber(p.cambios_pendientes)}</strong></div></div></div></section>`;
-    let actions="";
-    const orderCode=String(x.estado_codigo||"").toUpperCase();
-    if(coord||tech){
-      const stateControl=allowedStates.length?`<select class="inline-select" id="stateSelect"><option value="">Siguiente estado...</option>${optionList(allowedStates)}</select><button class="btn small primary" data-action="cambiar-estado" data-id="${id}">Aplicar</button>`:"";
-      const normalQuoteButton=coord && !["POR_CONFIRMAR","COMPLETADA"].includes(orderCode)
-        ? button(currentQuote?"Ver cotizaciones":"Crear cotización",currentQuote?"ir-cotizaciones":"cotizar-orden",id,currentQuote?"":"")
-        : "";
-      const closurePanel=coord && ["POR_CONFIRMAR","COMPLETADA"].includes(orderCode)
-        ? `<section class="panel"><div class="panel-header"><h2>Cierre de la orden</h2></div><div class="panel-body"><p class="muted">La cotización puede realizarse al finalizar el servicio y la OT se marca completada por separado para que ninguna acción se pierda.</p><div class="actions">
-            ${button(currentQuote?"Ver cotización":"Realizar cotización",currentQuote?"ir-cotizaciones":"cotizar-orden",id,currentQuote?"":"primary")}
-            ${orderCode==="POR_CONFIRMAR"?`<button class="btn small" style="background:#16843d;color:#fff;border-color:#16843d;font-weight:700" type="button" data-action="completar-orden" data-id="${esc(id)}">✓ Completada</button>`:`<span class="badge green">COMPLETADA</span>`}
-          </div></div></section>`
-        : "";
-      actions=`<section class="panel"><div class="panel-header"><h2>Acciones operativas</h2></div><div class="panel-body"><div class="actions">${stateControl}${button("Editar datos","editar-orden",id)}${coord?button("Gestionar cuadrilla","asignar-tecnico",id):""}${coord?button("Asignar equipo","asignar-equipo",id):""}${normalQuoteButton}${button("Registrar actividad","actividad",id)}${button("Incidencia","incidencia",id)}${button("Cambio de alcance","cambio-alcance",id)}${button("Subir evidencia","evidencia",id)}</div>${tech&&orderCode==="EN_PROCESO"?`<p class="muted">Para enviar a confirmación: mínimo 6 fotos del trabajo, una actividad u OT/documento físico y ningún cambio de alcance pendiente.</p>`:""}</div></section>${closurePanel}`;
-    } else if(client&&orderCode==="POR_CONFIRMAR"){
-      actions=`<section class="panel"><div class="panel-body"><button class="btn primary" data-action="confirmar-orden" data-id="${id}">Confirmar / reportar observación</button></div></section>`;
-    }
+      : `<div class="muted">Todavía no hay cotización vinculada. Puede crearse antes o después de finalizar la OT.</div>`;
+    const quoteActions=coord
+      ? `<div class="actions" style="margin-top:10px">${currentQuote?button("Ir a cotizaciones","ir-cotizaciones",currentQuote.id):button("Crear cotización","cotizar-orden",id,"primary")}</div>`
+      : currentQuote?`<div class="actions" style="margin-top:10px">${button("Ver cotización","ir-cotizaciones",currentQuote.id,"primary")}</div>`:"";
     const correction=Number(x.requiere_correccion||0)?`<section class="panel"><div class="panel-body"><strong>Corrección solicitada por cliente</strong><p>${esc(x.motivo_correccion||"Pendiente de corrección")}</p></div></section>`:"";
-    openModal(`Orden ${x.numero}`,`<div class="info-grid"><div class="info-item"><span>Cliente</span><strong>${esc(x.cliente)}</strong></div><div class="info-item"><span>Sede</span><strong>${esc(x.sede)}</strong></div><div class="info-item"><span>Estado</span><strong>${esc(x.estado)}</strong></div><div class="info-item"><span>Prioridad</span><strong>${esc(x.Prioridad||x.prioridad)}</strong></div><div class="info-item"><span>Servicio</span><strong>${esc(x.tipo)}</strong></div><div class="info-item"><span>Atención aproximada</span><strong>${fmt(x.programada)}</strong></div><div class="info-item"><span>Ticket cliente</span><strong>${esc(x.ticket||"—")}</strong></div><div class="info-item"><span>OT papel</span><strong>${esc(x.orden_papel||"—")}</strong></div><div class="info-item"><span>Ubicación</span><strong>${esc([x.Direccion||x.direccion,x.Municipio||x.municipio].filter(Boolean).join(", ")||x.sede)}</strong></div><div class="info-item"><span>Cuadrilla</span><strong>${techs}</strong></div></div><h3 class="section-title">Solicitud</h3><p>${esc(x.solicitud)}</p>${correction}${progress}${actions}<section class="panel"><div class="panel-header"><h2>Cotización vinculada</h2></div><div class="panel-body">${quoteSummary}${coord&&!currentQuote?`<div class="actions" style="margin-top:10px">${button("Crear cotización desde esta OT","cotizar-orden",id,"primary")}</div>`:""}${currentQuote?`<div class="actions" style="margin-top:10px">${button("Ir al módulo de cotizaciones","ir-cotizaciones",currentQuote.id)}</div>`:""}</div></section><div class="two-col"><div><h3 class="section-title">Actividades</h3><div class="timeline">${activities}</div><h3 class="section-title">Evidencias</h3><div class="evidence-grid">${evidence}</div><h3 class="section-title">Cambios de alcance</h3><div class="timeline">${scopes}</div></div><div><h3 class="section-title">Historial</h3><div class="timeline">${history}</div><h3 class="section-title">Incidencias</h3><div class="timeline">${incidents}</div></div></div>`);
+    const recentHistory=(d.historial||[]).slice(0,8).map(h=>`<div class="timeline-item">${esc(h.anterior||"Inicio")} → <strong>${esc(h.nuevo)}</strong><br><span class="muted">${fmt(h.fecha)} · ${esc(h.Comentario||h.comentario||"")}</span></div>`).join("")||`<div class="muted">Sin historial.</div>`;
+    const incidents=(d.incidencias||[]).slice(0,6).map(i=>`<div class="timeline-item"><strong>${esc(i.tipo)}</strong> ${badge(i.Estado||i.estado)}<br>${esc(i.Descripcion||i.descripcion)}${i.accion?`<br><span class="muted">Acción: ${esc(i.accion)}</span>`:""}${coord&&!i.resuelta?`<div class="actions">${button("Resolver","resolver-incidencia",i.id)}</div>`:""}</div>`).join("")||`<div class="muted">Sin incidencias.</div>`;
+    const scopes=(d.cambios_alcance||[]).slice(0,6).map(c=>`<div class="timeline-item"><strong>${badge(c.estado)} Cambio de alcance</strong><br>${esc(c.detectado)}<br><span class="muted">${esc(c.motivo||"")}</span><div class="actions">${coord&&String(c.estado).toUpperCase()==="PENDIENTE"&&!c.informado_por?button("Enviar al cliente","enviar-cambio",c.id):""}${client&&String(c.estado).toUpperCase()==="PENDIENTE"&&c.informado_por?button("Responder","responder-cambio",c.id,"primary"):""}</div></div>`).join("")||`<div class="muted">Sin cambios de alcance.</div>`;
+    const allowedCoordStates=(state.catalogs.estados_orden||[]).filter(s=>String(s.codigo||"").toUpperCase()!=="COMPLETADA");
+    const stateControl=coord&&orderCode!=="COMPLETADA"?`<select class="inline-select" id="stateSelect"><option value="">Cambiar estado...</option>${optionList(allowedCoordStates)}</select><button class="btn small primary" data-action="cambiar-estado" data-id="${esc(id)}">Aplicar</button>`:"";
+    const startButton=tech&&["PENDIENTE","PROGRAMADA"].includes(orderCode)?button("Iniciar trabajo","iniciar-orden",id,"primary"):"";
+    const opActions=(coord||tech)?`<section class="panel"><div class="panel-header"><h2>Acciones de la OT</h2></div><div class="panel-body"><div class="actions">${stateControl}${startButton}${coord?button("Editar datos","editar-orden",id):""}${coord?button("Gestionar cuadrilla","asignar-tecnico",id):""}${coord?button("Asignar equipo","asignar-equipo",id):""}${button("Incidencia","incidencia",id)}${button("Cambio de alcance","cambio-alcance",id)}</div>${tech?`<p class="muted">El cierre técnico se realiza en las cuatro pantallas superiores. La cotización no bloquea el cierre.</p>`:""}</div></section>`:"";
+    const legacyConfirm=client&&orderCode==="POR_CONFIRMAR"?`<section class="panel"><div class="panel-body"><button class="btn primary" data-action="confirmar-orden" data-id="${esc(id)}">Confirmar / reportar observación</button></div></section>`:"";
+
+    content.innerHTML=`${shellStart}<section class="panel"><div class="panel-header"><h2>Resumen de la orden</h2></div><div class="panel-body"><div class="info-grid"><div class="info-item"><span>Cliente</span><strong>${esc(x.cliente)}</strong></div><div class="info-item"><span>Sede</span><strong>${esc(x.sede)}</strong></div><div class="info-item"><span>Estado</span><strong>${esc(x.estado)}</strong></div><div class="info-item"><span>Prioridad</span><strong>${esc(x.Prioridad||x.prioridad)}</strong></div><div class="info-item"><span>Servicio</span><strong>${esc(x.tipo)}</strong></div><div class="info-item"><span>Atención aproximada</span><strong>${fmt(x.programada)}</strong></div><div class="info-item"><span>Ticket</span><strong>${esc(x.ticket||"—")}</strong></div><div class="info-item"><span>OT / OC</span><strong>${esc(x.orden_papel||"—")}</strong></div><div class="info-item"><span>Ubicación</span><strong>${esc([x.Direccion||x.direccion,x.Municipio||x.municipio].filter(Boolean).join(", ")||x.sede)}</strong></div><div class="info-item"><span>Cuadrilla</span><strong>${techs}</strong></div></div><h3 class="section-title">Solicitud</h3><p>${esc(x.solicitud)}</p></div></section>
+      ${correction}${opActions}${legacyConfirm}
+      <section class="panel"><div class="panel-header"><h2>Cotización</h2><span class="muted">Independiente del cierre técnico</span></div><div class="panel-body">${quoteSummary}${quoteActions}</div></section>
+      <div class="two-col"><section class="panel"><div class="panel-header"><h2>Historial reciente</h2></div><div class="panel-body"><div class="timeline">${recentHistory}</div></div></section><section class="panel"><div class="panel-header"><h2>Incidencias</h2></div><div class="panel-body"><div class="timeline">${incidents}</div></div></section></div>
+      <section class="panel"><div class="panel-header"><h2>Cambios de alcance</h2></div><div class="panel-body"><div class="timeline">${scopes}</div></div></section>${shellEnd}`;
+    window.lucide?.createIcons();
   }
 
   function backToOrder(id){return `<button class="btn" type="button" data-action="ver-orden" data-id="${id}">Volver a la OT</button>`;}
 
   async function quickAction(action,id) {
+    if(action==="iniciar-orden"){
+      const target=(state.catalogs.estados_orden||[]).find(s=>String(s.codigo||"").toUpperCase()==="EN_PROCESO");
+      if(!target)return showToast("No se encontró el estado EN_PROCESO en la BD.","error");
+      try{await api(`/api/ordenes/${id}/estado`,{method:"POST",body:{estado_id:target.id,comentario:"Inicio de trabajo registrado por el técnico"}});showToast("Trabajo iniciado.");await openOrder(id,state.orderStep==="finalizar"?"finalizar":"resumen",true);}catch(err){showToast(err.message,"error");}return;
+    }
+    if(action==="finalizar-tecnico"){
+      const completed=(state.catalogs.estados_orden||[]).find(s=>String(s.codigo||"").toUpperCase()==="COMPLETADA");
+      if(!completed)return showToast("No se encontró el estado COMPLETADA en la BD.","error");
+      try{await api(`/api/ordenes/${id}/estado`,{method:"POST",body:{estado_id:completed.id,comentario:"Cierre técnico completado desde el flujo de 4 pasos"}});showToast("OT finalizada correctamente.");await openOrder(id,"finalizar",true);}catch(err){showToast(err.message,"error");}return;
+    }
     if(action==="cambiar-estado"){
       const estado_id=$("#stateSelect")?.value;if(!estado_id)return showToast("Selecciona el siguiente estado.","error");
       try{await api(`/api/ordenes/${id}/estado`,{method:"POST",body:{estado_id,comentario:"Cambio desde el panel SEPRIGUA"}});showToast("Estado actualizado.");await openOrder(id);}catch(e){showToast(e.message,"error");}return;
     }
     if(action==="editar-orden")return editOrderForm(id);
-    if(action==="completar-orden"){
-      const completed=(state.catalogs.estados_orden||[]).find(s=>String(s.codigo||"").toUpperCase()==="COMPLETADA");
-      if(!completed)return showToast("No se encontró el estado COMPLETADA en la BD.","error");
-      openModal("Marcar orden como completada",`<form id="completeOrderForm" class="form-grid">
-        <div class="field full"><p>Esta acción cierra la OT como <strong>COMPLETADA</strong>.</p><p class="muted">Úsala cuando la conformidad del cliente haya sido recibida fuera del portal o ya esté documentada.</p></div>
-        <div class="field"><label>Medio de confirmación</label><select name="medio"><option>FIRMA EN OT</option><option>LLAMADA</option><option>WHATSAPP / MENSAJE</option><option>CORREO</option><option>OTRO</option></select></div>
-        <div class="field full"><label>Observación de cierre</label><textarea name="observacion" placeholder="Ej. Gerente del cliente confirmó el servicio sin observaciones."></textarea></div>
-        <div class="field full"><div class="form-actions">${backToOrder(id)}<button class="btn" style="background:#16843d;color:#fff;border-color:#16843d;font-weight:700">✓ Marcar completada</button></div></div>
-      </form>`);
-      $("#completeOrderForm").addEventListener("submit",async e=>{
-        e.preventDefault();
-        const f=Object.fromEntries(new FormData(e.currentTarget).entries());
-        const comentario=`Cierre confirmado por ${f.medio||"OTRO"}${f.observacion?`: ${f.observacion}`:""}`;
-        try{
-          await api(`/api/ordenes/${id}/estado`,{method:"POST",body:{estado_id:completed.id,comentario}});
-          showToast("Orden marcada como completada.");
-          await openOrder(id);
-        }catch(err){showToast(err.message,"error");}
-      });
-      return;
-    }
     if(action==="confirmar-orden"){
       openModal("Confirmación del servicio",`<form id="confirmForm" class="form-grid"><div class="field full"><label>Resultado</label><select name="resultado"><option>CONFORME</option><option>CON_OBSERVACIONES</option><option>NO_CONFORME</option></select></div><div class="field full"><label>Observaciones / corrección requerida</label><textarea name="observaciones" placeholder="Obligatorio si no está conforme"></textarea></div><div class="field full"><div class="form-actions">${backToOrder(id)}<button class="btn primary">Enviar respuesta</button></div></div></form>`);
       $("#confirmForm").addEventListener("submit",async e=>{e.preventDefault();try{const r=await api(`/api/ordenes/${id}/confirmar`,{method:"POST",body:Object.fromEntries(new FormData(e.currentTarget).entries())});showToast(r.message);await openOrder(id);}catch(err){showToast(err.message,"error");}});return;
@@ -520,31 +736,164 @@
 
   async function renderDocumentos(){setHeading("Documentos", "OT, reportes y formatos generados por servicio.");const d=await api("/api/documentos");const rows=d.items.map(x=>`<tr><td>${esc(x.numero||`#${x.id}`)}</td><td>${esc(x.formato)}</td><td>${esc(x.orden)}</td><td>${esc(x.cliente)}</td><td>${badge(x.Estado||x.estado)}</td><td>${fmt(x.generado)}</td><td>${x.ruta?`<a class="btn small" href="${esc(x.ruta)}" target="_blank">Abrir</a>`:"—"}</td></tr>`);content.innerHTML=`<section class="panel">${table(["Documento","Formato","Orden","Cliente","Estado","Generado","Archivo"],rows)}</section>`;}
 
-  async function renderNotificaciones(){setHeading("Notificaciones", "Avisos creados por asignaciones, solicitudes y cambios de estado.");const d=await api("/api/notificaciones");const rows=d.items.map(x=>`<tr><td>${badge(x.tipo)}</td><td><strong>${esc(x.titulo)}</strong><br><span class="muted">${esc(x.mensaje)}</span></td><td>${fmt(x.creada)}</td><td>${x.leida?badge("LEIDA"):button("Marcar leída","leer-notificacion",x.id)}</td></tr>`);content.innerHTML=`<section class="panel">${table(["Tipo","Notificación","Fecha","Estado"],rows)}</section>`;}
+  function paintNotificationList() {
+    const host = $("#notificationList");
+    if (!host) return;
+    const filter = state.notificationFilter;
+    const source = state.notifications || [];
+    const items = source.filter(x => filter === "TODAS" || (filter === "NO_LEIDAS" ? !x.leida : !!x.leida));
+    $$("[data-notification-filter]").forEach(btn => btn.classList.toggle("active", btn.dataset.notificationFilter === filter));
+    if (!items.length) {
+      host.innerHTML = `<div class="notification-empty"><span><i data-lucide="bell-off"></i></span><h3>${filter === "NO_LEIDAS" ? "Todo está al día" : "No hay notificaciones"}</h3><p>${filter === "NO_LEIDAS" ? "No tienes avisos pendientes de lectura." : "Cuando ocurra un cambio importante aparecerá aquí."}</p></div>`;
+      window.lucide?.createIcons(); return;
+    }
+    host.innerHTML = items.map(x => `
+      <article class="notification-card ${x.leida ? "is-read" : "is-unread"}">
+        <div class="notification-card-icon"><i data-lucide="${notificationIcon(x.tipo)}"></i></div>
+        <div class="notification-card-copy">
+          <div class="notification-card-title"><strong>${esc(x.titulo)}</strong>${x.leida ? `<span class="read-label">Leída</span>` : `<span class="unread-label">Nueva</span>`}</div>
+          <p>${esc(x.mensaje)}</p>
+          <div class="notification-card-meta"><span>${esc(String(x.tipo || "AVISO").replaceAll("_", " "))}</span><span>•</span><time>${fmt(x.creada)}</time>${x.canal ? `<span>•</span><span>${esc(x.canal)}</span>` : ""}</div>
+        </div>
+        <div class="notification-card-actions">${notificationTargetButton(x)}${!x.leida ? button("Marcar leída", "leer-notificacion", x.id) : ""}</div>
+      </article>`).join("");
+    window.lucide?.createIcons();
+  }
+
+  async function renderNotificaciones(){
+    setHeading("Notificaciones", "Avisos en tiempo real de solicitudes, asignaciones, órdenes, cambios de alcance y cotizaciones.");
+    const d=await api("/api/notificaciones");
+    state.notifications=d.items||[];
+    state.unreadNotifications=normalizeNumber(d.no_leidas ?? state.notifications.filter(x=>!x.leida).length);
+    const total=state.notifications.length, unread=state.unreadNotifications, read=Math.max(0,total-unread);
+    content.innerHTML=`
+      <section class="notification-summary-grid">
+        <article class="notification-summary-card"><span class="summary-icon"><i data-lucide="bell-ring"></i></span><div><small>Total de avisos</small><strong>${total}</strong></div></article>
+        <article class="notification-summary-card accent"><span class="summary-icon"><i data-lucide="circle-alert"></i></span><div><small>Pendientes de leer</small><strong>${unread}</strong></div></article>
+        <article class="notification-summary-card"><span class="summary-icon"><i data-lucide="circle-check-big"></i></span><div><small>Revisadas</small><strong>${read}</strong></div></article>
+      </section>
+      <section class="panel notification-center">
+        <div class="panel-header notification-center-header"><div><h2>Centro de notificaciones</h2><p class="muted">Cada usuario ve únicamente los avisos asociados a su propia cuenta.</p></div><div class="actions"><button class="btn small" type="button" data-action="refrescar-notificaciones"><i data-lucide="refresh-cw"></i> Actualizar</button><button class="btn small primary" type="button" data-action="leer-todas-notificaciones" ${unread?"":"disabled"}>Marcar todas leídas</button></div></div>
+        <div class="notification-filterbar"><button type="button" class="notification-filter ${state.notificationFilter==="TODAS"?"active":""}" data-notification-filter="TODAS">Todas <b>${total}</b></button><button type="button" class="notification-filter ${state.notificationFilter==="NO_LEIDAS"?"active":""}" data-notification-filter="NO_LEIDAS">No leídas <b>${unread}</b></button><button type="button" class="notification-filter ${state.notificationFilter==="LEIDAS"?"active":""}" data-notification-filter="LEIDAS">Leídas <b>${read}</b></button></div>
+        <div class="notification-list" id="notificationList"></div>
+      </section>`;
+    paintNotificationList();
+    refreshNotificationBadge().catch(()=>{});
+  }
+
+  function accountValue(label, value, icon="info") {
+    return `<div class="account-data-item"><span class="account-data-icon"><i data-lucide="${icon}"></i></span><div><small>${esc(label)}</small><strong>${esc(value || "—")}</strong></div></div>`;
+  }
+
+  function describeAgent(agent) {
+    const a=String(agent||"");
+    const os=/Windows/i.test(a)?"Windows":/Android/i.test(a)?"Android":/iPhone|iPad/i.test(a)?"iPhone / iPad":/Macintosh/i.test(a)?"macOS":"Dispositivo";
+    const browser=/Edg\//.test(a)?"Edge":/Chrome\//.test(a)?"Chrome":/Firefox\//.test(a)?"Firefox":/Safari\//.test(a)?"Safari":"Navegador";
+    return `${os} · ${browser}`;
+  }
+
+  async function renderCuenta(){
+    setHeading("Mi cuenta", "Consulta tus datos, protege tu contraseña y administra las sesiones activas de tu usuario.");
+    const [profileData, sessionsData]=await Promise.all([api("/api/cuenta"),api("/api/cuenta/sesiones")]);
+    const p=profileData.item||{}; state.account=p;
+    const isClient=state.role==="CLIENTE";
+    const roleDetails=isClient
+      ? `${accountValue("Empresa",p.cliente,"building-2")}${accountValue("Código de cliente",p.cliente_codigo,"badge-check")}${accountValue("NIT",p.cliente_nit,"hash")}${accountValue("Teléfono de empresa",p.cliente_telefono,"phone")}${accountValue("Correo de empresa",p.cliente_correo,"mail")}`
+      : `${accountValue("Código de empleado",p.empleado_codigo,"badge-check")}${accountValue("Puesto",p.puesto,"briefcase-business")}${accountValue("Disponibilidad",p.disponibilidad,"activity")}${accountValue("Teléfono",p.telefono,"phone")}${accountValue("Correo laboral",p.correo_personal,"mail")}`;
+    const sessions=(sessionsData.items||[]).map(x=>`<article class="session-card ${x.actual?"current":""}"><span class="session-device"><i data-lucide="monitor-smartphone"></i></span><div class="session-copy"><div><strong>${esc(describeAgent(x.agente))}</strong>${x.actual?`<span class="session-current">Sesión actual</span>`:""}</div><p>${esc(x.ip||"IP no disponible")} · inició ${fmt(x.iniciada)}</p><small>Expira ${fmt(x.expira)}</small></div></article>`).join("")||`<div class="empty-state">No hay sesiones activas para mostrar.</div>`;
+    content.innerHTML=`
+      <section class="account-hero-card"><div class="account-avatar"><i data-lucide="user-round"></i></div><div class="account-hero-copy"><span>${esc(state.role.replaceAll("_"," "))}</span><h2>${esc(p.nombre||state.user.nombre||state.user.usuario)}</h2><p>${esc(p.usuario||state.user.usuario)}${p.cliente?` · ${esc(p.cliente)}`:""}</p></div><div class="account-status"><span></span> Cuenta activa</div></section>
+      <div class="account-grid">
+        <section class="panel account-panel"><div class="panel-header"><div><h2>Información del perfil</h2><p class="muted">Datos vinculados a tu rol en SEPRIGUA.</p></div></div><div class="panel-body"><div class="account-data-grid">${accountValue("Nombre",p.nombre,"user-round")}${accountValue("Usuario",p.usuario,"at-sign")}${accountValue("Rol",state.role.replaceAll("_"," "),"shield-check")}${accountValue("Último acceso",fmt(p.ultimo_acceso),"clock-3")}${roleDetails}</div></div></section>
+        <section class="panel account-panel"><div class="panel-header"><div><h2>Correo de acceso</h2><p class="muted">Se utiliza para identificar tu cuenta junto con tu nombre de usuario.</p></div></div><div class="panel-body"><form id="accountEmailForm" class="account-form"><div class="field"><label>Correo de la cuenta</label><input type="email" name="correo" value="${esc(p.correo_acceso||"")}" placeholder="usuario@empresa.com" required></div><div class="form-actions"><button class="btn primary" type="submit">Guardar correo</button></div></form></div></section>
+        <section class="panel account-panel password-panel"><div class="panel-header"><div><h2>Seguridad y contraseña</h2><p class="muted">Para cambiarla debes confirmar primero tu contraseña actual.</p></div></div><div class="panel-body"><form id="passwordForm" class="account-form"><div class="field"><label>Contraseña actual</label><div class="password-control"><input type="password" name="actual" autocomplete="current-password" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div></div><div class="field"><label>Nueva contraseña</label><div class="password-control"><input type="password" name="nueva" autocomplete="new-password" minlength="8" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div><small>Mínimo 8 caracteres, con mayúscula, minúscula y número.</small></div><div class="field"><label>Confirmar nueva contraseña</label><div class="password-control"><input type="password" name="confirmacion" autocomplete="new-password" minlength="8" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div></div><div class="form-actions"><button class="btn primary" type="submit">Cambiar contraseña</button></div></form></div></section>
+        <section class="panel account-panel sessions-panel"><div class="panel-header"><div><h2>Sesiones activas</h2><p class="muted">Revisa desde dónde está abierta tu cuenta.</p></div><button class="btn small danger" type="button" data-action="cerrar-otras-sesiones" ${(sessionsData.items||[]).filter(x=>!x.actual).length?"":"disabled"}>Cerrar otras sesiones</button></div><div class="panel-body"><div class="session-list">${sessions}</div></div></section>
+      </div>`;
+    window.lucide?.createIcons();
+
+    $("#accountEmailForm")?.addEventListener("submit",async e=>{e.preventDefault();const form=e.currentTarget;const submit=form.querySelector('button[type="submit"]');submit.disabled=true;try{const result=await api("/api/cuenta",{method:"PATCH",body:Object.fromEntries(new FormData(form).entries())});state.user.correo=result.item?.correo_acceso||form.correo.value;showToast("Correo de acceso actualizado.");syncPrototypeChrome();refreshNotificationBadge().catch(()=>{});}catch(err){showToast(err.message,"error");}finally{submit.disabled=false;}});
+    $("#passwordForm")?.addEventListener("submit",async e=>{e.preventDefault();const form=e.currentTarget;const data=Object.fromEntries(new FormData(form).entries());if(data.nueva!==data.confirmacion)return showToast("La confirmación de la nueva contraseña no coincide.","error");const submit=form.querySelector('button[type="submit"]');submit.disabled=true;try{await api("/api/cuenta/contrasena",{method:"POST",body:data});form.reset();showToast("Contraseña actualizada correctamente.");refreshNotificationBadge().catch(()=>{});}catch(err){showToast(err.message,"error");}finally{submit.disabled=false;}});
+  }
+
 
   async function renderAuditoria(){setHeading("Auditoría", "Eventos INSERT, UPDATE y DELETE capturados por los TR_AUD_* de SQL Server.");const d=await api("/api/auditoria");const rows=d.items.map(x=>`<tr><td class="mono">#${x.id}</td><td>${fmt(x.fecha)}</td><td>${esc(x.Esquema||x.esquema)}.${esc(x.Tabla||x.tabla)}</td><td>${badge(x.Operacion||x.operacion)}</td><td>${esc(x.usuario)}</td><td>${esc(x.ip||"—")}</td><td>${esc(x.Observacion||x.observacion||"—")}</td></tr>`);content.innerHTML=`<div class="toolbar"><h2>Últimos ${d.items.length} eventos</h2>${button("Probar auditoría","probar-auditoria","","primary")}</div><section class="panel">${table(["ID","Fecha","Tabla","Operación","Usuario","IP","Observación"],rows)}</section>`;}
 
   async function renderGarantia(){setHeading("Garantías", "Una garantía se registra como solicitud de seguimiento y queda auditada igual que cualquier servicio.");content.innerHTML=`<section class="panel"><div class="panel-body"><h2>Solicitar seguimiento de garantía</h2><p class="muted">Selecciona la sede y describe el servicio anterior o el motivo de revisión.</p><button class="btn primary" data-action="solicitar-garantia">Nueva solicitud de garantía</button></div></section>`;}
 
   document.addEventListener("click", async e => {
-    const moduleBtn=e.target.closest("[data-module]"); if(moduleBtn){navigate(moduleBtn.dataset.module);$("#sidebar").classList.remove("open");return;}
+    const moduleBtn=e.target.closest("[data-module]");
+    if(moduleBtn){closeTopPopovers();navigate(moduleBtn.dataset.module);$("#sidebar").classList.remove("open");return;}
     if(e.target.closest("[data-close-modal]")){closeModal();return;}
+    if(e.target.closest("[data-close-popover]")){closeTopPopovers();return;}
+
+    const passwordToggle=e.target.closest("[data-toggle-password]");
+    if(passwordToggle){
+      const input=passwordToggle.closest(".password-control")?.querySelector("input");
+      if(input){const show=input.type==="password";input.type=show?"text":"password";passwordToggle.innerHTML=`<i data-lucide="${show?"eye-off":"eye"}"></i>`;window.lucide?.createIcons();}
+      return;
+    }
+
+    const filterBtn=e.target.closest("[data-notification-filter]");
+    if(filterBtn){state.notificationFilter=filterBtn.dataset.notificationFilter||"TODAS";paintNotificationList();return;}
+
     const b=e.target.closest("[data-action]"); if(!b)return; const a=b.dataset.action,id=b.dataset.id;
     try {
-      if(a==="nueva-solicitud") return requestForm(false); if(a==="solicitar-garantia") return requestForm(true); if(a==="ver-solicitud") return openRequest(id); if(a==="crear-ot-solicitud"){closeModal();return orderForm(id);} if(a==="nueva-orden") return orderForm(); if(a==="ver-orden") return openOrder(id); if(["cambiar-estado","completar-orden","confirmar-orden","asignar-tecnico","asignar-equipo","actividad","incidencia","resolver-incidencia","cambio-alcance","enviar-cambio","responder-cambio","editar-orden","evidencia","evidencia-solicitud"].includes(a)) return quickAction(a,id);
+      if(a==="nueva-solicitud") return requestForm(false); if(a==="solicitar-garantia") return requestForm(true); if(a==="ver-solicitud") return openRequest(id); if(a==="crear-ot-solicitud"){closeModal();return orderForm(id);} if(a==="nueva-orden") return orderForm(); if(a==="ver-orden") return openOrder(id,"resumen",true);
+      if(a==="volver-ordenes") return navigate("ordenes");
+      if(a==="orden-paso") return openOrder(id,b.dataset.step||"resumen",false);
+      if(["cambiar-estado","iniciar-orden","finalizar-tecnico","confirmar-orden","asignar-tecnico","asignar-equipo","actividad","incidencia","resolver-incidencia","cambio-alcance","enviar-cambio","responder-cambio","editar-orden","evidencia","evidencia-solicitud"].includes(a)) return quickAction(a,id);
       if(a==="cotizar-orden") return quoteForm(id);
       if(a==="ir-cotizaciones"){closeModal();return navigate("cotizaciones");}
       if(a==="ver-sedes") return openSedes(id); if(a==="nuevo-mantenimiento") return maintenanceForm(); if(a==="nueva-cotizacion") return quoteForm(); if(["enviar-cotizacion","responder-cotizacion"].includes(a)) return quoteAction(a,id);
       if(a==="guardar-disponibilidad"){const sel=$(`.availability[data-id="${CSS.escape(id)}"]`);await api(`/api/personal/${id}/disponibilidad`,{method:"PATCH",body:{disponibilidad:sel.value}});return showToast("Disponibilidad actualizada.");}
       if(a==="guardar-equipo"){const sel=$(`.equipment-state[data-id="${CSS.escape(id)}"]`);await api(`/api/equipos/${id}/estado`,{method:"PATCH",body:{estado:sel.value}});showToast("Estado actualizado.");return navigate("equipos");}
-      if(a==="leer-notificacion"){await api(`/api/notificaciones/${id}/leer`,{method:"POST",body:{}});showToast("Notificación leída.");return navigate("notificaciones");}
+      if(a==="leer-notificacion"){
+        await api(`/api/notificaciones/${id}/leer`,{method:"POST",body:{}});showToast("Notificación leída.");
+        if(state.current==="notificaciones") return renderNotificaciones();
+        return refreshNotificationBadge(true);
+      }
+      if(a==="leer-todas-notificaciones"){
+        const result=await api("/api/notificaciones/leer-todas",{method:"POST",body:{}});showToast(result.message||"Notificaciones actualizadas.");
+        if(state.current==="notificaciones") return renderNotificaciones();
+        return refreshNotificationBadge(true);
+      }
+      if(a==="refrescar-notificaciones") return renderNotificaciones();
+      if(a==="ver-todas-notificaciones"){closeTopPopovers();return navigate("notificaciones");}
+      if(a==="abrir-notificacion") return openNotificationTarget(b.dataset.entity,b.dataset.entityId,id);
+      if(a==="abrir-cuenta"){closeTopPopovers();return navigate("cuenta");}
+      if(a==="cerrar-otras-sesiones"){
+        const result=await api("/api/cuenta/sesiones/cerrar-otras",{method:"POST",body:{}});showToast(result.message||"Otras sesiones cerradas.");return renderCuenta();
+      }
+      if(a==="cerrar-sesion") return performLogout();
       if(a==="probar-auditoria"){const d=await api("/api/auditoria/prueba",{method:"POST",body:{}});showToast(d.message);return navigate("auditoria");}
     } catch(err){showToast(err.message,"error");}
   });
 
+  notificationButton?.addEventListener("click",async e=>{
+    e.stopPropagation();
+    const opening=notificationPopover.hidden;
+    closeTopPopovers(opening?notificationPopover:null);
+    notificationPopover.hidden=!opening;
+    notificationButton.setAttribute("aria-expanded",String(opening));
+    if(opening){notificationPreview.innerHTML=`<div class="popover-loading">Cargando avisos...</div>`;try{await refreshNotificationBadge(true);}catch(err){notificationPreview.innerHTML=`<div class="popover-empty"><strong>No se pudieron cargar</strong><span>${esc(err.message)}</span></div>`;}window.lucide?.createIcons();}
+  });
+
+  userMenuButton?.addEventListener("click",e=>{
+    e.stopPropagation();
+    const opening=userPopover.hidden;
+    closeTopPopovers(opening?userPopover:null);
+    userPopover.hidden=!opening;
+    userMenuButton.setAttribute("aria-expanded",String(opening));
+    syncPrototypeChrome();
+  });
+
+  document.addEventListener("click",e=>{
+    if(!e.target.closest(".top-action-wrap")) closeTopPopovers();
+  });
+
   $("#modalClose").addEventListener("click",closeModal); modalBackdrop.addEventListener("click",e=>{if(e.target===modalBackdrop)closeModal();});
   $("#menuButton").addEventListener("click",()=>$("#sidebar").classList.toggle("open"));
-  $("#logoutButton").addEventListener("click",async()=>{try{await api("/api/auth/logout",{method:"POST",body:{}});}catch(_){}location.replace("/login");});
-  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
+  $("#logoutButton").addEventListener("click",performLogout);
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeModal();closeTopPopovers();}});
   window.lucide?.createIcons(); init();
 })();

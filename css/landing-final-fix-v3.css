@@ -1,0 +1,202 @@
+/* =========================================================
+   SEPRIGUA — FIX FINAL DE INICIO + CHATBOT
+   Corrige el solapamiento del hero en 1024–1600px sin
+   afectar Nosotros, Servicios, Cobertura, Trabajos o Contacto.
+   ========================================================= */
+
+/* El hero vuelve a una composición estable de dos columnas. */
+@media (min-width: 1001px){
+  #inicio.hero-section{
+    padding-top:118px!important;
+    padding-bottom:74px!important;
+    min-height:auto!important;
+    overflow:hidden!important;
+  }
+
+  #inicio .hero-container{
+    display:grid!important;
+    grid-template-columns:minmax(430px,.9fr) minmax(500px,1.1fr)!important;
+    align-items:center!important;
+    gap:clamp(34px,4vw,70px)!important;
+    height:auto!important;
+    min-height:560px!important;
+    position:relative!important;
+  }
+
+  #inicio .hero-content{
+    position:relative!important;
+    z-index:6!important;
+    width:100%!important;
+    max-width:650px!important;
+    padding-top:0!important;
+    align-self:center!important;
+  }
+
+  #inicio .hero-title{
+    max-width:650px!important;
+    margin:0 0 22px!important;
+    font-size:clamp(48px,4.25vw,68px)!important;
+    line-height:.97!important;
+    letter-spacing:-2.7px!important;
+  }
+
+  #inicio .hero-title-line{
+    display:block!important;
+    white-space:normal!important;
+  }
+
+  #inicio .hero-text{
+    max-width:590px!important;
+    margin:0 0 28px!important;
+    font-size:15px!important;
+    line-height:1.68!important;
+  }
+
+  #inicio .hero-image-container,
+  #inicio .hero-image-container.hero-truck-interactive{
+    position:relative!important;
+    inset:auto!important;
+    top:auto!important;
+    right:auto!important;
+    left:auto!important;
+    width:100%!important;
+    height:clamp(430px,38vw,520px)!important;
+    min-height:430px!important;
+    max-height:520px!important;
+    margin:0!important;
+    overflow:hidden!important;
+    border-radius:34px!important;
+    clip-path:none!important;
+    transform:none!important;
+    box-shadow:0 28px 64px rgba(10,39,76,.15)!important;
+    align-self:center!important;
+  }
+
+  #inicio .hero-image-container::before{
+    display:none!important;
+  }
+
+  #inicio .hero-image-container::after{
+    display:block!important;
+    content:""!important;
+    position:absolute!important;
+    inset:0!important;
+    background:linear-gradient(90deg,rgba(237,244,250,.14),transparent 23%)!important;
+    pointer-events:none!important;
+  }
+
+  #inicio .hero-image-container .hero-gear-stage{
+    position:absolute!important;
+    inset:0!important;
+    width:100%!important;
+    height:100%!important;
+    transform:none!important;
+  }
+
+  #inicio .hero-image-container .hero-image{
+    width:100%!important;
+    height:100%!important;
+    object-fit:cover!important;
+    object-position:52% center!important;
+    transform:none!important;
+  }
+
+  #inicio .hero-feature-carousel{
+    clear:both!important;
+    position:relative!important;
+    z-index:12!important;
+    margin:30px auto 0!important;
+  }
+}
+
+/* Laptops: título e imagen siguen lado a lado, sin invadir las tarjetas. */
+@media (min-width:1001px) and (max-width:1280px){
+  #inicio.hero-section{padding-top:104px!important}
+  #inicio .hero-container{
+    grid-template-columns:minmax(390px,.92fr) minmax(470px,1.08fr)!important;
+    gap:30px!important;
+    min-height:530px!important;
+  }
+  #inicio .hero-title{
+    font-size:clamp(46px,4.75vw,61px)!important;
+    letter-spacing:-2.4px!important;
+  }
+  #inicio .hero-image-container,
+  #inicio .hero-image-container.hero-truck-interactive{
+    height:465px!important;
+    min-height:465px!important;
+  }
+  #inicio .hero-feature-carousel{margin-top:24px!important}
+}
+
+/* Tablet y móvil: apilado real; nunca hay contenido debajo de la foto. */
+@media (max-width:1000px){
+  #inicio.hero-section{padding-top:100px!important;padding-bottom:52px!important;min-height:auto!important}
+  #inicio .hero-container{height:auto!important;min-height:0!important;display:flex!important;flex-direction:column!important;gap:26px!important}
+  #inicio .hero-content{width:100%!important;max-width:760px!important;padding-top:0!important}
+  #inicio .hero-title{font-size:clamp(44px,8.2vw,62px)!important;line-height:.98!important;letter-spacing:-2.2px!important;max-width:760px!important}
+  #inicio .hero-image-container,#inicio .hero-image-container.hero-truck-interactive{position:relative!important;inset:auto!important;width:100%!important;height:clamp(320px,55vw,470px)!important;min-height:0!important;max-height:none!important;margin:0!important;overflow:hidden!important;border-radius:28px!important;clip-path:none!important;transform:none!important}
+  #inicio .hero-image-container .hero-gear-stage{position:absolute!important;inset:0!important;width:100%!important;height:100%!important}
+  #inicio .hero-image-container .hero-image{width:100%!important;height:100%!important;object-fit:cover!important;object-position:55% center!important;transform:none!important}
+  #inicio .hero-feature-carousel{margin-top:26px!important}
+}
+
+@media (max-width:600px){
+  #inicio.hero-section{padding-top:88px!important}
+  #inicio .hero-title{font-size:clamp(39px,11vw,53px)!important;letter-spacing:-1.8px!important}
+  #inicio .hero-text{font-size:14px!important;line-height:1.62!important}
+  #inicio .hero-image-container,#inicio .hero-image-container.hero-truck-interactive{height:300px!important;border-radius:22px!important}
+}
+
+/* Chat: el botón debe permanecer visible cuando el modal está cerrado. */
+#chatButton.chat-button{z-index:1201!important}
+.chatbot-overlay{z-index:1300!important}
+.chatbot-overlay:not(.is-open){pointer-events:none!important;visibility:hidden!important;opacity:0!important}
+.chatbot-overlay.is-open{pointer-events:auto!important;visibility:visible!important;opacity:1!important}
+
+/* ===== R3: ajuste definitivo del inicio en laptops 1100–1400px ===== */
+@media (min-width:1001px) and (max-width:1400px){
+  #inicio.hero-section{
+    padding-top:112px!important;
+    padding-bottom:70px!important;
+  }
+  #inicio .hero-container{
+    grid-template-columns:minmax(390px,.88fr) minmax(500px,1.12fr)!important;
+    gap:clamp(26px,3vw,48px)!important;
+    min-height:520px!important;
+  }
+  #inicio .hero-content{max-width:560px!important}
+  #inicio .hero-title{
+    max-width:560px!important;
+    font-size:clamp(44px,4.35vw,60px)!important;
+    line-height:.96!important;
+    letter-spacing:-2.3px!important;
+  }
+  #inicio .hero-text{max-width:535px!important;font-size:14px!important;line-height:1.62!important}
+  #inicio .hero-image-container,#inicio .hero-image-container.hero-truck-interactive{
+    height:440px!important;min-height:440px!important;max-height:440px!important;
+    border-radius:30px!important;
+  }
+  #inicio .hero-feature-carousel{
+    margin-top:34px!important;
+    padding-inline:clamp(26px,4vw,58px)!important;
+  }
+  #inicio .hero-feature-carousel-window{overflow:hidden!important}
+}
+@media (min-width:1001px) and (max-width:1200px){
+  #inicio .hero-container{
+    grid-template-columns:minmax(360px,.9fr) minmax(440px,1.1fr)!important;
+    min-height:500px!important;
+    gap:24px!important;
+  }
+  #inicio .hero-title{font-size:clamp(41px,4.5vw,54px)!important;max-width:500px!important}
+  #inicio .hero-text{max-width:480px!important}
+  #inicio .hero-image-container,#inicio .hero-image-container.hero-truck-interactive{height:410px!important;min-height:410px!important;max-height:410px!important}
+}
+
+/* El botón y la invitación de Tuky jamás deben quedar debajo de la landing. */
+#chatButton.chat-button{display:flex!important;visibility:visible!important;opacity:1!important;z-index:1401!important}
+.chat-invite{z-index:1400!important}
+.chatbot-overlay{z-index:1500!important}
+.chatbot-overlay-shell{background:#fff!important;overflow:hidden!important}
+#chatbotFrame{display:block!important;width:100%!important;height:100%!important;border:0!important;background:#fff!important}
