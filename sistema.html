@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
-  <link rel="stylesheet" href="/css/sistema.css?v=3">
+  <link rel="stylesheet" href="/css/sistema.css?v=8">
 </head>
 <body>
   <div class="system-shell">
@@ -21,8 +21,42 @@
     </aside>
 
     <main class="system-main">
+      <div class="prototype-meta" aria-label="Información de la sesión">
+        <div class="prototype-date">
+          <i data-lucide="calendar-days"></i>
+          <span id="topDate">Cargando fecha...</span>
+        </div>
+        <div class="prototype-meta-actions">
+          <div class="top-action-wrap">
+            <button class="prototype-bell top-action-button" id="notificationButton" type="button" aria-label="Abrir notificaciones" aria-expanded="false">
+              <i data-lucide="bell"></i><b id="notificationDot" hidden></b><span class="notification-count" id="notificationCount" hidden>0</span>
+            </button>
+            <div class="top-popover notification-popover" id="notificationPopover" hidden>
+              <div class="popover-header"><div><span class="popover-eyebrow">CENTRO DE AVISOS</span><strong>Notificaciones</strong></div><button class="icon-button popover-close" type="button" data-close-popover aria-label="Cerrar"><i data-lucide="x"></i></button></div>
+              <div id="notificationPreview" class="notification-preview"><div class="popover-loading">Cargando avisos...</div></div>
+              <div class="popover-footer"><button class="btn small" type="button" data-action="leer-todas-notificaciones">Marcar todas leídas</button><button class="btn small primary" type="button" data-action="ver-todas-notificaciones">Ver todas</button></div>
+            </div>
+          </div>
+          <span class="prototype-divider" aria-hidden="true"></span>
+          <div class="top-action-wrap">
+            <button class="prototype-user-trigger" id="userMenuButton" type="button" aria-label="Abrir menú de usuario" aria-expanded="false">
+              <span class="prototype-avatar" aria-hidden="true"><i data-lucide="user-round"></i></span>
+              <span class="prototype-user-copy"><strong id="topUser">Usuario SEPRIGUA</strong><small id="topRole">Portal operativo</small></span>
+              <i class="user-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+            </button>
+            <div class="top-popover user-popover" id="userPopover" hidden>
+              <div class="user-popover-card"><span class="prototype-avatar large"><i data-lucide="user-round"></i></span><div><strong id="userPopoverName">Usuario SEPRIGUA</strong><small id="userPopoverEmail">Cuenta del sistema</small><em id="userPopoverRole">Portal operativo</em></div></div>
+              <button class="popover-menu-item" type="button" data-action="abrir-cuenta"><i data-lucide="user-cog"></i><span><strong>Mi cuenta</strong><small>Datos, contraseña y sesiones</small></span></button>
+              <button class="popover-menu-item" type="button" data-action="ver-todas-notificaciones"><i data-lucide="bell-ring"></i><span><strong>Notificaciones</strong><small>Revisar avisos pendientes</small></span></button>
+              <button class="popover-menu-item danger" type="button" data-action="cerrar-sesion"><i data-lucide="log-out"></i><span><strong>Cerrar sesión</strong><small>Salir de forma segura</small></span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <header class="system-topbar">
         <button class="menu-button" id="menuButton" type="button" aria-label="Abrir menú"><i data-lucide="menu"></i></button>
+        <div class="module-hero-icon" id="moduleHeroIcon" aria-hidden="true"><i data-lucide="layout-dashboard"></i></div>
         <div class="heading-block">
           <span class="eyebrow" id="pageEyebrow">PORTAL SEPRIGUA</span>
           <h1 id="pageTitle">Cargando...</h1>
@@ -45,6 +79,6 @@
   </div>
   <div class="toast" id="toast" hidden></div>
 
-  <script src="/java/sistema.js?v=6"></script>
+  <script src="/java/sistema.js?v=11"></script>
 </body>
 </html>
