@@ -1,56 +1,12 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const header = document.getElementById("header");
   const aboutSection = document.getElementById("nosotros");
   const aboutText = aboutSection?.querySelector(".about-text");
 
   if (!aboutSection) return;
 
-  const visualTargets = {
-    inicio: document.getElementById("inicio"),
-    nosotros: document.querySelector("#nosotros .about-top"),
-    servicios: document.querySelector("#servicios .services-heading"),
-    cobertura: document.querySelector("#cobertura .coverage-grid"),
-    trabajos: document.querySelector("#trabajos .work-top"),
-    contacto: document.querySelector("#contacto .contact-main")
-  };
-
   const reducedMotion = window.matchMedia?.(
     "(prefers-reduced-motion: reduce)"
   ).matches;
-
-  /* =======================================================
-     NAVBAR: conservar la corrección del espacio en blanco
-     ======================================================= */
-
-  const getHeaderBottom = () => {
-    if (!header) return 88;
-
-    const rect = header.getBoundingClientRect();
-    return Math.max(72, rect.bottom);
-  };
-
-  const scrollToVisualTarget = (
-    id,
-    behavior = "smooth"
-  ) => {
-    const target = visualTargets[id];
-
-    if (!target) return;
-
-    const gap = id === "inicio" ? 0 : 18;
-
-    const targetY =
-      window.scrollY +
-      target.getBoundingClientRect().top -
-      getHeaderBottom() -
-      gap;
-
-    window.scrollTo({
-      top: Math.max(0, targetY),
-      behavior
-    });
-  };
-
 
   /* =======================================================
      CONTADORES — CONTROLADOS POR V44
@@ -246,102 +202,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
   /* =======================================================
-     CLIC EN NAV
+     NAVEGACIÓN
      ======================================================= */
 
-  document
-    .querySelectorAll(
-      '.nav-link[href^="#"], .logo-container[href^="#"]'
-    )
-    .forEach((link) => {
-      link.addEventListener(
-        "click",
-        (event) => {
-          const href =
-            link.getAttribute("href");
+  /*
+    La navegación de anclas vive únicamente en
+    navbar-gear-indicator.js. Este archivo se limita a reproducir
+    la animación de Nosotros cuando el navegador le avisa que esa
+    sección fue seleccionada. Así evitamos dos scripts intentando
+    mover la página al mismo tiempo.
+  */
+  window.addEventListener("seprigua:section-navigate", (event) => {
+    if (event.detail?.id !== "nosotros") return;
 
-          if (!href || href === "#") return;
-
-          const id = href.slice(1);
-
-          if (!visualTargets[id]) return;
-
-          event.preventDefault();
-
-          history.pushState(
-            null,
-            "",
-            `#${id}`
-          );
-
-          scrollToVisualTarget(
-            id,
-            "smooth"
-          );
-
-          if (id === "nosotros") {
-            window.setTimeout(
-              replayAboutSequence,
-              310
-            );
-          }
-        }
-      );
-    });
-
-
-  /* =======================================================
-     HASH / RECARGA
-     ======================================================= */
-
-  const alignCurrentHash = (
-    behavior = "auto"
-  ) => {
-    const id =
-      window.location.hash
-        .replace("#", "")
-        .trim();
-
-    if (!id || !visualTargets[id]) return;
-
-    scrollToVisualTarget(
-      id,
-      behavior
+    armed = false;
+    window.setTimeout(
+      replayAboutSequence,
+      reducedMotion ? 0 : 260
     );
-
-    if (id === "nosotros") {
-      window.setTimeout(
-        replayAboutSequence,
-        behavior === "auto" ? 120 : 330
-      );
-    }
-  };
-
-  window.setTimeout(
-    () => alignCurrentHash("auto"),
-    80
-  );
-
-  window.addEventListener(
-    "load",
-    () => {
-      window.setTimeout(
-        () => alignCurrentHash("auto"),
-        90
-      );
-    },
-    { once: true }
-  );
-
-  window.addEventListener(
-    "hashchange",
-    () => {
-      window.setTimeout(
-        () => alignCurrentHash("smooth"),
-        30
-      );
-    }
-  );
+  });
 
 
   /* =======================================================

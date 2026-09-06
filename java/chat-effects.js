@@ -106,16 +106,16 @@ document.addEventListener("DOMContentLoaded", () => {
         <i data-lucide="messages-square"></i>
       </span>
 
-      <strong>¿Necesitas ayuda?</strong>
+      <strong>¿Necesitas ayuda? Soy Tuky</strong>
 
       <p>
-        Habla con nuestro chatbot y cuéntanos qué servicio necesitas.
+        Pregúntale a Tuky por servicios, emergencias, cotizaciones, garantía o cobertura.
       </p>
 
       <button
         class="chat-invite__close"
         type="button"
-        aria-label="Cerrar invitación del chat"
+        aria-label="Cerrar invitación de Tuky"
       >
         <i data-lucide="x"></i>
       </button>
