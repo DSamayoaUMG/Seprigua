@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SEPRIGUA - Asistente virtual</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
+:root{--navy:#092454;--navy2:#07377f;--red:#ef1743;--green:#18bd4b;--border:#dfe5ee;--text:#18345d;--muted:#64748b;--soft:#f7f9fc;--ink:#102d55}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;font-family:Manrope,Inter,Arial,Helvetica,sans-serif;background:#f3f5f9;color:var(--text)}
+body{min-height:100vh}
+.launcher{position:fixed;right:28px;bottom:28px;width:62px;height:62px;border:0;border-radius:50%;background:var(--navy);box-shadow:0 10px 30px rgba(9,36,84,.32);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:1000}.launcher svg{width:27px;height:27px}
+.chat-widget{position:fixed;right:28px;bottom:28px;width:400px;height:min(720px,calc(100vh - 40px));min-height:560px;background:#fff;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;z-index:999;box-shadow:0 16px 44px rgba(17,32,58,.30);border:1px solid #d8e0eb;opacity:0;transform:translateY(12px) scale(.985);pointer-events:none;transition:.18s ease}.chat-widget.open{opacity:1;transform:none;pointer-events:auto}
+.chat-header{height:68px;min-height:68px;background:linear-gradient(180deg,#0a285e,#082352);color:#fff;padding:10px 13px;display:flex;align-items:center;gap:10px;position:relative;overflow:hidden}.chat-header:before{content:"";position:absolute;width:250px;height:70px;right:-75px;top:13px;border-top:2px solid rgba(239,23,67,.95);border-radius:55% 45% 0 0;transform:rotate(-13deg);opacity:.95}.chat-header:after{content:"";position:absolute;width:170px;height:48px;right:-18px;top:24px;background:linear-gradient(135deg,transparent 0 28%,#ef1743 29% 57%,transparent 58%);transform:skewX(-20deg) rotate(-5deg);opacity:.9}.chat-header>*{position:relative;z-index:2}.chat-header .avatar{width:44px;height:44px;min-width:44px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #edf1f7}.chat-header .avatar img{width:38px;height:30px;object-fit:contain}.titles{flex:1;min-width:0}.chat-header .brand{font-size:14px;font-weight:700;line-height:1.15}.chat-header .role{font-size:11px;color:#d9e4fb;line-height:1.25}.chat-header .status{font-size:10px;color:#7fe29b;display:flex;gap:5px;align-items:center}.chat-header .status .dot{width:7px;height:7px;background:#19c94c;border-radius:50%}.actions{display:flex;gap:2px}.actions button{width:30px;height:34px;background:transparent;border:0;color:white;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:7px}.actions button:hover{background:rgba(255,255,255,.12)}.actions svg{width:17px;height:17px}
+.chat-body{flex:1;overflow-y:auto;padding:13px 14px 10px;background:#fff;display:flex;flex-direction:column;gap:9px;scroll-behavior:smooth}.chat-body::-webkit-scrollbar{width:6px}.chat-body::-webkit-scrollbar-thumb{background:#cdd6e4;border-radius:4px}
+.user-row{display:flex;justify-content:flex-end}.user-bubble{background:var(--navy2);color:#fff;max-width:76%;padding:9px 11px;border-radius:11px 11px 3px 11px;font-size:12px;font-weight:700;line-height:1.28}.time{font-size:8px;color:#8490a4;text-align:right;margin-top:3px}.user-row .time{color:#9ba8be}
+.bot-row{display:flex;align-items:flex-start;gap:8px}.bot-avatar{width:30px;height:30px;min-width:30px;border-radius:50%;background:#fff;border:1px solid #edf0f5;display:flex;align-items:center;justify-content:center;overflow:hidden}.bot-avatar img{width:26px;height:21px;object-fit:contain}.bot-bubble{background:#f7f8fb;border:1px solid #edf0f4;border-radius:3px 11px 11px 11px;padding:9px 11px;max-width:84%;font-size:11.5px;line-height:1.4;color:#28446b}.bot-bubble b{color:var(--navy2)}
+.root-title{font-size:20px;font-weight:800;color:#172d50;margin:7px 1px 6px}.root-text{font-size:12px;line-height:1.5;color:#314766;margin:0 1px}.root-text b{color:var(--navy2)}
+.options-list{display:flex;flex-direction:column;gap:8px}.option-card{font:inherit;text-align:left;color:inherit;border:1px solid #e2e7ee;border-radius:11px;background:#fff;min-height:58px;padding:8px 11px;display:flex;align-items:center;gap:10px;cursor:pointer;box-shadow:0 1px 3px rgba(20,35,60,.045);transition:.12s}.option-card:hover{border-color:#a9bddc;background:#fbfdff;transform:translateY(-1px)}.icon-badge{width:40px;height:40px;min-width:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#f1f6ff;color:var(--navy2);border:1px solid #dbe7f8}.icon-badge svg{width:21px;height:21px}.texts{flex:1;min-width:0}.title{font-size:13px;font-weight:800;color:#173764;line-height:1.2}.subtitle{font-size:10.5px;color:#65768e;line-height:1.25;margin-top:3px}.chev{color:#1d4b90}.chev svg{width:17px;height:17px}
+.promo-card{border:1px solid #ffc6cf;background:#fff9fa;border-radius:11px;padding:12px;margin-top:2px}.promo-head{display:flex;align-items:center;gap:7px;color:#f11943;font-weight:800;font-size:13px}.promo-head svg{width:22px;height:22px}.promo-card p{font-size:10.5px;line-height:1.42;color:#4d596c;margin:5px 0 9px}.btn-whatsapp{width:100%;height:38px;border:0;border-radius:19px;background:#19bb43;color:#fff;font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;text-decoration:none}.btn-whatsapp svg{width:18px;height:18px}.promo-caption{text-align:center;color:#7b8798;font-size:9px;margin-top:5px}
+.detail-card,.map-card{border:1px solid #e2e7ee;border-radius:11px;background:#fff;padding:12px}.detail-head{display:flex;gap:10px;align-items:flex-start}.detail-head .icon-badge{width:42px;height:42px;min-width:42px}.detail-title{font-size:14px;font-weight:800;color:#12386e;line-height:1.18}.detail-desc{font-size:10px;line-height:1.4;color:#52667f;margin-top:4px}.section-label{font-size:10.5px;font-weight:800;color:#12386e;margin:9px 0 5px}.checklist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}.checklist li{display:flex;gap:6px;align-items:flex-start;font-size:9.5px;line-height:1.35;color:#304964}.checklist li svg{width:12px;height:12px;color:#16bd4b;min-width:12px;margin-top:1px}.benefit-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.benefit-item{border:1px solid #e5eaf1;border-radius:8px;padding:6px 4px;text-align:center;font-size:8.5px;line-height:1.18;color:#415671}.benefit-item .dot-icon{width:24px;height:24px;border-radius:50%;background:#eef5ff;color:var(--navy2);display:flex;align-items:center;justify-content:center;margin:0 auto 3px}.benefit-item svg{width:13px;height:13px}.tag-grid{display:flex;flex-wrap:wrap;gap:5px}.tag-chip{background:#edf5ff;border-radius:12px;padding:5px 7px;display:flex;align-items:center;gap:4px;font-size:8.5px;color:#244d83;font-weight:700}.tag-chip svg{width:11px;height:11px}.two-col{display:grid;grid-template-columns:1fr 1.12fr;gap:8px}.spec-box{background:#eaf3ff;border-radius:8px;padding:7px 8px;display:flex;gap:7px;align-items:center;margin-top:8px}.spec-box svg{width:17px;height:17px;color:var(--navy2)}.spec-title{font-size:10px;font-weight:800;color:#133c77}.spec-desc{font-size:8.5px;color:#5a6e87;line-height:1.25;margin-top:2px}
+.coverage-card{position:relative;overflow:hidden;background:linear-gradient(145deg,#fafdff,#eef5ff);border:1px solid #d8e4f4;border-radius:14px;padding:10px;box-shadow:0 8px 22px rgba(9,36,84,.09)}.coverage-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px}.coverage-kicker{font-size:8.5px;color:#6a7d96;font-weight:700;text-transform:uppercase;letter-spacing:.08em}.coverage-title{font-size:13px;font-weight:800;color:#12386e;margin-top:2px}.coverage-hint{font-size:8px;color:#718198;text-align:right}.map-stage{position:relative;height:300px;border-radius:11px;background:radial-gradient(circle at 50% 44%,#ffffff 0,#f2f7ff 60%,#e6eef9 100%);border:1px solid #d8e4f2;box-shadow:inset 0 1px 0 #fff,0 5px 15px rgba(15,44,85,.07);overflow:hidden}.map-stage:after{content:"";position:absolute;inset:0;background:linear-gradient(125deg,rgba(255,255,255,.35),transparent 38%,rgba(7,55,127,.025));pointer-events:none;z-index:5}.map-art{position:absolute;inset:0;z-index:1}.map-reference{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;display:block}
+/* El mapa interactivo se colorea mediante los departamentos SVG */
+.map-reference{opacity:0;pointer-events:none}.map-hit-layer{position:absolute;inset:0;width:100%;height:100%;overflow:visible}.dept-hit{fill:rgba(9,36,84,0);stroke:rgba(255,255,255,.85);stroke-width:2;vector-effect:non-scaling-stroke;cursor:pointer;pointer-events:all;transition:fill-opacity .16s ease,filter .16s ease}.dept-hit:hover,.dept-hit.hover{fill:#092454;fill-opacity:.92;filter:drop-shadow(0 3px 5px rgba(9,36,84,.25))}.dept-hit.active{fill:#092454;fill-opacity:.95;stroke:#ffffff;stroke-width:2.4;filter:drop-shadow(0 4px 6px rgba(9,36,84,.28))}.map-info{position:absolute;right:9px;top:10px;width:132px;z-index:6}.map-info-card{background:rgba(255,255,255,.94);border:1px solid #dce6f2;border-radius:10px;padding:8px;box-shadow:0 6px 15px rgba(9,36,84,.08);margin-bottom:7px}.map-info-card b{display:block;color:#12386e;font-size:9.5px;margin-bottom:3px}.map-info-card span{display:block;color:#60728a;font-size:8px;line-height:1.35}.coverage-selected{margin-top:7px;min-height:34px;border-radius:9px;background:#092454;color:#fff;padding:7px 9px;font-size:8.5px;line-height:1.25;box-shadow:0 5px 13px rgba(9,36,84,.16)}.coverage-selected strong{display:block;font-size:9.5px}.coverage-legend{display:flex;gap:7px;align-items:center;margin-top:7px;font-size:7.5px;color:#64748b}.legend-dot{width:7px;height:7px;border-radius:50%;background:#9fc4f3}.legend-pin{width:7px;height:7px;border-radius:50%;background:#092454}.sede{margin-bottom:6px}.map-info{position:absolute;right:9px;top:10px;width:132px;z-index:3}.map-info-card{background:rgba(255,255,255,.94);border:1px solid #dce6f2;border-radius:10px;padding:8px;box-shadow:0 6px 15px rgba(9,36,84,.08);margin-bottom:7px}.map-info-card b{display:block;color:#12386e;font-size:9.5px;margin-bottom:3px}.map-info-card span{display:block;color:#60728a;font-size:8px;line-height:1.35}.coverage-selected{margin-top:7px;min-height:34px;border-radius:9px;background:#092454;color:#fff;padding:7px 9px;font-size:8.5px;line-height:1.25;box-shadow:0 5px 13px rgba(9,36,84,.16)}.coverage-selected strong{display:block;font-size:9.5px}.coverage-legend{display:flex;gap:7px;align-items:center;margin-top:7px;font-size:7.5px;color:#64748b}.legend-dot{width:7px;height:7px;border-radius:50%;background:#18bd4b}.legend-pin{width:7px;height:7px;border-radius:50%;background:#ef1743}.sede{margin-bottom:8px}.sede-name{font-size:9px;font-weight:800;color:#163d75;display:flex;gap:4px;align-items:center}.sede-name svg{width:12px;height:12px;color:var(--red)}.sede-desc{font-size:8.5px;line-height:1.35;color:#5e6e83;margin:3px 0}.dept-list{list-style:none;margin:3px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:3px}.dept-list li{font-size:7.5px;display:flex;gap:3px;align-items:center;margin:0;color:#3d5675}.dept-list svg{width:9px;height:9px;color:#18bd4b}
+.quick-actions{display:flex;gap:5px;padding:7px 0 0}.quick-actions button{flex:1;min-width:0;min-height:38px;padding:4px 3px;border:1px solid #aebdd3;border-radius:8px;background:#fff;color:#183a68;font-size:8.5px;font-weight:800;line-height:1.08;cursor:pointer}.quick-actions button:hover{background:#f1f6ff}.footer-actions{display:flex;flex-direction:column;gap:6px;margin-top:7px}.action-btn{height:34px;border:1px solid #aabbd3;background:#fff;border-radius:9px;color:#173e75;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer}.action-btn.primary{background:#13b93e;border-color:#13b93e;color:#fff}.action-btn svg{width:14px;height:14px}.wa-card{background:#f3fbf5;border:1px solid #bfe8ca;border-radius:11px;padding:12px}.wa-title{font-size:13px;font-weight:800;color:#0d7c3b}.wa-card p{font-size:10px;line-height:1.42;color:#466052;margin:5px 0 9px}.link-note{border:1px solid #e2e7ee;border-radius:9px;padding:9px;display:flex;gap:7px;background:#fff;margin-top:7px}.link-note>svg{width:15px;height:15px;color:#718096;min-width:15px}.lt{font-size:10px;font-weight:800;color:#2a405d}.ld{font-size:9px;color:#65758a;line-height:1.3;margin:3px 0 5px}.link-note a{font-size:9px;color:#123f7a;font-weight:800;text-decoration:none;display:flex;gap:4px;align-items:center}.link-note a svg{width:11px;height:11px}.wa-thanks{text-align:center;font-size:9px;color:#69798d;margin:6px 0}
+#inputHint{font-size:10px;color:#6d7d91;background:#fff;padding:4px 14px}#inputHint[hidden]{display:none}
+.chat-input{display:flex;gap:8px;padding:11px 12px;background:#fff;border-top:1px solid #dfe5ed;flex-shrink:0;min-height:66px}.chat-input input{flex:1;height:44px;border:1px solid #d7dfe9;border-radius:11px;padding:0 13px;outline:none;font-size:13px;color:#1c3558;background:#fff}.chat-input input::placeholder{color:#8794a6}.chat-input input:focus{border-color:#7394c5;box-shadow:0 0 0 3px rgba(7,55,127,.08)}.chat-input button{width:44px;height:44px;border:0;border-radius:11px;background:#092454;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}.chat-input button:hover{background:#07377f}.chat-input button svg{width:18px;height:18px}
+.coverage-result{margin-top:7px;padding:7px 9px;border:1px solid #dce6f2;border-radius:9px;background:#fff;font-size:8.5px;color:#49627f}.coverage-result b{color:#12386e}.coverage-result .ok{color:#129b3c;font-weight:800}.coverage-result .no{color:#d3133d;font-weight:800}
+@media(max-width:600px){.chat-widget{right:10px;bottom:10px;width:calc(100vw - 20px);height:calc(100vh - 20px);min-height:0;border-radius:15px}.launcher{right:18px;bottom:18px}.chat-header{height:64px;min-height:64px}.chat-body{padding:11px 11px 9px}.chat-input{padding:10px;min-height:62px}.chat-input input{height:42px;font-size:13px}.chat-input button{width:42px;height:42px}.equipment-img{height:92px}.equipment-detail-image{height:145px}}
+@media(max-height:700px) and (min-width:601px){.chat-widget{height:calc(100vh - 24px);bottom:12px}.chat-body{padding:10px 12px 8px}.chat-header{height:62px;min-height:62px}.chat-input{min-height:60px;padding:8px 10px}.chat-input input,.chat-input button{height:40px}.equipment-img{height:88px}.equipment-detail-image{height:125px}}
+
+/* ===== SEPRIGUA — refinamiento premium v4 ===== */
+.chat-widget{width:450px;height:min(780px,calc(100vh - 28px));min-height:600px;border-radius:20px;box-shadow:0 22px 65px rgba(9,36,84,.24)}
+.chat-header{height:76px;min-height:76px;padding:11px 14px;box-shadow:0 4px 16px rgba(4,25,61,.16)}
+.chat-header:before{animation:sepriguaLine 4.8s ease-in-out infinite alternate}
+.chat-header:after{animation:sepriguaGlow 3.2s ease-in-out infinite alternate}
+@keyframes sepriguaLine{0%{transform:translateX(0) rotate(-13deg);opacity:.55}50%{transform:translateX(-25px) rotate(-9deg);opacity:1}100%{transform:translateX(10px) rotate(-16deg);opacity:.7}}
+@keyframes sepriguaGlow{0%{opacity:.45;filter:blur(.1px)}100%{opacity:1;filter:drop-shadow(0 0 7px rgba(239,23,67,.28))}}
+.chat-header .brand{font-size:15px;letter-spacing:.01em}.chat-header .role{font-size:10.5px;letter-spacing:.01em}.chat-header .status{font-size:9.5px}
+.chat-body{padding:15px 15px 12px;gap:10px;scrollbar-width:none}.chat-body::-webkit-scrollbar{display:none}
+.root-title{font-size:21px;letter-spacing:-.03em;margin:5px 1px 5px}.root-text{font-size:11.5px;line-height:1.5}
+.options-list{gap:9px;margin-top:9px}.option-card{min-height:68px;padding:10px 12px;border-radius:14px;border-color:#e3e9f1;position:relative;overflow:hidden}.option-card:after{content:"";position:absolute;right:-24px;top:-28px;width:82px;height:82px;border:1px solid rgba(7,55,127,.07);border-radius:50%;pointer-events:none}.option-card:hover{border-color:#b9cae2;background:linear-gradient(135deg,#fff,#f8fbff);box-shadow:0 9px 22px rgba(9,36,84,.08)}
+.option-card .icon-badge{width:45px;height:45px;min-width:45px;border-radius:13px;background:linear-gradient(145deg,#eef5ff,#e6effc);box-shadow:inset 0 1px 0 #fff;border-color:#d6e3f6}.option-card .icon-badge svg{width:23px;height:23px}.option-card[data-a="s"] .icon-badge{color:#0b3f89}.option-card[data-a="c"] .icon-badge{color:#123b75}.option-card[data-a="t"] .icon-badge{color:#092454}.option-card .title{font-size:13.2px}.option-card .subtitle{font-size:10.3px}
+.chev{width:30px;height:30px;border-radius:9px;background:#f3f7fc;display:flex;align-items:center;justify-content:center}.chev svg{width:16px;height:16px}
+.promo-card{margin-top:5px;border-radius:14px;padding:12px 13px;background:linear-gradient(135deg,#fff9fa,#fff);box-shadow:0 7px 18px rgba(239,23,67,.055)}
+.promo-head{font-size:12.5px}.promo-card p{font-size:10px}
+/* Cobertura: mapa + información separados, como la referencia */
+.coverage-card{padding:12px;background:linear-gradient(145deg,#fff,#f4f8fd);border-radius:16px;box-shadow:0 10px 26px rgba(9,36,84,.075)}
+.coverage-head{margin-bottom:10px}.coverage-head .coverage-title{font-size:14px}.coverage-head .coverage-kicker{font-size:8px}.coverage-hint{font-size:8px}
+.coverage-layout{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(145px,.95fr);gap:11px;align-items:stretch}
+.map-panel{min-width:0}.map-stage{height:330px;background:radial-gradient(circle at 50% 44%,#fff 0,#f4f8fd 63%,#e8eff8 100%);border-radius:13px}.map-stage:after{z-index:4}
+.map-reference{object-fit:contain;padding:7px}.map-hit-layer{z-index:3}.dept-hit{stroke:rgba(255,255,255,.82);stroke-width:1.8}.dept-hit.covered{fill:#8d98a7;fill-opacity:.78;stroke:#fff}.dept-hit.covered:hover,.dept-hit.covered.hover,.dept-hit.covered.active{fill:#092454;fill-opacity:.96}.dept-hit:hover,.dept-hit.hover{fill:#092454;fill-opacity:.93}
+.coverage-side{display:flex;flex-direction:column;gap:8px}.coverage-side-card{background:rgba(255,255,255,.94);border:1px solid #dfe7f1;border-radius:13px;padding:10px;box-shadow:0 6px 16px rgba(9,36,84,.055)}.coverage-side-title{display:flex;gap:7px;align-items:flex-start;color:#153b72;font-weight:800;font-size:10.5px;line-height:1.2}.coverage-side-title .pin-mini{width:22px;height:22px;min-width:22px;border-radius:50%;background:#092454;color:#fff;display:flex;align-items:center;justify-content:center}.coverage-side-title svg{width:12px;height:12px}.coverage-side-desc{font-size:8.5px;line-height:1.4;color:#61718a;margin-top:6px}.coverage-list{list-style:none;padding:0;margin:7px 0 0;display:grid;grid-template-columns:1fr;gap:4px}.coverage-list li{display:flex;gap:5px;align-items:center;font-size:8.2px;color:#314d72}.coverage-list li svg{width:10px;height:10px;color:#ef1743;fill:#ef1743;stroke:#fff;stroke-width:1.8}
+.coverage-status{min-height:92px;border:1px dashed #ccd8e7;border-radius:13px;background:#fbfcfe;padding:10px;display:flex;flex-direction:column;justify-content:center;opacity:0;transform:translateY(5px);pointer-events:none;transition:.18s ease}.coverage-status.show{opacity:1;transform:none}.coverage-status .status-label{font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:#7b899c;font-weight:800}.coverage-status .status-title{font-size:12px;color:#092454;font-weight:800;margin-top:3px}.coverage-status .status-copy{font-size:8.7px;line-height:1.35;color:#5c6d84;margin-top:4px}.coverage-status.ok{border-style:solid;border-color:#cfe8d6;background:#f8fcf9}.coverage-status.ok .status-title{color:#15763b}.coverage-status.no{border-style:solid;border-color:#f0d6da;background:#fffafb}.coverage-status.no .status-title{color:#c51c3f}
+.coverage-legend{margin-top:9px;font-size:7.8px;gap:10px}.legend-dot{background:#8d98a7}.legend-pin{background:#092454}.coverage-result{display:none!important}.coverage-selected{display:none!important}
+/* Tarjetas de detalle: presentación visual */
+/* Botones de acción sin barra de navegación persistente */
+.footer-actions{position:static;display:flex;gap:7px;margin-top:10px}.footer-actions .action-btn{border-radius:11px;min-height:35px;font-size:9.5px}
+/* Primera pantalla: eliminar el espacio vacío bajo Atención inmediata y aprovechar el alto disponible */
+.chat-body.root-home{display:flex;flex-direction:column;min-height:0}
+.chat-body.root-home .promo-card{margin-top:auto;margin-bottom:0}
+.chat-body.root-home .promo-caption{margin-bottom:0}
+
+@media (max-width:700px){.chat-widget{right:10px;bottom:10px;width:calc(100vw - 20px);height:calc(100vh - 20px);min-height:0}.coverage-layout{grid-template-columns:1fr}.map-stage{height:285px}.coverage-side{display:grid;grid-template-columns:1fr 1fr}.coverage-status{grid-column:1/-1}}
+@media (max-width:430px){.coverage-side{display:flex}.map-stage{height:270px}.chat-body{padding:12px}.root-title{font-size:19px}}
+
+/* ===== SEPRIGUA — refinamiento visual v4 ===== */
+.chat-header{height:78px;min-height:78px;padding:12px 14px;isolation:isolate}
+.header-motion-lines{position:absolute;inset:0;pointer-events:none;z-index:1;overflow:hidden}
+.header-motion-lines i{position:absolute;display:block;width:310px;height:90px;border:1.4px solid rgba(239,23,67,.55);border-left-color:transparent;border-bottom-color:transparent;border-radius:60% 55% 0 0;right:-125px;top:8px;transform:rotate(-13deg);animation:sepriguaLine 9s ease-in-out infinite}
+.header-motion-lines i:nth-child(2){width:350px;height:104px;right:-150px;top:13px;opacity:.72;animation-delay:-1.8s}
+.header-motion-lines i:nth-child(3){width:390px;height:118px;right:-175px;top:18px;opacity:.38;animation-delay:-3.4s}
+.header-motion-lines i:nth-child(4){width:430px;height:132px;right:-205px;top:23px;opacity:.22;animation-delay:-5s}
+.header-motion-lines i:nth-child(5){width:470px;height:146px;right:-235px;top:28px;opacity:.12;animation-delay:-6.5s}
+@keyframes sepriguaLine{0%,100%{transform:translateX(0) rotate(-13deg);opacity:.25}50%{transform:translateX(-22px) rotate(-10deg);opacity:.72}}
+.chat-header:before{width:330px;height:88px;right:-100px;top:10px;opacity:.55}
+.chat-header:after{width:210px;height:60px;right:-30px;top:28px;opacity:.5}
+.chat-header .avatar{width:46px;height:46px;min-width:46px}.chat-header .avatar img{width:40px;height:32px}.chat-header .brand{font-size:15px}.chat-header .role{font-size:11.5px}.chat-header .status{font-size:10.5px}
+.chat-body{padding:12px 14px 7px;gap:8px;scrollbar-width:none}.chat-body::-webkit-scrollbar{width:0;height:0}.chat-input{min-height:58px;padding:8px 10px 10px;border-top:1px solid #edf1f6;gap:7px}.chat-input input{height:42px}.chat-input button{height:42px;width:42px}
+.root-title{margin-top:3px}.options-list{gap:7px}.option-card{min-height:55px;padding:7px 10px}.icon-badge{width:39px;height:39px;min-width:39px}.promo-card{margin-top:0;padding:10px}.promo-card p{margin:4px 0 7px}.btn-whatsapp{height:36px}
+/* Cobertura: un solo mapa, sin tarjetas encima del mapa */
+.coverage-card{padding:9px;background:linear-gradient(145deg,#fbfdff,#f0f6fd)}.coverage-layout{grid-template-columns:minmax(0,1.35fr) minmax(130px,.65fr);gap:9px}.map-stage{height:315px;background:#f8fbff}.map-reference{object-fit:contain;padding:0}.map-hit-layer{z-index:4}.map-panel{min-width:0}.coverage-side{display:flex;flex-direction:column;gap:7px}.coverage-side-card{padding:8px;border-radius:10px}.coverage-side-title{font-size:9px}.coverage-side-desc{font-size:8px}.coverage-list{gap:2px}.coverage-list li{font-size:7.8px}.coverage-status{display:none!important}.coverage-legend{margin-top:5px}
+.dept-hit{stroke:rgba(255,255,255,.9);stroke-width:1.7}.dept-hit.covered{fill:#8e99a8;fill-opacity:.88}.dept-hit.covered:hover,.dept-hit.covered.hover,.dept-hit.covered.active{fill:#092454;fill-opacity:.97}.dept-hit:hover,.dept-hit.hover{fill:#092454;fill-opacity:.94}
+.coverage-tooltip{position:absolute;z-index:20;display:none;min-width:126px;max-width:170px;pointer-events:none;transform:translate(12px,12px);filter:drop-shadow(0 8px 18px rgba(9,36,84,.2))}.coverage-tooltip.show{display:block;animation:tooltipIn .14s ease-out}.coverage-tooltip .pin-shape{position:absolute;left:10px;top:10px;width:28px;height:28px;border-radius:50% 50% 50% 0;background:#092454;transform:rotate(-45deg);box-shadow:0 4px 9px rgba(9,36,84,.25)}.coverage-tooltip .pin-shape svg{position:absolute;inset:6px;transform:rotate(45deg);color:#fff;width:16px;height:16px}.coverage-tooltip .tooltip-body{margin-left:26px;background:#fff;border:1px solid #d9e3ef;border-radius:10px;padding:7px 9px 7px 11px}.coverage-tooltip .tooltip-kicker{font-size:7px;color:#7a899d;text-transform:uppercase;letter-spacing:.08em;font-weight:800}.coverage-tooltip .tooltip-name{font-size:10.5px;color:#12386e;font-weight:800;margin-top:1px}.coverage-tooltip .tooltip-sub{font-size:7.5px;color:#63748a;margin-top:2px}
+@keyframes tooltipIn{from{opacity:0;transform:translate(12px,15px) scale(.96)}to{opacity:1;transform:translate(12px,12px) scale(1)}}
+/* Recursos visuales: imágenes completas, sin recorte */
+@media(max-width:700px){.chat-header{height:74px;min-height:74px}.coverage-layout{grid-template-columns:1fr}.map-stage{height:280px}.coverage-side{display:grid;grid-template-columns:1fr 1fr}.coverage-status{display:none!important}.equipment-img-wrap{height:118px}.equipment-detail-image-wrap{height:190px}}
+@media(max-height:700px) and (min-width:701px){.chat-header{height:72px;min-height:72px}.map-stage{height:260px}.equipment-img-wrap{height:108px}.equipment-detail-image-wrap{height:180px}}
+
+
+/* ===== Microinteracciones premium / iconos dinámicos ===== */
+.icon-badge{position:relative;overflow:hidden;transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease,background .25s ease}
+.icon-badge::after{content:"";position:absolute;inset:-45%;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.72) 48%,transparent 60%);transform:translateX(-80%) rotate(8deg);opacity:0;transition:opacity .25s ease,transform .55s ease;pointer-events:none}
+.option-card:hover .icon-badge,.equipment-tile:hover .icon-badge{transform:translateY(-1px) scale(1.04);box-shadow:0 7px 16px rgba(9,36,84,.12);border-color:#b8cbea}
+.option-card:hover .icon-badge::after,.equipment-tile:hover .icon-badge::after{opacity:1;transform:translateX(80%) rotate(8deg)}
+.icon-gear svg{animation:gearIdle 5s linear infinite}
+.option-card:hover .icon-gear svg,.detail-card:hover .icon-gear svg{animation-duration:1.25s}
+.icon-tools svg{transform-origin:50% 50%;animation:toolsFloat 3.8s ease-in-out infinite}
+.option-card:hover .icon-tools svg{animation-duration:1.55s}
+.icon-map svg{animation:mapPulse 2.8s ease-in-out infinite}
+.option-card:hover .icon-map svg{animation-duration:1.4s}
+.icon-truck svg{animation:truckNudge 3.6s ease-in-out infinite}
+.icon-camera svg{animation:cameraPulse 2.9s ease-in-out infinite}
+.icon-drop svg{animation:dropFloat 3s ease-in-out infinite}
+.icon-wrench svg{animation:toolsFloat 3.8s ease-in-out infinite}
+@keyframes gearIdle{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes toolsFloat{0%,100%{transform:rotate(0) translateY(0)}35%{transform:rotate(-5deg) translateY(-1px)}65%{transform:rotate(5deg) translateY(0)}}
+@keyframes mapPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+@keyframes truckNudge{0%,100%{transform:translateX(0)}50%{transform:translateX(1.5px)}}
+@keyframes cameraPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes dropFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+/* Botones de información más actuales */
+.option-card{position:relative;isolation:isolate;border-radius:14px;min-height:62px;padding:9px 12px;border-color:#e0e7f1;box-shadow:0 3px 10px rgba(15,40,75,.055);transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease,background .2s ease}
+.option-card::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 4px 4px 0;background:linear-gradient(#0b3f89,#092454);opacity:0;transform:scaleY(.35);transition:opacity .2s ease,transform .2s ease}
+.option-card:hover{border-color:#b7c9e2;background:linear-gradient(135deg,#fff,#f8fbff);transform:translateY(-2px);box-shadow:0 9px 22px rgba(9,36,84,.10)}
+.option-card:hover::before{opacity:1;transform:scaleY(1)}
+.option-card .title{font-size:13.4px;letter-spacing:-.01em}
+.option-card .subtitle{font-size:10.2px}
+.quick-actions{gap:7px;padding-top:8px}
+.quick-actions button{position:relative;min-height:40px;border:1px solid #d3ddea;border-radius:10px;background:linear-gradient(180deg,#fff,#f8faff);box-shadow:0 2px 6px rgba(17,43,78,.05);color:#173e75;font-size:9px;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,background .18s ease}
+.quick-actions button:hover{background:#f1f6ff;border-color:#9fb7da;box-shadow:0 6px 14px rgba(9,36,84,.10);transform:translateY(-1px)}
+.footer-actions{gap:7px;margin-top:9px}
+.action-btn{height:38px;border-radius:11px;border-color:#d2dce9;background:linear-gradient(180deg,#fff,#f8faff);box-shadow:0 2px 7px rgba(17,43,78,.05);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.action-btn:hover{transform:translateY(-1px);border-color:#9eb5d5;box-shadow:0 7px 15px rgba(9,36,84,.09)}
+.action-btn.primary{background:linear-gradient(135deg,#17c347,#10ae3b);border-color:#13b93e;box-shadow:0 6px 15px rgba(19,185,62,.22)}
+.action-btn.primary:hover{box-shadow:0 9px 20px rgba(19,185,62,.28);filter:saturate(1.04)}
+.btn-whatsapp{height:40px;border-radius:20px;box-shadow:0 7px 17px rgba(24,189,75,.20);transition:transform .18s ease,box-shadow .18s ease,filter .18s ease}
+.btn-whatsapp:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(24,189,75,.28);filter:saturate(1.06)}
+.btn-whatsapp svg{animation:waPulse 2.8s ease-in-out infinite}
+@keyframes waPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+/* Recursos visuales: imagen completa y tarjeta seleccionable */
+.equipment-tile::after{content:"";position:absolute;inset:0;border-radius:13px;pointer-events:none;background:linear-gradient(125deg,rgba(255,255,255,.3),transparent 42%);opacity:0;transition:opacity .2s ease}
+.equipment-tile:hover{border-color:#a9bddb;box-shadow:0 10px 24px rgba(20,45,85,.13);transform:translateY(-3px)}
+.equipment-tile:hover::after{opacity:1}
+.equipment-tile:hover .equipment-img{transform:scale(1.035)!important}
+@media (prefers-reduced-motion:reduce){.icon-badge svg,.btn-whatsapp svg{animation:none!important}.option-card,.equipment-tile,.action-btn,.quick-actions button{transition:none!important}}
+
+
+/* ===== FIX INTERACCION MENU PRINCIPAL ===== */
+.chat-body{position:relative;z-index:1;pointer-events:auto!important}
+.chat-body.root-home .options-list{position:relative;z-index:30;pointer-events:auto!important}
+.chat-body.root-home .option-card{position:relative;z-index:31;pointer-events:auto!important;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+.chat-body.root-home .promo-card{position:relative;z-index:30}
+.chat-body.root-home .btn-whatsapp{position:relative;z-index:32;pointer-events:auto!important}
+.chat-input{position:relative;z-index:40;flex-shrink:0}
+
+/* === Ajustes finales solicitados === */
+.option-card.is-selected,.equipment-tile.is-selected,.quick-actions button.is-selected{background:linear-gradient(135deg,#0b3f89,#092454)!important;border-color:#092454!important;color:#fff!important;box-shadow:0 8px 18px rgba(9,36,84,.22)!important}
+.option-card.is-selected .title,.option-card.is-selected .subtitle,.option-card.is-selected .chev,.equipment-tile.is-selected .equipment-name,.equipment-tile.is-selected .equipment-spec,.equipment-tile.is-selected .equipment-more{color:#fff!important}
+.option-card.is-selected .icon-badge,.equipment-tile.is-selected .icon-badge{background:rgba(255,255,255,.14)!important;border-color:rgba(255,255,255,.3)!important;color:#fff!important}
+.sel-actions{display:flex;flex-direction:column;gap:6px;margin-top:8px}.sel-btn{width:100%;min-height:30px;border-radius:9px;border:1px solid #092454;background:#fff;color:#092454;font:800 10px Manrope,Inter,Arial;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:.16s}.sel-btn.primary{background:#18bd4b;border-color:#18bd4b;color:#fff;box-shadow:0 5px 12px rgba(24,189,75,.18)}.sel-btn:hover,.sel-btn.is-selected{background:#092454;border-color:#092454;color:#fff}.sel-btn.primary:hover{background:#16aa43;border-color:#16aa43}
+.coverage-selection{display:none;margin-top:8px;padding:8px;border:1px solid #cbd9eb;border-radius:10px;background:#fff}.coverage-selection.show{display:block;animation:selIn .16s ease-out}.sel-kicker{font-size:7px;color:#74869d;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.sel-title{font-size:11px;color:#092454;font-weight:800;margin-top:2px}.sel-copy{font-size:8.6px;color:#4e6179;line-height:1.4;margin-top:3px}.sel-copy b{color:#092454}.coverage-layout{grid-template-columns:minmax(0,1.25fr) minmax(118px,.75fr)}.map-stage{height:300px}.coverage-side-card{background:#fff}
+@keyframes selIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+/* Navegación inferior consistente */
+.footer-actions{display:flex;flex-direction:column;gap:6px;margin-top:8px}.footer-actions .action-btn{width:100%;min-height:31px;height:auto;padding:7px 10px;border-radius:9px;font-size:9.5px}.footer-actions .action-btn.primary{background:#18bd4b;border-color:#18bd4b;color:#fff}.footer-actions .action-btn:not(.primary){background:#fff;border:1px solid #092454;color:#092454}.footer-actions .action-btn:hover{background:#092454;color:#fff;border-color:#092454}.footer-actions .action-btn.primary:hover{background:#16aa43;border-color:#16aa43;color:#fff}
+/* Recursos visuales: sin fondos adicionales detrás de las imágenes */
+/* Cabecera SEPRIGUA: líneas rojas y puntos blancos más visibles */
+.chat-header{background:linear-gradient(180deg,#0b2b67,#082352)}.header-motion-lines i{border-color:rgba(239,23,67,.72);border-left-color:transparent;border-bottom-color:transparent;box-shadow:0 0 8px rgba(239,23,67,.10)}
+.header-motion-lines:after{content:"";position:absolute;width:4px;height:4px;background:#fff;border-radius:50%;right:92px;top:27px;box-shadow:16px 10px 0 0 rgba(255,255,255,.92),34px 2px 0 0 rgba(255,255,255,.8),55px 14px 0 0 rgba(255,255,255,.72),78px 7px 0 0 rgba(255,255,255,.65);animation:sepriguaDots 4.6s ease-in-out infinite}
+@keyframes sepriguaDots{0%,100%{transform:translateX(0);opacity:.45}50%{transform:translateX(-24px);opacity:1}}
+@media(max-width:700px){.coverage-layout{grid-template-columns:1fr}.map-stage{height:275px}.coverage-side{display:grid;grid-template-columns:1fr 1fr}.equipment-img-wrap{height:125px}.equipment-detail-image-wrap{height:200px}}
+
+.quick-actions button:focus,.quick-actions button:active{background:#092454!important;color:#fff!important;border-color:#092454!important}
+.option-card:focus{outline:none}.option-card:active{background:#092454!important;color:#fff!important;border-color:#092454!important}.equipment-tile:active{border-color:#092454!important;box-shadow:0 8px 18px rgba(9,36,84,.18)!important}
+
+/* ===== Ajuste solicitado: botones de WhatsApp con degradado verde + brillo,
+   y tarjetas/botones de navegación en azul marino al pasar el cursor ===== */
+.btn-whatsapp,.action-btn.primary{
+  background:linear-gradient(135deg,#a4f142,#3ecb22)!important;
+  border-color:transparent!important;
+  color:#fff!important;
+  box-shadow:0 10px 22px rgba(58,196,30,.34)!important;
+  position:relative;overflow:hidden;isolation:isolate;
+}
+.btn-whatsapp:hover,.action-btn.primary:hover{
+  filter:saturate(1.08) brightness(1.03);
+  box-shadow:0 13px 28px rgba(58,196,30,.42)!important;
+  transform:translateY(-1px);
+}
+.btn-whatsapp::after,.action-btn.primary::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.5) 50%,transparent 65%);
+  transform:translateX(-130%);transition:transform .65s ease;
+}
+.btn-whatsapp:hover::after,.action-btn.primary:hover::after{transform:translateX(130%)}
+
+.option-card:hover,
+.equipment-tile:hover,
+.quick-actions button:hover,
+.action-btn:not(.primary):hover{
+  background:linear-gradient(135deg,#0b3f89,#092454)!important;
+  border-color:#092454!important;
+  color:#fff!important;
+  box-shadow:0 10px 24px rgba(9,36,84,.28)!important;
+}
+.option-card:hover .title,.option-card:hover .subtitle,
+.equipment-tile:hover .equipment-name,.equipment-tile:hover .equipment-spec,.equipment-tile:hover .equipment-more{
+  color:#fff!important;
+}
+.option-card:hover .icon-badge,.equipment-tile:hover .icon-badge{
+  background:rgba(255,255,255,.18)!important;border-color:rgba(255,255,255,.32)!important;color:#fff!important;
+}
+.option-card:hover .chev{background:rgba(255,255,255,.18)!important;color:#fff!important}
+.quick-actions button,.action-btn:not(.primary){position:relative;overflow:hidden;isolation:isolate}
+.quick-actions button::after,.action-btn:not(.primary)::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.4) 50%,transparent 65%);
+  transform:translateX(-130%);transition:transform .6s ease;
+}
+.quick-actions button:hover::after,.action-btn:not(.primary):hover::after{transform:translateX(130%)}
+
+/* ===== Ajuste: botón "Volver al menú" del panel de cobertura como enlace simple ===== */
+.sel-back-link{
+  width:100%;background:transparent;border:0;color:#173e75;
+  font:800 10.5px Manrope,Inter,Arial,sans-serif;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  cursor:pointer;padding:8px 0;border-radius:9px;transition:.16s;
+}
+.sel-back-link svg{width:14px;height:14px}
+.sel-back-link:hover{background:linear-gradient(135deg,#0b3f89,#092454);color:#fff}
+
+/* Fila compacta "Abrir WhatsApp manualmente" (en vez del botón grande) */
+.option-card.link-row{min-height:auto;padding:9px 11px;text-decoration:none;color:inherit}
+.option-card.link-row .icon-badge{width:36px;height:36px;min-width:36px}
+.option-card.link-row .icon-badge svg{width:17px;height:17px}
+.option-card.link-row .title{font-size:11.5px}
+.option-card.link-row .subtitle{font-size:9.5px}
+
+/* ===== Movimiento por icono: cada servicio "hace lo suyo" ===== */
+@keyframes dropDrip{
+  0%,100%{transform:translateY(0) scaleY(1)}
+  55%{transform:translateY(1px) scaleY(1.14)}
+  72%{transform:translateY(3px) scaleY(.82)}
+  86%{transform:translateY(0) scaleY(1.05)}
+}
+.icon-drop svg{animation:dropDrip 2.1s ease-in-out infinite!important;transform-origin:50% 15%}
+
+@keyframes cameraScan{
+  0%,100%{transform:rotate(0deg) scale(1)}
+  25%{transform:rotate(-11deg) scale(1.05)}
+  50%{transform:rotate(0deg) scale(1)}
+  75%{transform:rotate(11deg) scale(1.05)}
+}
+.icon-camera svg{animation:cameraScan 3.1s ease-in-out infinite!important;transform-origin:50% 62%}
+
+@keyframes truckSuck{
+  0%,100%{transform:scaleX(1)}
+  50%{transform:scaleX(.9)}
+}
+.icon-truck svg{animation:truckSuck 1.5s ease-in-out infinite!important;transform-origin:72% 55%}
+.icon-badge.icon-truck::before{
+  content:"";position:absolute;left:9px;top:52%;width:5px;height:5px;border-radius:50%;
+  background:currentColor;opacity:0;pointer-events:none;
+  animation:suckDot 1.5s ease-in infinite;
+}
+@keyframes suckDot{
+  0%{opacity:0;transform:translate(15px,-7px) scale(1)}
+  35%{opacity:.8}
+  85%{opacity:0;transform:translate(-1px,3px) scale(.25)}
+  100%{opacity:0}
+}
+
+@keyframes potBubble{
+  0%,100%{transform:rotate(0deg) scale(1)}
+  30%{transform:rotate(-6deg) scale(1.03)}
+  62%{transform:rotate(5deg) scale(.98)}
+}
+.icon-pot svg{animation:potBubble 2.6s ease-in-out infinite!important;transform-origin:50% 82%}
+.icon-badge.icon-pot::before{
+  content:"";position:absolute;left:50%;bottom:7px;width:3px;height:3px;border-radius:50%;
+  background:currentColor;opacity:0;pointer-events:none;
+  animation:bubbleRise 2.6s ease-in infinite;
+}
+@keyframes bubbleRise{
+  0%{opacity:0;transform:translate(-50%,0) scale(.6)}
+  22%{opacity:.7}
+  70%{opacity:0;transform:translate(-50%,-15px) scale(1)}
+  100%{opacity:0}
+}
+
+/* Al pasar el cursor, cada icono acelera su propio movimiento */
+.option-card:hover .icon-drop svg,.equipment-tile:hover .icon-drop svg{animation-duration:1s!important}
+.option-card:hover .icon-camera svg,.equipment-tile:hover .icon-camera svg{animation-duration:1.3s!important}
+.option-card:hover .icon-truck svg,.equipment-tile:hover .icon-truck svg{animation-duration:.7s!important}
+.option-card:hover .icon-badge.icon-truck::before,.equipment-tile:hover .icon-badge.icon-truck::before{animation-duration:.7s!important}
+.option-card:hover .icon-pot svg,.equipment-tile:hover .icon-pot svg{animation-duration:1.2s!important}
+.option-card:hover .icon-badge.icon-pot::before,.equipment-tile:hover .icon-badge.icon-pot::before{animation-duration:1.2s!important}
+
+/* ===== AJUSTES SOLICITADOS: LOGO, LEGIBILIDAD, COBERTURA Y SERVICIOS ===== */
+.chat-header .avatar{width:54px;height:54px;min-width:54px;border-radius:0;padding:0;background:transparent;border:0;box-shadow:none}
+.chat-header .avatar img{width:100%;height:100%;object-fit:contain}
+.bot-avatar{width:38px;height:38px;min-width:38px;border-radius:10px;padding:3px}
+.bot-avatar img{width:100%;height:100%;object-fit:contain}
+/* Tipografía considerablemente más grande para mejorar lectura */
+.chat-body{gap:12px}
+.user-bubble{font-size:14px;line-height:1.42;padding:11px 13px}
+.bot-bubble{font-size:14px;line-height:1.52;padding:11px 13px;max-width:88%}
+.time{font-size:9.5px}
+.root-title{font-size:25px}
+.root-text{font-size:15px;line-height:1.58}
+.option-card{min-height:76px;padding:12px 14px;gap:12px}
+.option-card .title,.title{font-size:16px!important}
+.option-card .subtitle,.subtitle{font-size:12.5px!important;line-height:1.4}
+.icon-badge{width:46px;height:46px;min-width:46px}
+.icon-badge svg{width:24px;height:24px}
+.promo-head{font-size:16px}.promo-card p{font-size:13px;line-height:1.5}.btn-whatsapp{font-size:13px;height:42px}.promo-caption{font-size:10.5px}
+.detail-title{font-size:18px}.detail-desc{font-size:13px;line-height:1.5}.section-label{font-size:13px;margin:12px 0 7px}.checklist li{font-size:12px}.benefit-item{font-size:10.5px}.tag-chip{font-size:10.5px;padding:7px 9px}
+.coverage-kicker{font-size:10px}.coverage-title{font-size:18px}.coverage-side-title{font-size:11px}.coverage-side-desc{font-size:10px}.coverage-list li{font-size:9.5px}
+/* Cobertura: azul para departamentos con sede y celeste para el resto */
+.dept-hit{fill:#8fd3f4!important;fill-opacity:.95!important;stroke:#ffffff;stroke-width:1.8}
+.dept-hit.covered{fill:#0b4ea2!important;fill-opacity:.98!important}
+.dept-hit.covered:hover,.dept-hit.covered.hover,.dept-hit.covered.active{fill:#092454!important;fill-opacity:1!important}
+.dept-hit:not(.covered):hover{fill:#69c2ea!important}
+/* Servicios en carrusel horizontal */
+.services-carousel-wrap{margin-top:8px;border:1px solid #dfe8f3;border-radius:14px;background:#fff;padding:10px;box-shadow:0 5px 16px rgba(9,36,84,.07)}
+.services-carousel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.services-carousel-title{font-size:14px;font-weight:800;color:#12386e}
+.services-nav{display:flex;gap:5px;overflow-x:auto;scrollbar-width:thin;padding:3px 0 8px;-webkit-overflow-scrolling:touch}
+.services-nav::-webkit-scrollbar{height:6px}.services-nav::-webkit-scrollbar-thumb{background:#9eb5d1;border-radius:8px}
+.service-tab{flex:0 0 auto;border:1px solid #d7e1ee;background:#f7faff;color:#173e75;border-radius:999px;padding:9px 13px;font:inherit;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}
+.service-tab.is-selected,.service-tab:hover{background:#092454;color:#fff;border-color:#092454}
+.services-carousel{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding-bottom:6px;-webkit-overflow-scrolling:touch}
+.services-carousel::-webkit-scrollbar{height:7px}.services-carousel::-webkit-scrollbar-thumb{background:#8fa9c9;border-radius:8px}
+.service-slide{flex:0 0 min(82%,300px);scroll-snap-align:start;border:1px solid #dfe7f0;border-radius:14px;background:linear-gradient(145deg,#fff,#f6faff);padding:13px;cursor:pointer;box-shadow:0 4px 12px rgba(9,36,84,.06);transition:.18s}
+.service-slide:hover,.service-slide.is-selected{transform:translateY(-2px);border-color:#8aa9d1;box-shadow:0 9px 20px rgba(9,36,84,.11)}
+.service-slide .slide-top{display:flex;align-items:center;gap:10px}.service-slide .slide-name{font-size:16px;font-weight:800;color:#173764;line-height:1.2}.service-slide .slide-summary{font-size:12px;color:#5e718c;line-height:1.45;margin-top:7px}.service-slide .slide-cta{margin-top:10px;color:#0b4ea2;font-size:12px;font-weight:800}
+@media(max-width:700px){.root-title{font-size:24px}.root-text{font-size:14px}.option-card .title,.title{font-size:15px!important}.option-card .subtitle,.subtitle{font-size:12px!important}.service-slide{flex-basis:86%}.coverage-layout{grid-template-columns:1fr!important}.map-stage{height:300px!important}.coverage-side{grid-template-columns:1fr!important}.chat-header .avatar{width:50px;height:50px;min-width:50px}}
+
+/* ===== CAMBIOS FINALES SOLICITADOS ===== */
+.services-vertical{display:flex;flex-direction:column;gap:9px;margin-top:8px}
+.service-vertical-card{position:relative;display:flex;align-items:center;gap:11px;width:100%;min-height:78px;padding:10px 12px;border:1px solid #dfe7f0;border-radius:15px;background:linear-gradient(145deg,#fff,#f8fbff);box-shadow:0 4px 12px rgba(9,36,84,.06);cursor:pointer;text-align:left;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,background .18s ease;color:inherit}
+.service-vertical-card:hover,.service-vertical-card.is-selected{transform:translateY(-1px);border-color:#b8cbe2;box-shadow:0 8px 18px rgba(9,36,84,.10);background:#fff}
+.service-vertical-card .service-icon{width:46px;height:46px;min-width:46px;border-radius:13px;background:#edf4ff;border:1px solid #cfe0f7;color:#0b4ea2;display:flex;align-items:center;justify-content:center}
+.service-vertical-card .service-icon svg{width:25px;height:25px}
+.service-vertical-card .service-copy{min-width:0;flex:1}
+.service-vertical-card .service-name{font-size:14px;font-weight:800;line-height:1.2;color:#12386e}
+.service-vertical-card .service-summary{font-size:10.5px;line-height:1.35;color:#5e718c;margin-top:4px}
+.service-vertical-card .service-chevron{width:38px;height:38px;min-width:38px;border-radius:11px;background:#f3f7fc;color:#0b4ea2;display:flex;align-items:center;justify-content:center}
+.service-vertical-card .service-chevron svg{width:19px;height:19px}
+.services-bottom-nav-wrap{margin-top:9px;border-top:1px solid #e1e8f2;padding-top:7px}
+.services-bottom-label{font-size:8px;font-weight:800;color:#6d8099;text-transform:uppercase;letter-spacing:.08em;margin:0 0 5px 2px}
+.services-bottom-nav{display:flex;gap:7px;overflow-x:auto;scrollbar-width:thin;padding:2px 0 7px;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+.services-bottom-nav::-webkit-scrollbar{height:5px}.services-bottom-nav::-webkit-scrollbar-thumb{background:#9eb5d1;border-radius:8px}
+.services-bottom-tab{flex:0 0 auto;min-width:94px;max-width:135px;min-height:36px;padding:6px 10px;border:1px solid #d7e1ee;background:#fff;color:#173e75;border-radius:10px;font:800 9px/1.15 Manrope,Inter,Arial;cursor:pointer;white-space:normal;transition:.16s ease}
+.services-bottom-tab:hover,.services-bottom-tab.is-selected{background:#092454;color:#fff;border-color:#092454;box-shadow:0 5px 12px rgba(9,36,84,.15)}
+/* Restaurar la interacción visual azul en Servicios */
+.service-vertical-card:hover,.service-vertical-card.is-selected{background:linear-gradient(135deg,#0b3f89,#092454)!important;border-color:#092454!important;color:#fff!important;box-shadow:0 8px 18px rgba(9,36,84,.22)!important}
+.service-vertical-card:hover .service-name,.service-vertical-card:hover .service-summary,.service-vertical-card.is-selected .service-name,.service-vertical-card.is-selected .service-summary{color:#fff!important}
+.service-vertical-card:hover .service-icon,.service-vertical-card.is-selected .service-icon{background:rgba(255,255,255,.16)!important;border-color:rgba(255,255,255,.32)!important;color:#fff!important}
+.service-vertical-card:hover .service-chevron,.service-vertical-card.is-selected .service-chevron{background:rgba(255,255,255,.16)!important;color:#fff!important}
+.services-bottom-tab:hover,.services-bottom-tab.is-selected{background:linear-gradient(135deg,#0b3f89,#092454)!important;color:#fff!important;border-color:#092454!important;box-shadow:0 8px 18px rgba(9,36,84,.22)!important}
+@media(max-width:700px){.service-vertical-card{min-height:76px}.service-vertical-card .service-name{font-size:14px}.service-vertical-card .service-summary{font-size:10.5px}.services-bottom-tab{min-width:102px}}
+
+.dept-hit:not(.covered),.dept-hit:not(.covered):hover,.dept-hit:not(.covered).hover,.dept-hit:not(.covered).active{fill:#8fd3f4!important;fill-opacity:.95!important;stroke:#fff!important;stroke-width:1.8;filter:none!important}
+.dept-hit.covered{fill:#8e99a8!important;fill-opacity:.90!important;stroke:#fff!important;stroke-width:1.8}
+.dept-hit.covered:hover,.dept-hit.covered.hover,.dept-hit.covered.active{fill:#0b4ea2!important;fill-opacity:.98!important;filter:drop-shadow(0 3px 5px rgba(9,36,84,.25))!important}
+.coverage-selection{display:none;margin-top:8px;padding:10px;border:1px solid #d2deed;border-radius:11px;background:linear-gradient(145deg,#fff,#f7faff);box-shadow:0 5px 14px rgba(9,36,84,.07)}
+.coverage-selection.show{display:block;animation:selIn .16s ease-out}
+.coverage-selection .sel-kicker{font-size:7px;color:#74869d;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.coverage-selection .sel-title{font-size:11px;color:#092454;font-weight:800;margin-top:2px}
+.coverage-selection .sel-copy{font-size:9px;color:#4e6179;line-height:1.4;margin-top:4px}
+.coverage-selection .sel-copy b{color:#092454}
+.coverage-map-only{display:flex!important;flex-direction:column!important;gap:8px!important}
+.coverage-map-only .map-panel{width:100%!important}
+.coverage-map-only .coverage-selection{width:100%;margin-top:0}
+
+
+
+/* === FIX: evitar recorte de .coverage-card dentro de .chat-body (flex) === */
+.coverage-card{flex-shrink:0!important;min-height:0}
+
+/* === FIX: separar titulo y descripcion en lista de servicios + agrandar letra === */
+.service-name{display:block!important;font-size:15.5px!important;margin-bottom:3px!important}
+.service-summary{display:block!important;font-size:12px!important;margin-top:0!important}
+
+/* =========================================================
+   SEPRIGUA — CABECERA TUKY TORSO + ESTADO EN LÍNEA
+   ========================================================= */
+.chat-header{
+  height:88px!important;min-height:88px!important;padding:8px 13px 7px 10px!important;gap:8px!important;
+  background:linear-gradient(135deg,#061a3d 0%,#0a2d68 58%,#071f49 100%)!important;
+  border-bottom:1px solid rgba(112,158,219,.18);
+  box-shadow:0 7px 24px rgba(3,18,43,.28)!important;
+}
+.chat-header::before{
+  width:350px!important;height:102px!important;right:-95px!important;top:17px!important;
+  border-top:2px solid rgba(239,23,67,.85)!important;border-radius:58% 42% 0 0!important;
+  transform:rotate(-13deg)!important;opacity:.75!important;filter:drop-shadow(0 0 5px rgba(239,23,67,.22));
+}
+.chat-header::after{opacity:.28!important}
+.chat-header .header-motion-lines{z-index:1!important}
+.chat-header>*{position:relative;z-index:3!important}
+.chat-header .avatar{
+  width:72px!important;min-width:72px!important;height:84px!important;
+  margin:-4px 0 -7px -2px!important;padding:0!important;border:0!important;border-radius:0!important;
+  background:transparent!important;box-shadow:none!important;overflow:visible!important;
+  align-self:flex-end!important;display:flex!important;align-items:flex-end!important;justify-content:center!important;
+}
+.chat-header .avatar::after{content:none!important}
+.chat-header .avatar img{
+  width:72px!important;height:84px!important;object-fit:contain!important;object-position:center bottom!important;
+  display:block!important;filter:drop-shadow(0 5px 6px rgba(0,0,0,.25));
+}
+.chat-header .titles{min-width:0;flex:1;padding-left:1px}
+.chat-header .brand{font-size:18px!important;line-height:1!important;font-weight:800!important;letter-spacing:.04em!important;color:#fff!important}
+.chat-header .role{margin-top:4px;font-size:11px!important;line-height:1.2!important;color:#dce9fb!important}
+.chat-header .status{margin-top:5px;font-size:10px!important;line-height:1!important;color:#9ef0b4!important;font-weight:800}
+.chat-header .status .dot{
+  width:8px!important;height:8px!important;background:#20d45a!important;border-radius:50%;
+  box-shadow:0 0 0 3px rgba(32,212,90,.12),0 0 10px rgba(32,212,90,.8);
+  animation:tukyOnlinePulse 1.8s ease-in-out infinite;
+}
+.bot-avatar{
+  width:36px!important;height:36px!important;min-width:36px!important;border-radius:12px!important;
+  padding:1px!important;background:linear-gradient(180deg,#f8fbff,#eef5ff)!important;border:1px solid #dce6f2!important;
+  overflow:hidden!important;
+}
+.bot-avatar img{width:100%!important;height:100%!important;object-fit:contain!important;object-position:center bottom!important;transform:scale(1.12)}
+@keyframes tukyOnlinePulse{
+  0%,100%{transform:scale(.9);box-shadow:0 0 0 3px rgba(32,212,90,.10),0 0 7px rgba(32,212,90,.55)}
+  50%{transform:scale(1.12);box-shadow:0 0 0 5px rgba(32,212,90,.15),0 0 15px rgba(32,212,90,.95)}
+}
+@media(max-width:700px){
+  .chat-header{height:82px!important;min-height:82px!important;padding:7px 10px 6px 8px!important}
+  .chat-header .avatar{width:62px!important;min-width:62px!important;height:78px!important}
+  .chat-header .avatar img{width:62px!important;height:78px!important}
+  .chat-header .brand{font-size:16px!important}.chat-header .role{font-size:10px!important}.chat-header .status{font-size:9px!important}
+}
+@media(prefers-reduced-motion:reduce){.chat-header .status .dot{animation:none!important}}
+
+</style>
+<meta name="description" content="SEPRIGUA — Tuky, asistente virtual para servicios, cobertura, cotizaciones y atención.">
+
+<style id="seprigua-chatbot-embed-mode">
+html,body{
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  margin:0!important;
+  overflow:hidden!important;
+  background:transparent!important;
+}
+.launcher{display:none!important}
+.chat-widget{
+  position:absolute!important;
+  inset:0!important;
+  right:auto!important;
+  bottom:auto!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  max-width:none!important;
+  border-radius:20px!important;
+  opacity:1!important;
+  transform:none!important;
+  pointer-events:auto!important;
+  box-shadow:0 20px 60px rgba(9,36,84,.30)!important;
+}
+@media(max-width:600px){
+  .chat-widget{
+    inset:0!important;
+    width:100%!important;
+    height:100%!important;
+    border-radius:18px!important;
+  }
+}
+</style>
+
+</head>
+<body style="margin:0; background:#F3F5F9; min-height:100vh;">
+
+<button class="launcher" id="launcherBtn" aria-label="Abrir Tuky, asistente virtual"><svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></button>
+
+<div class="chat-widget" id="chatWidget">
+  <div class="chat-header" id="chatHeader"><div class="header-motion-lines" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="avatar"><img src="assets/img/tuky-torso.png" alt="Tuky, asistente virtual de SEPRIGUA"></div>
+    <div class="titles">
+      <div class="brand">TUKY</div>
+      <div class="role">Asistente virtual SEPRIGUA</div>
+      <div class="status"><span class="dot"></span> En línea</div>
+    </div>
+    <div class="actions"><button id="backHeader" type="button" aria-label="Regresar"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button id="closeBtn" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="chat-body" id="chatBody"></div>
+
+  <div id="inputHint" hidden></div>
+
+  <form class="chat-input" id="chatForm">
+    <input id="chatInput" type="text" placeholder="Pregúntale a Tuky..." autocomplete="off" />
+    <button type="submit" aria-label="Enviar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+    </button>
+  </form>
+</div>
+
+<script>
+/* =========================================================================
+   SEPRIGUA — Lógica del asistente virtual (chatbot de menú guiado)
+   No requiere backend, servidor ni API keys: todo corre en el navegador.
+   ========================================================================= */
+
+/* ---------- Config editable ---------- */
+// Enlace de WhatsApp que se usa en TODOS los botones "Hablar por WhatsApp"
+// del chatbot (menú principal, servicios, cobertura y la pantalla final de WhatsApp).
+//
+// NOTA IMPORTANTE: este es un enlace de "clic para chatear" generado por
+// Facebook para una publicación/anuncio específico (trae source=FB_Post,
+// entry_point=post_cta y un token con fecha de expiración). Ese tipo de
+// enlaces normalmente vencen después de cierto tiempo — el que se usa aquí
+// ya está vencido según la fecha de hoy. Si en algún momento deja de
+// funcionar, reemplázalo por un enlace estándar que nunca vence, con el
+// mismo número, por ejemplo:
+//   https://wa.me/50254108947?text=Hola%2C%20me%20gustar%C3%ADa%20m%C3%A1s%20informaci%C3%B3n
+const WHATSAPP_LINK = "https://wa.me/50254108947?text=Hola%20SEPRIGUA%2C%20necesito%20informaci%C3%B3n%20sobre%20un%20servicio.";
+
+/* ---------- Iconos SVG reutilizables ---------- */
+const ICONS = {
+  wrench:'<path d="M14.7 6.3a4 4 0 1 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4z"/>',
+  tools:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4z"/><path d="M14 4l6 6"/><path d="M16 16l5 5"/>',
+  map:'<path d="M9 20l-6 3V7l6-3 6 3 6-3v16l-6 3-6-3z"/><path d="M9 4v16"/><path d="M15 7v16"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 13.09H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  chevronRight:'<path d="M9 18l6-6-6-6"/>',
+  chevronLeft:'<path d="M15 18l-6-6 6-6"/>',
+  check:'<path d="M20 6L9 17l-5-5"/>',
+  shield:'<path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
+  dollar:'<path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  camera:'<rect x="2" y="7" width="14" height="12" rx="2"/><path d="M16 11l6-3v9l-6-3"/>',
+  eye:'<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>',
+  truck:'<rect x="1" y="7" width="14" height="10" rx="1"/><path d="M15 11h4l3 3v3h-7z"/><circle cx="6" cy="19" r="1.6"/><circle cx="18" cy="19" r="1.6"/>',
+  drop:'<path d="M12 2s7 8 7 13a7 7 0 1 1-14 0c0-5 7-13 7-13z"/>',
+  pot:'<path d="M4 9h16l-1.2 8.4A2 2 0 0 1 16.8 19H7.2a2 2 0 0 1-2-1.6L4 9z"/><path d="M2 9h20"/><path d="M9 5h6"/>',
+  industry:'<path d="M2 21V10l6 4v-4l6 4V6l6 5v10z"/><path d="M2 21h20"/>',
+  building:'<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 21v-4h6v4"/><path d="M8 7h1M12 7h1M16 7h1M8 11h1M12 11h1M16 11h1"/>',
+  store:'<path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>',
+  utensils:'<path d="M6 2v7a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V2"/><path d="M8 11v11"/><path d="M17 2v20"/><path d="M15 2c0 3-2 4-2 7s2 3 2 3"/>',
+  home:'<path d="M3 10l9-7 9 7"/><path d="M5 9v11h14V9"/>',
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/>',
+  bolt:'<path d="M13 2L4 14h6l-1 8 9-12h-6z"/>',
+  star:'<path d="M12 2l3 6.5 7 1-5 5 1.5 7-6.5-3.5L5 21.5 6.5 14.5l-5-5 7-1z"/>',
+  person:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  link:'<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><path d="M8 12h8"/>',
+  externalLink:'<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/>',
+  whatsapp:'<path d="M20.5 11.9a8.4 8.4 0 0 1-12.3 7.4L3 20l.8-5a8.4 8.4 0 1 1 16.7-3.1z"/><path d="M8.9 8.6c.2-.35.4-.35.55-.35h.4c.15 0 .3 0 .45.35.2.45.6 1.5.65 1.6.05.15.1.25 0 .45-.1.2-.15.25-.3.4-.15.15-.3.3-.4.4-.15.15-.2.25-.05.5.15.25.6.95 1.3 1.55.85.75 1.55 1 1.8 1.15.25.15.35.1.5-.05.15-.15.55-.65.7-.85.2-.25.35-.2.6-.1.25.1 1.4.65 1.65.8.25.15.4.2.45.3.05.15.05.75-.2 1.45-.25.7-1.3 1.3-1.8 1.35-.5.05-.95.2-3.2-.7-2.7-1.05-4.4-3.7-4.55-3.9-.15-.2-1.05-1.4-1.05-2.65s.65-1.9.9-2.15z"/>',
+  send:'<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>',
+  info:'<circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11 12h1v5h1"/>',
+};
+function svgIcon(name, extra){
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extra||''}>${ICONS[name]||''}</svg>`;
+}
+
+/* ---------- Datos: servicios ---------- */
+const SERVICIOS = [
+  {
+    id:'drenajes', icon:'drop', nombre:'Mantenimiento de drenajes',
+    resumen:'Limpieza y mantenimiento de drenajes, circuitos sanitarios, áreas de rebalse y bajadas pluviales, con atención programada y de emergencia.',
+    desc:'Atendemos limpieza y mantenimiento de drenajes, circuitos sanitarios, áreas de rebalse y bajadas pluviales. El servicio puede ser preventivo, programado o de emergencia según las condiciones del sitio.',
+    incluye:['Limpieza y destape de tuberías y drenajes.','Eliminación de obstrucciones de grasa, lodos, sedimentos y residuos.','Mantenimiento preventivo para evitar bloqueos y daños.','Inspección de tuberías para detectar problemas.','Recomendaciones para el cuidado del sistema de drenaje.'],
+    beneficios:[{icon:'shield',label:'Previene bloqueos y emergencias.'},{icon:'clock',label:'Mayor vida útil de las tuberías.'},{icon:'dollar',label:'Ahorro en costos de reparaciones mayores.'}],
+    idealPara:[{icon:'industry',label:'Industrias'},{icon:'store',label:'Comercios'},{icon:'utensils',label:'Restaurantes'},{icon:'home',label:'Residencias'}],
+  },
+  {
+    id:'cctv', icon:'camera', nombre:'Inspección de tuberías',
+    resumen:'Evaluación interna de tuberías y drenajes para identificar obstrucciones, daños y otras anomalías.',
+    desc:'Realizamos inspección interna de tuberías y drenajes para localizar la causa de un problema y orientar la intervención necesaria, evitando trabajos innecesarios cuando es posible.',
+    incluye:['Revisión interna del tramo accesible.','Identificación de obstrucciones, daños y acumulaciones.','Registro de hallazgos relevantes.','Orientación técnica según lo observado.'],
+    beneficios:[{icon:'target',label:'Detección exacta de problemas.'},{icon:'shield',label:'Prevención de reparaciones costosas.'},{icon:'clock',label:'Diagnóstico rápido y efectivo.'}],
+    idealPara:[{icon:'industry',label:'Industrias'},{icon:'store',label:'Comercios'},{icon:'utensils',label:'Restaurantes'},{icon:'home',label:'Residencias'}],
+  },
+  {
+    id:'succion', icon:'truck', nombre:'Succión de lodos y residuos',
+    resumen:'Servicio de succión y transporte de lodos, aguas residuales y residuos industriales.',
+    desc:'Servicio especializado en la extracción y transporte seguro de lodos, aguas residuales, grasas y otros residuos líquidos o semisólidos de fosas sépticas, trampas de grasa, plantas de tratamiento y más.',
+    incluye:['Succión de lodos, aguas residuales y residuos industriales.','Limpieza de fosas sépticas y trampas de grasa.','Transporte y disposición final según el tipo de residuo.','Personal capacitado para la ejecución del servicio.','Trabajo coordinado bajo condiciones seguras.'],
+    beneficios:[{icon:'drop',label:'Previene desbordamientos y malos olores.'},{icon:'gear',label:'Mejora el funcionamiento de tus sistemas.'},{icon:'shield',label:'Cumplimos con normas ambientales.'}],
+    idealPara:[{icon:'industry',label:'Industrias'},{icon:'store',label:'Comercios'},{icon:'utensils',label:'Restaurantes'},{icon:'home',label:'Residencias'},{icon:'building',label:'Plantas de tratamiento'}],
+  },
+  {
+    id:'grasa', icon:'pot', nombre:'Limpieza de trampas de grasa',
+    resumen:'Limpieza profesional de trampas de grasa para restaurantes, industrias y comercios.',
+    desc:'Servicio profesional de limpieza, extracción y mantenimiento de trampas de grasa para garantizar el correcto funcionamiento de su sistema y evitar obstrucciones, malos olores y sanciones sanitarias.',
+    incluye:['Extracción y limpieza profunda de trampas de grasa.','Retiro y disposición final de residuos grasos.','Lavado y desinfección del sistema.','Revisión del estado de la trampa y recomendaciones.','Servicio rápido y sin interrupciones en su operación.'],
+    beneficios:[{icon:'shield',label:'Previene obstrucciones en tuberías y drenajes.'},{icon:'drop',label:'Elimina malos olores y bacterias.'},{icon:'check',label:'Cumplimiento de normas sanitarias.'}],
+    idealPara:[{icon:'utensils',label:'Restaurantes'},{icon:'store',label:'Comercios'},{icon:'building',label:'Hoteles'},{icon:'industry',label:'Cocinas industriales'},{icon:'target',label:'Centros de alimentos'}],
+  },
+  {
+    id:'industrial', icon:'gear', nombre:'Mantenimiento industrial',
+    resumen:'Mantenimiento preventivo y correctivo para instalaciones y sistemas asociados a la operación.',
+    desc:'Atendemos necesidades de mantenimiento industrial de acuerdo con el alcance del sitio, la criticidad del servicio y las condiciones de operación, con planificación y seguimiento profesional.',
+    incluye:['Evaluación inicial de la necesidad.','Mantenimiento preventivo y correctivo según alcance.','Atención de fallas relacionadas con la operación.','Planes de mantenimiento personalizados.','Registro de trabajos y recomendaciones.'],
+    beneficios:[{icon:'shield',label:'Reduce interrupciones no planificadas.'},{icon:'clock',label:'Facilita la planificación del mantenimiento.'},{icon:'bolt',label:'Favorece la continuidad operativa.'}],
+    idealPara:[{icon:'industry',label:'Industrias'},{icon:'building',label:'Plantas y complejos'},{icon:'store',label:'Centros comerciales'},{icon:'utensils',label:'Hoteles y restaurantes'}],
+  },
+  {
+    id:'cisternas', icon:'drop', nombre:'Limpieza de cisternas',
+    resumen:'Limpieza técnica y saneamiento de cisternas para conservar el agua almacenada en mejores condiciones.',
+    desc:'Realizamos limpieza y mantenimiento de cisternas para remover sedimentos, lodos y suciedad acumulada, con un proceso ordenado y adaptado al tipo de instalación.',
+    incluye:['Retiro de sedimentos y residuos acumulados.','Lavado técnico de superficies internas.','Revisión visual del estado general de la cisterna.','Recomendaciones de mantenimiento preventivo.'],
+    beneficios:[{icon:'drop',label:'Mejores condiciones de almacenamiento.'},{icon:'shield',label:'Mantenimiento preventivo del sistema.'},{icon:'clock',label:'Proceso planificado para reducir interrupciones.'}],
+    idealPara:[{icon:'building',label:'Edificios'},{icon:'store',label:'Comercios'},{icon:'industry',label:'Industrias'},{icon:'home',label:'Condominios y residencias'}],
+  },
+  {
+    id:'plantas', icon:'building', nombre:'Plantas de tratamiento',
+    resumen:'Mantenimiento y limpieza de componentes asociados a plantas de tratamiento de aguas residuales.',
+    desc:'Apoyamos el mantenimiento operativo de plantas de tratamiento mediante limpieza, extracción de lodos, revisión visual y trabajos complementarios según la necesidad de la instalación.',
+    incluye:['Extracción de lodos y residuos.','Limpieza de áreas y componentes accesibles.','Apoyo en mantenimiento preventivo y correctivo.','Registro de hallazgos y recomendaciones técnicas.'],
+    beneficios:[{icon:'gear',label:'Mejor continuidad operativa.'},{icon:'shield',label:'Atención técnica ordenada.'},{icon:'target',label:'Trabajo adaptado a cada instalación.'}],
+    idealPara:[{icon:'industry',label:'Industrias'},{icon:'building',label:'Plantas y complejos'},{icon:'store',label:'Centros comerciales'},{icon:'home',label:'Condominios'}],
+  },
+  {
+    id:'pozos', icon:'target', nombre:'Pozos de absorción',
+    resumen:'Limpieza y mantenimiento de pozos de absorción y sistemas relacionados con manejo de aguas.',
+    desc:'Realizamos trabajos de limpieza, extracción de sedimentos y mantenimiento de pozos de absorción para recuperar capacidad y reducir problemas asociados a acumulaciones.',
+    incluye:['Extracción de lodos y sedimentos.','Limpieza del área de trabajo.','Evaluación visual de condiciones.','Recomendaciones según los hallazgos.'],
+    beneficios:[{icon:'drop',label:'Ayuda a conservar la capacidad del sistema.'},{icon:'clock',label:'Previene saturaciones por acumulación.'},{icon:'shield',label:'Atención con personal capacitado.'}],
+    idealPara:[{icon:'industry',label:'Industrias'},{icon:'building',label:'Edificios'},{icon:'store',label:'Comercios'},{icon:'home',label:'Condominios y residencias'}],
+  },
+  {
+    id:'plomeria', icon:'wrench', nombre:'Plomería en general',
+    resumen:'Instalación y reparación de tuberías, llaves de paso, bajadas pluviales y otros trabajos de plomería.',
+    desc:'Realizamos instalación y reparación de tuberías de PVC, CPVC y HG, llaves de paso, bajadas pluviales, conexiones y otros trabajos de plomería según la necesidad del cliente.',
+    incluye:['Instalación y reparación de tuberías de PVC, CPVC y HG.','Instalación y cambio de llaves de paso.','Reparación de conexiones y accesorios.','Bajadas pluviales y trabajos complementarios de plomería.'],
+    beneficios:[{icon:'wrench',label:'Solución técnica a fallas comunes.'},{icon:'clock',label:'Atención coordinada según urgencia.'},{icon:'shield',label:'Trabajo respaldado por personal capacitado.'}],
+    idealPara:[{icon:'building',label:'Empresas'},{icon:'store',label:'Comercios'},{icon:'utensils',label:'Restaurantes'},{icon:'home',label:'Residencias'}],
+  },
+  {
+    id:'personalizado', icon:'tools', nombre:'Mantenimiento personalizado',
+    resumen:'Planes y servicios adaptados a las necesidades de operación de cada cliente.',
+    desc:'Cuando una necesidad no encaja en un servicio estándar, evaluamos el caso y proponemos una intervención o plan de mantenimiento adaptado al sitio, frecuencia y criticidad de la operación.',
+    incluye:['Evaluación inicial de la necesidad.','Definición de alcance y frecuencia.','Propuesta técnica según el sitio.','Seguimiento y recomendaciones.'],
+    beneficios:[{icon:'target',label:'Servicio adaptado al problema real.'},{icon:'gear',label:'Planificación preventiva.'},{icon:'person',label:'Atención personalizada.'}],
+    idealPara:[{icon:'industry',label:'Industrias'},{icon:'building',label:'Empresas'},{icon:'store',label:'Comercios'},{icon:'utensils',label:'Restaurantes y hoteles'}],
+  },
+];
+
+
+/* ---------- Estado ----------
+   IMPORTANTE: el widget NO guarda historial ni memoria de conversación.
+   Cada navegación reemplaza por completo el contenido anterior — no hay
+   pila de "atrás", no hay mensajes acumulados, no hay barra de navegación.
+   Solo existe "la pantalla actual". ---------------------------------- */
+let isOpen = false;
+
+const chatBody = document.getElementById('chatBody');
+const LOGO_DATA = document.querySelector('.chat-header .avatar img')?.src || '';
+
+function iconBadge(name){
+  return `<div class="icon-badge icon-${name}">${svgIcon(name)}</div>`;
+}
+
+/* Reemplaza TODO el contenido del panel por una pantalla nueva y limpia. */
+
+function navFooter(buttons){
+  // buttons: [{label, icon, primary, href, onClick}]
+  return `<div class="nav-footer">${buttons.map((b,i)=>`
+    <${b.href?'a href="'+b.href+'" target="_blank" rel="noopener"':'button type="button"'}
+       class="action-btn ${b.primary?'primary':'outline'}" data-nav-i="${i}">
+      ${svgIcon(b.icon)} ${b.label}
+    </${b.href?'a':'button'}>
+  `).join('')}</div>`;
+}
+function bindNavFooter(root, buttons){
+  root.querySelectorAll('.nav-footer [data-nav-i]').forEach(el=>{
+    const b = buttons[Number(el.dataset.navI)];
+    if(b && b.onClick) el.addEventListener('click', b.onClick);
+  });
+}
+
+/* ---------- Pantallas estilo FRAMESCHATBOT ---------- */
+let historyStack=[]; let currentRender=renderRoot; let currentBack=renderRoot;
+function botMsg(t){return `<div class="bot-row"><div class="bot-avatar"><img src="${LOGO_DATA}"></div><div><div class="bot-bubble">${t}</div><div class="time">10:24 a. m.</div></div></div>`}
+function userMsg(t){return `<div class="user-row"><div><div class="user-bubble">${t}</div><div class="time">10:24 a. m. ✓✓</div></div></div>`}
+function footer(bs){return `<div class="footer-actions">${bs.map((b,i)=>`<button class="action-btn ${b.primary?'primary':''}" data-f="${i}">${svgIcon(b.icon)} ${b.label}</button>`).join('')}</div>`}
+function showScreen(html,bind,fn){
+  chatBody.innerHTML=html;
+  chatBody.classList.toggle('root-home',fn===renderRoot);
+  chatBody.scrollTop=0;
+  currentRender=fn||currentRender;
+  chatBody.style.pointerEvents='auto';
+  chatBody.querySelectorAll('button, a, [role="button"], .option-card, .equipment-tile, .dept-hit').forEach(el=>{el.style.pointerEvents='auto';el.style.touchAction='manipulation'});
+  if(bind)bind(chatBody);
+}
+function bindFooter(root,bs){root.querySelectorAll('[data-f]').forEach(e=>e.onclick=()=>{root.querySelectorAll('[data-f]').forEach(x=>x.classList.remove('is-selected'));e.classList.add('is-selected');bs[+e.dataset.f].onClick()})}
+function go(fn,label){historyStack.push(currentBack);fn(label)}
+function back(){if(typeof currentBack==='function'){const fn=currentBack;currentBack=null;fn();return}const fn=historyStack.pop();if(fn)fn();else renderRoot()}
+document.getElementById('backHeader').onclick=back;
+window.sepriguaNav=function(action){
+  if(action==='services'){go(renderServiciosList,'Nuestros servicios');return false;}
+  if(action==='coverage'){go(renderCobertura,'Cobertura nacional');return false;}
+  if(action==='emergency'){go(renderEmergencia,'Necesito atención');return false;}
+  if(action==='quote'){go(renderCotizacionInfo,'Quiero cotizar');return false;}
+  if(action==='guarantee'){go(renderGarantiaInfo,'Garantía');return false;}
+  return false;
+};
+function renderRoot(){
+  historyStack=[];
+  currentBack=renderRoot;
+  document.getElementById('backHeader').style.visibility='hidden';
+  showScreen(`<div class="root-title">¡Hola! 👋 Soy Tuky</div><p class="root-text">Soy <b>Tuky</b>, asistente virtual de <b>SEPRIGUA</b>. Puedo orientarte sobre servicios, emergencias, cotizaciones, garantía, cobertura y cómo coordinar una atención.</p><p class="root-text" style="margin-top:5px;margin-bottom:7px">¿Qué necesitas consultar?</p><div class="options-list"><button type="button" class="option-card" onclick="this.classList.add('is-selected');window.sepriguaNav('services');return false;" aria-label="Nuestros servicios">${iconBadge('tools')}<div class="texts"><div class="title">Nuestros servicios</div><div class="subtitle">Drenajes, cisternas, lodos, plantas, plomería y más</div></div><div class="chev">${svgIcon('chevronRight')}</div></button><button type="button" class="option-card" onclick="this.classList.add('is-selected');window.sepriguaNav('coverage');return false;" aria-label="Cobertura">${iconBadge('map')}<div class="texts"><div class="title">Cobertura</div><div class="subtitle">Consulta las zonas donde podemos atenderte</div></div><div class="chev">${svgIcon('chevronRight')}</div></button></div><div class="quick-actions"><button type="button" onclick="window.sepriguaNav('emergency')">Emergencias</button><button type="button" onclick="window.sepriguaNav('quote')">Cotizar</button><button type="button" onclick="window.sepriguaNav('guarantee')">Garantía</button></div><div class="promo-card"><div class="promo-head">${svgIcon('whatsapp').replace(/currentColor/g,'#18bd4b')}<span>Atención con nuestro equipo</span></div><p>Si necesitas coordinar un servicio o explicar tu caso, puedes continuar directamente por WhatsApp.</p><button type="button" class="btn-whatsapp" id="promoWa">${svgIcon('whatsapp')} Hablar por WhatsApp</button><div class="promo-caption">Tuky te orienta y nuestro equipo continúa la atención</div></div>`,r=>{
+    const wa=r.querySelector('#promoWa');
+    if(wa) wa.onclick=function(ev){ev.preventDefault();ev.stopPropagation();go(renderWhatsAppFlow,'WhatsApp');};
+  },renderRoot);
+}
+function renderServiciosList(label='Nuestros servicios'){
+  currentBack=renderRoot;document.getElementById('backHeader').style.visibility='visible';
+  const tabs=SERVICIOS.map(s=>`<button type="button" class="services-bottom-tab" data-id="${s.id}">${s.nombre}</button>`).join('');
+  const cards=SERVICIOS.map(s=>`<button type="button" class="service-vertical-card" data-id="${s.id}" aria-label="${s.nombre}"><span class="service-icon">${svgIcon(s.icon)}</span><span class="service-copy"><span class="service-name">${s.nombre}</span><span class="service-summary">${s.resumen}</span></span><span class="service-chevron">${svgIcon('chevronRight')}</span></button>`).join('');
+  showScreen(
+    userMsg(label)+
+    botMsg('Claro, estos son los servicios que ofrece <b>SEPRIGUA</b>:')+
+    `<div class="services-vertical" aria-label="Servicios de SEPRIGUA">${cards}</div>
+     <div class="services-bottom-nav-wrap">
+       <div class="services-bottom-label">Módulos</div>
+       <nav class="services-bottom-nav" aria-label="Navegación horizontal de módulos">${tabs}</nav>
+     </div>`,
+    r=>{
+      const selectService=id=>{const svc=SERVICIOS.find(x=>x.id===id);if(!svc)return;r.querySelectorAll('.service-vertical-card,.services-bottom-tab').forEach(x=>x.classList.toggle('is-selected',x.dataset.id===id));go(()=>renderServicioDetalle(id),svc.nombre)};
+      r.querySelectorAll('.service-vertical-card,.services-bottom-tab').forEach(el=>el.onclick=()=>selectService(el.dataset.id));
+    },
+    renderServiciosList
+  )
+}
+function renderServicioDetalle(id,label){currentBack=()=>renderServiciosList('Nuestros servicios');document.getElementById('backHeader').style.visibility='visible';const s=SERVICIOS.find(x=>x.id===id);if(!s)return;const bs=[{label:'Hablar por WhatsApp',icon:'whatsapp',primary:true,onClick:()=>go(renderWhatsAppFlow,'Hablar por WhatsApp')},{label:'Volver al menú',icon:'chevronLeft',onClick:back}];showScreen(userMsg(label||s.nombre)+botMsg('Perfecto, te brindo información sobre nuestro servicio de <b>'+s.nombre+'</b>.')+`<div class="detail-card"><div class="detail-head">${iconBadge(s.icon)}<div><div class="detail-title">${s.nombre}</div><div class="detail-desc">${s.desc}</div></div></div><div class="section-label">Incluye:</div><ul class="checklist">${s.incluye.map(i=>`<li>${svgIcon('check')}<span>${i}</span></li>`).join('')}</ul><div class="section-label">Beneficios:</div><div class="benefit-grid">${s.beneficios.map(b=>`<div class="benefit-item"><div class="dot-icon">${svgIcon(b.icon)}</div>${b.label}</div>`).join('')}</div><div class="section-label">Ideal para:</div><div class="tag-grid">${s.idealPara.map(t=>`<span class="tag-chip">${svgIcon(t.icon)}${t.label}</span>`).join('')}</div></div>${footer(bs)}`,r=>bindFooter(r,bs),renderServicioDetalle)}
+const MAP_PATHS='<path class="dept-hit" data-dept="Petén" d="M 500,180 L 499,184 L 502,189 L 511,192 L 515,197 L 521,197 L 526,204 L 543,203 L 547,208 L 546,217 L 554,223 L 558,235 L 580,248 L 582,255 L 587,259 L 586,265 L 589,268 L 607,271 L 607,267 L 614,264 L 618,268 L 619,275 L 637,283 L 644,283 L 649,292 L 658,298 L 660,312 L 669,320 L 670,331 L 675,335 L 673,345 L 680,348 L 686,347 L 689,350 L 700,350 L 702,358 L 710,366 L 706,381 L 701,387 L 707,392 L 702,403 L 709,407 L 708,412 L 738,414 L 753,421 L 782,419 L 793,429 L 793,432 L 803,432 L 813,437 L 819,444 L 832,444 L 850,428 L 855,428 L 866,457 L 881,455 L 885,458 L 898,459 L 902,463 L 903,472 L 917,473 L 923,468 L 928,458 L 941,452 L 950,455 L 957,455 L 965,450 L 985,453 L 996,229 L 996,56 L 625,57 L 623,179 Z"></path><path class="dept-hit" data-dept="Huehuetenango" d="M 397,406 L 355,488 L 359,494 L 366,497 L 368,509 L 378,518 L 380,525 L 374,533 L 374,540 L 368,546 L 365,564 L 371,571 L 378,574 L 380,581 L 394,571 L 408,575 L 415,570 L 426,570 L 431,574 L 434,584 L 445,590 L 452,603 L 466,609 L 465,616 L 472,620 L 474,631 L 484,624 L 502,628 L 506,623 L 504,615 L 509,611 L 520,618 L 523,618 L 527,612 L 540,615 L 542,604 L 550,603 L 559,597 L 558,580 L 555,577 L 542,580 L 527,576 L 518,565 L 521,556 L 520,546 L 527,543 L 531,537 L 537,537 L 542,526 L 562,511 L 558,504 L 562,494 L 556,493 L 549,483 L 538,480 L 534,469 L 540,460 L 555,450 L 560,439 L 554,435 L 555,428 L 551,424 L 551,416 L 555,407 Z"></path><path class="dept-hit" data-dept="Quiché" d="M 702,416 L 598,407 L 558,407 L 559,411 L 554,422 L 563,440 L 558,451 L 538,468 L 539,476 L 550,479 L 558,489 L 566,493 L 566,505 L 562,504 L 565,513 L 546,526 L 544,535 L 540,539 L 532,541 L 523,548 L 525,556 L 521,563 L 529,573 L 548,576 L 557,574 L 562,580 L 563,597 L 556,604 L 545,606 L 545,614 L 542,618 L 528,617 L 524,621 L 516,619 L 523,636 L 538,653 L 535,658 L 529,660 L 531,670 L 546,678 L 548,681 L 544,688 L 547,696 L 556,696 L 565,708 L 578,702 L 577,691 L 582,686 L 589,684 L 604,689 L 621,681 L 621,673 L 609,664 L 599,649 L 592,617 L 595,609 L 605,609 L 621,617 L 632,614 L 638,602 L 647,602 L 649,607 L 658,607 L 661,611 L 665,611 L 672,606 L 674,601 L 672,595 L 664,589 L 653,589 L 648,585 L 633,582 L 632,568 L 641,555 L 649,550 L 645,540 L 645,530 L 639,526 L 640,522 L 637,519 L 624,515 L 612,515 L 606,511 L 607,500 L 601,493 L 606,486 L 605,479 L 628,460 L 619,437 L 629,433 L 628,426 L 636,423 L 640,417 L 645,415 L 650,416 L 654,421 L 663,422 L 667,431 L 675,427 L 685,430 L 694,418 L 703,419 Z"></path><path class="dept-hit" data-dept="Alta Verapaz" d="M 622,438 L 632,459 L 623,471 L 612,475 L 608,481 L 610,487 L 605,492 L 610,496 L 611,511 L 623,511 L 639,516 L 649,530 L 652,551 L 639,563 L 636,569 L 638,576 L 636,579 L 643,582 L 652,581 L 654,585 L 664,585 L 675,593 L 677,599 L 687,597 L 696,599 L 701,606 L 700,613 L 706,612 L 724,619 L 735,607 L 750,610 L 756,614 L 784,613 L 790,619 L 788,639 L 796,637 L 816,624 L 828,628 L 835,624 L 847,625 L 852,621 L 860,620 L 861,598 L 854,590 L 853,581 L 856,573 L 869,563 L 866,555 L 850,548 L 846,537 L 851,523 L 864,513 L 861,503 L 866,491 L 880,485 L 882,473 L 886,469 L 898,469 L 898,463 L 885,462 L 881,459 L 864,460 L 853,431 L 834,447 L 821,448 L 816,447 L 805,437 L 791,435 L 781,422 L 751,425 L 739,418 L 730,419 L 720,415 L 708,416 L 705,422 L 697,420 L 693,423 L 693,428 L 686,433 L 675,431 L 669,435 L 660,430 L 661,425 L 653,425 L 645,419 L 640,421 L 636,428 L 631,428 L 633,433 L 630,437 Z"></path><path class="dept-hit" data-dept="Izabal" d="M 1219,501 L 1207,488 L 1190,479 L 1157,451 L 1151,451 L 1151,456 L 1164,463 L 1177,479 L 1174,482 L 1168,481 L 1165,477 L 1161,479 L 1162,489 L 1148,513 L 1134,508 L 1131,505 L 1131,498 L 1122,491 L 1104,491 L 1101,488 L 1103,482 L 1100,479 L 1091,479 L 1090,472 L 1072,473 L 1067,466 L 1058,465 L 1049,470 L 1048,476 L 1039,488 L 1039,497 L 1025,517 L 1031,520 L 1031,524 L 1013,534 L 996,536 L 986,540 L 979,547 L 969,549 L 961,562 L 963,569 L 977,573 L 977,579 L 983,591 L 986,585 L 997,576 L 1017,577 L 1022,570 L 1030,567 L 1042,552 L 1054,549 L 1062,541 L 1061,536 L 1057,536 L 1055,532 L 1057,525 L 1066,514 L 1079,507 L 1086,495 L 1101,489 L 1102,492 L 1098,498 L 1085,503 L 1082,510 L 1070,515 L 1070,518 L 1062,524 L 1060,532 L 1065,536 L 1062,548 L 1066,551 L 1075,550 L 1078,554 L 1081,553 L 1085,558 L 1083,566 L 1086,574 L 1102,579 L 1105,582 L 1104,589 L 1108,592 L 1105,594 L 1110,596 L 1203,516 L 1209,507 L 1217,506 Z"></path><path class="dept-hit" data-dept="San Marcos" d="M 354,493 L 341,514 L 341,527 L 331,538 L 325,552 L 317,559 L 326,567 L 329,573 L 327,579 L 339,585 L 344,604 L 370,594 L 376,584 L 375,577 L 369,574 L 361,564 L 364,546 L 369,541 L 370,532 L 376,525 L 365,511 L 363,500 Z"></path><path class="dept-hit" data-dept="Quetzaltenango" d="M 427,575 L 416,574 L 408,579 L 392,576 L 378,587 L 371,598 L 354,603 L 352,607 L 344,608 L 340,605 L 336,587 L 324,581 L 325,574 L 316,565 L 317,576 L 305,598 L 334,636 L 336,642 L 332,653 L 324,656 L 320,662 L 321,674 L 318,681 L 306,687 L 304,701 L 308,706 L 311,719 L 307,725 L 304,746 L 309,747 L 317,743 L 321,737 L 330,732 L 336,732 L 349,723 L 358,724 L 363,729 L 377,728 L 382,733 L 388,727 L 390,728 L 394,711 L 402,704 L 401,695 L 407,689 L 410,679 L 426,669 L 430,661 L 425,642 L 427,632 L 433,623 L 446,622 L 453,608 L 447,603 L 443,593 L 431,586 Z"></path><path class="dept-hit" data-dept="Totonicapán" d="M 458,608 L 448,625 L 434,627 L 428,638 L 434,655 L 433,663 L 429,671 L 415,678 L 411,690 L 405,696 L 406,705 L 398,712 L 398,717 L 403,711 L 409,709 L 412,711 L 411,732 L 427,723 L 430,726 L 429,743 L 434,738 L 444,738 L 452,732 L 459,735 L 472,716 L 476,720 L 487,708 L 482,695 L 465,694 L 463,691 L 468,676 L 461,667 L 458,644 L 463,634 L 469,632 L 469,622 L 462,618 L 463,612 Z"></path><path class="dept-hit" data-dept="Sololá" d="M 509,617 L 510,624 L 502,632 L 485,628 L 478,634 L 465,637 L 462,653 L 466,663 L 465,667 L 472,676 L 467,690 L 481,690 L 488,696 L 490,705 L 499,703 L 506,709 L 514,710 L 523,703 L 539,701 L 543,696 L 540,689 L 543,680 L 528,672 L 526,658 L 534,654 L 519,637 Z"></path><path class="dept-hit" data-dept="Chimaltenango" d="M 565,712 L 557,707 L 553,699 L 546,699 L 540,705 L 523,707 L 515,714 L 505,713 L 499,707 L 490,709 L 489,714 L 482,721 L 482,749 L 506,743 L 512,751 L 519,749 L 523,752 L 525,766 L 528,769 L 542,757 L 548,761 L 548,767 L 552,768 L 555,762 L 562,758 L 560,739 L 568,732 Z"></path><path class="dept-hit" data-dept="Sacatepéquez" d="M 637,687 L 622,684 L 611,692 L 602,693 L 589,688 L 581,691 L 581,704 L 577,708 L 572,707 L 568,713 L 572,733 L 563,740 L 566,759 L 557,766 L 554,779 L 560,784 L 559,792 L 566,787 L 570,790 L 570,797 L 581,800 L 583,793 L 589,790 L 599,803 L 601,791 L 614,774 L 611,766 L 613,757 L 634,743 L 638,733 L 637,728 L 653,711 L 651,708 L 653,702 L 640,699 L 637,696 L 639,693 Z"></path><path class="dept-hit" data-dept="Guatemala" d="M 661,744 L 652,745 L 646,738 L 640,736 L 637,745 L 632,750 L 617,758 L 615,764 L 618,774 L 610,787 L 617,791 L 619,812 L 628,802 L 634,804 L 637,796 L 648,801 L 653,796 L 649,775 L 655,770 L 660,758 Z"></path><path class="dept-hit" data-dept="Baja Verapaz" d="M 595,614 L 605,653 L 623,670 L 624,680 L 641,685 L 642,695 L 660,698 L 674,688 L 686,698 L 687,702 L 706,703 L 714,700 L 719,704 L 730,704 L 733,687 L 755,675 L 753,669 L 755,658 L 771,645 L 777,645 L 784,639 L 787,624 L 782,616 L 755,618 L 741,611 L 735,611 L 726,622 L 721,623 L 706,616 L 700,617 L 696,613 L 697,606 L 690,601 L 676,602 L 675,607 L 666,614 L 658,614 L 656,610 L 648,610 L 645,606 L 639,606 L 635,616 L 625,621 L 623,619 L 619,621 L 604,612 Z"></path><path class="dept-hit" data-dept="El Progreso" d="M 833,629 L 824,631 L 816,628 L 792,643 L 786,642 L 778,648 L 772,648 L 768,653 L 759,657 L 757,678 L 736,688 L 733,707 L 738,713 L 733,722 L 746,730 L 745,732 L 750,735 L 750,739 L 759,749 L 763,750 L 771,741 L 778,741 L 787,727 L 809,722 L 817,708 L 834,705 L 856,686 L 854,682 L 849,681 L 849,677 L 838,666 L 839,661 L 846,658 L 847,654 L 836,642 L 837,636 Z"></path><path class="dept-hit" data-dept="Zacapa" d="M 836,628 L 840,634 L 840,641 L 845,644 L 851,654 L 842,666 L 860,685 L 852,692 L 851,697 L 860,704 L 859,716 L 868,724 L 872,723 L 868,720 L 870,717 L 873,717 L 877,723 L 886,723 L 886,705 L 900,696 L 910,696 L 918,701 L 923,698 L 932,699 L 947,682 L 961,680 L 970,682 L 969,667 L 957,661 L 959,648 L 956,642 L 945,635 L 943,626 L 931,627 L 922,634 L 911,632 L 906,636 L 891,638 L 885,637 L 879,627 L 871,623 L 857,624 L 846,629 Z"></path><path class="dept-hit" data-dept="Chiquimula" d="M 1030,673 L 1027,671 L 1019,674 L 1011,683 L 992,676 L 985,678 L 976,687 L 966,683 L 958,686 L 948,685 L 938,699 L 930,703 L 924,701 L 921,704 L 915,704 L 911,700 L 903,699 L 889,707 L 891,719 L 887,734 L 895,742 L 895,748 L 891,752 L 887,770 L 896,774 L 894,785 L 904,786 L 905,779 L 913,781 L 921,778 L 928,782 L 930,789 L 927,798 L 933,799 L 936,803 L 933,813 L 944,804 L 951,808 L 959,804 L 971,808 L 975,804 L 974,791 L 980,784 L 991,781 L 1004,763 L 1014,762 L 1022,765 L 1026,759 L 1023,747 L 1031,731 L 1025,723 L 1025,717 L 1017,711 L 1016,701 L 1029,687 Z"></path><path class="dept-hit" data-dept="Jalapa" d="M 891,743 L 884,737 L 883,726 L 865,727 L 855,716 L 857,706 L 845,698 L 835,709 L 819,711 L 810,725 L 790,729 L 779,745 L 772,745 L 765,753 L 758,753 L 746,766 L 742,778 L 746,788 L 754,788 L 762,795 L 770,789 L 774,792 L 784,789 L 792,792 L 794,799 L 799,799 L 806,809 L 815,808 L 822,803 L 831,807 L 830,803 L 839,794 L 844,794 L 848,798 L 853,795 L 858,797 L 867,784 L 877,782 L 890,784 L 892,776 L 886,775 L 882,767 Z"></path><path class="dept-hit" data-dept="Retalhuleu" d="M 409,713 L 401,719 L 401,723 L 390,735 L 381,737 L 377,733 L 362,733 L 357,728 L 347,728 L 336,736 L 323,739 L 322,747 L 327,746 L 338,755 L 338,759 L 326,768 L 318,768 L 318,771 L 322,768 L 324,770 L 321,774 L 314,773 L 307,777 L 348,811 L 357,807 L 358,793 L 367,792 L 373,784 L 362,782 L 359,776 L 355,775 L 345,779 L 342,770 L 335,775 L 331,770 L 343,766 L 346,768 L 346,774 L 353,771 L 359,772 L 366,779 L 382,782 L 392,779 L 399,771 L 398,761 L 401,751 L 411,745 L 410,741 L 415,736 L 407,733 Z"></path><path class="dept-hit" data-dept="Suchitepéquez" d="M 425,727 L 422,734 L 415,740 L 413,748 L 404,753 L 402,761 L 404,767 L 401,776 L 389,785 L 377,784 L 369,795 L 362,795 L 362,806 L 353,813 L 400,854 L 424,869 L 428,866 L 428,860 L 435,853 L 434,830 L 443,817 L 445,799 L 440,789 L 443,764 L 453,759 L 459,742 L 453,736 L 445,742 L 436,741 L 428,747 L 424,743 Z"></path><path class="dept-hit" data-dept="Escuintla" d="M 683,859 L 678,856 L 673,858 L 667,856 L 676,845 L 673,842 L 674,834 L 662,815 L 661,798 L 650,804 L 639,800 L 637,808 L 629,806 L 621,816 L 618,816 L 615,813 L 616,805 L 612,792 L 611,796 L 608,791 L 604,794 L 604,805 L 600,809 L 594,805 L 588,794 L 583,806 L 577,802 L 571,802 L 566,796 L 555,802 L 544,821 L 544,832 L 540,837 L 527,834 L 515,838 L 511,834 L 512,822 L 501,819 L 497,821 L 498,832 L 493,837 L 482,837 L 481,829 L 477,828 L 478,833 L 469,839 L 473,852 L 472,866 L 468,873 L 462,876 L 461,891 L 533,932 L 649,935 L 651,925 L 647,919 L 647,910 L 657,894 L 655,881 L 659,876 L 675,876 L 677,872 L 674,866 Z"></path><path class="dept-hit" data-dept="Santa Rosa" d="M 728,788 L 716,804 L 707,806 L 705,834 L 702,837 L 694,835 L 688,837 L 673,854 L 684,855 L 687,860 L 678,867 L 681,875 L 677,879 L 666,878 L 659,881 L 660,895 L 651,911 L 651,917 L 655,923 L 653,936 L 684,946 L 743,976 L 747,969 L 746,963 L 752,959 L 749,955 L 750,951 L 738,946 L 734,941 L 736,928 L 735,923 L 728,917 L 728,909 L 733,906 L 741,916 L 752,915 L 761,919 L 768,926 L 773,926 L 778,916 L 775,909 L 778,903 L 783,901 L 799,904 L 809,891 L 806,877 L 808,870 L 799,864 L 787,850 L 776,847 L 783,830 L 790,831 L 796,828 L 803,812 L 799,805 L 791,803 L 790,796 L 786,794 L 770,794 L 766,798 L 760,798 L 755,792 Z"></path><path class="dept-hit" data-dept="Jutiapa" d="M 919,781 L 909,784 L 909,788 L 904,790 L 901,788 L 893,790 L 881,786 L 870,787 L 860,800 L 847,801 L 841,797 L 834,804 L 833,810 L 829,811 L 821,807 L 817,811 L 807,812 L 795,834 L 786,833 L 784,835 L 785,839 L 779,845 L 790,848 L 801,861 L 811,867 L 812,893 L 799,908 L 784,905 L 778,907 L 782,916 L 773,930 L 767,930 L 762,924 L 750,918 L 739,919 L 731,912 L 739,925 L 738,941 L 754,951 L 755,961 L 750,965 L 751,970 L 746,978 L 798,1004 L 795,978 L 799,974 L 801,964 L 797,953 L 809,930 L 834,909 L 839,908 L 854,893 L 867,891 L 880,898 L 886,880 L 899,861 L 909,857 L 922,859 L 931,854 L 926,837 L 915,831 L 920,822 L 920,808 L 924,805 L 932,807 L 931,802 L 923,799 L 923,793 L 927,787 Z"></path>';
+function renderCobertura(label='Cobertura nacional'){
+  currentBack=renderRoot;
+  document.getElementById('backHeader').style.visibility='visible';
+
+  const bs=[
+    {label:'Hablar por WhatsApp',icon:'whatsapp',primary:true,onClick:()=>go(renderWhatsAppFlow,'Hablar por WhatsApp')},
+    {label:'Volver al menú',icon:'chevronLeft',onClick:back}
+  ];
+
+  showScreen(
+    userMsg(label)+
+    botMsg('<b>SEPRIGUA</b> coordina servicios en los <b>22 departamentos de Guatemala</b>. Nuestra sede principal está en Ciudad de Guatemala y contamos con presencia operativa en Quetzaltenango, lo que fortalece la atención hacia occidente y la Costa Sur. Selecciona un departamento para consultar la cobertura.')+
+    `<div class="coverage-card">
+      <div class="coverage-head"><div><div class="coverage-kicker">Cobertura SEPRIGUA</div><div class="coverage-title">Atención en Guatemala</div></div></div>
+      <div class="coverage-layout coverage-map-only">
+        <div class="map-panel"><div class="map-stage map-stage-real"><div class="map-art"><img class="map-reference" src="assets/img/mapa-guatemala.png" alt="Mapa de Guatemala"><svg class="map-hit-layer" viewBox="0 0 1402 1122" preserveAspectRatio="xMidYMid meet" aria-label="Mapa interactivo de Guatemala">${MAP_PATHS}</svg><div class="coverage-tooltip" id="coverageTooltip"><div class="pin-shape">${svgIcon('map')}</div><div class="tooltip-body"><div class="tooltip-kicker">SEPRIGUA</div><div class="tooltip-name" id="tooltipName"></div><div class="tooltip-sub">Cobertura disponible</div></div></div></div></div></div>
+        <div class="coverage-selection" id="coverageSelection" aria-live="polite"><div class="sel-kicker">Departamento seleccionado</div><div class="sel-title" id="coverageSelectionTitle"></div><div class="sel-copy" id="coverageSelectionCopy"></div><div class="sel-actions"><button type="button" class="btn-whatsapp" id="coverageSelWa">${svgIcon('whatsapp')} Coordinar atención</button><button type="button" class="sel-back-link" id="coverageSelBack">${svgIcon('chevronLeft')} Volver al menú</button></div></div>
+      </div>
+      <div class="services-bottom-nav-wrap coverage-bottom-nav">
+        <div class="services-bottom-label">Servicios</div>
+        <nav class="services-bottom-nav" aria-label="Navegación horizontal de servicios">
+          ${SERVICIOS.map(s=>`<button type="button" class="services-bottom-tab" data-coverage-service="${s.id}">${s.nombre}</button>`).join('')}
+        </nav>
+      </div>
+    </div>${footer(bs)}`,
+    r=>{
+      const stage=r.querySelector('.map-stage'),tip=r.querySelector('#coverageTooltip'),nameEl=r.querySelector('#tooltipName');
+      const selection=r.querySelector('#coverageSelection'),selectionTitle=r.querySelector('#coverageSelectionTitle'),selectionCopy=r.querySelector('#coverageSelectionCopy');
+      const selWa=r.querySelector('#coverageSelWa'),selBack=r.querySelector('#coverageSelBack');
+
+      if(selWa)selWa.onclick=()=>go(renderWhatsAppFlow,'Coordinar atención');
+      if(selBack)selBack.onclick=back;
+
+      const positionTip=ev=>{
+        const rect=stage.getBoundingClientRect();
+        const x=ev.clientX-rect.left,y=ev.clientY-rect.top;
+        tip.style.left=Math.max(4,Math.min(x,stage.clientWidth-170))+'px';
+        tip.style.top=Math.max(4,Math.min(y,stage.clientHeight-60))+'px';
+        tip.classList.add('show');
+      };
+
+      const selectCoverage=(btn,dept,ev)=>{
+        r.querySelectorAll('.dept-hit.covered').forEach(x=>x.classList.remove('active'));
+        btn.classList.add('active');
+
+        selectionTitle.textContent=dept;
+        let copy=`Sí, contamos con cobertura en <b>${dept}</b>.`;
+        if(dept==='Guatemala'){
+          copy+=' Nuestra sede principal y centro de operaciones se encuentra en Ciudad de Guatemala.';
+        }else if(dept==='Quetzaltenango'){
+          copy+=' Contamos con presencia operativa en Quetzaltenango para fortalecer la atención en occidente y la Costa Sur.';
+        }else{
+          copy+=' La programación se coordina según el tipo de servicio, ubicación y disponibilidad operativa.';
+        }
+        selectionCopy.innerHTML=copy+'<br>¿Deseas que nuestro equipo coordine tu solicitud?';
+        selection.classList.add('show');
+        requestAnimationFrame(()=>selection.scrollIntoView({behavior:'smooth',block:'nearest'}));
+
+        nameEl.textContent=dept;
+        positionTip(ev);
+      };
+
+      r.querySelectorAll('.services-bottom-tab[data-coverage-service]').forEach(tab=>{
+        tab.addEventListener('click',()=>{
+          const id=tab.dataset.coverageService;
+          const svc=SERVICIOS.find(x=>x.id===id);
+          if(svc){
+            tab.classList.add('is-selected');
+            go(()=>renderServicioDetalle(id),svc.nombre);
+          }
+        });
+      });
+
+      r.querySelectorAll('.dept-hit').forEach(btn=>{
+        const dept=btn.dataset.dept;
+        btn.classList.add('covered');
+        btn.addEventListener('mouseenter',ev=>{btn.classList.add('hover');nameEl.textContent=dept;positionTip(ev)});
+        btn.addEventListener('mousemove',ev=>{nameEl.textContent=dept;positionTip(ev)});
+        btn.addEventListener('mouseleave',()=>{btn.classList.remove('hover');if(!btn.classList.contains('active'))tip.classList.remove('show')});
+        btn.addEventListener('click',ev=>{ev.preventDefault();selectCoverage(btn,dept,ev)});
+      });
+
+      bindFooter(r,bs);
+    },renderCobertura
+  )
+}
+
+function renderEmergencia(label='Necesito atención'){
+  currentBack=renderRoot;document.getElementById('backHeader').style.visibility='visible';
+  const bs=[{label:'Hablar por WhatsApp',icon:'whatsapp',primary:true,onClick:()=>go(renderWhatsAppFlow,'Emergencia')},{label:'Volver al menú',icon:'chevronLeft',onClick:back}];
+  showScreen(userMsg(label)+botMsg('<b>Si tienes una emergencia</b>, cuéntanos qué está ocurriendo, la ubicación del servicio y un número de contacto. Nuestro equipo revisará disponibilidad y prioridad para coordinar la atención. Si hay riesgo para personas, electricidad, gas o infraestructura crítica, evita intervenir sin condiciones seguras.')+`<div class="detail-card"><div class="detail-head">${iconBadge('clock')}<div><div class="detail-title">Datos que ayudan a responder más rápido</div><div class="detail-desc">Ubicación, tipo de problema, desde cuándo ocurre, fotografías o video si es seguro obtenerlos y si la operación está detenida.</div></div></div></div>${footer(bs)}`,r=>bindFooter(r,bs),renderEmergencia);
+}
+function renderCotizacionInfo(label='Quiero cotizar'){
+  currentBack=renderRoot;document.getElementById('backHeader').style.visibility='visible';
+  const bs=[{label:'Solicitar por WhatsApp',icon:'whatsapp',primary:true,onClick:()=>go(renderWhatsAppFlow,'Solicitar cotización')},{label:'Ver servicios',icon:'tools',onClick:()=>renderServiciosList('Nuestros servicios')},{label:'Volver al menú',icon:'chevronLeft',onClick:back}];
+  showScreen(userMsg(label)+botMsg('Las cotizaciones se preparan según el <b>tipo de servicio, ubicación, alcance y condiciones del sitio</b>. Para orientarte mejor, indícanos qué necesitas, dónde se realizará el trabajo y, si cuentas con ellas, comparte fotografías o videos de referencia.')+`<div class="detail-card"><div class="detail-head">${iconBadge('dollar')}<div><div class="detail-title">Cotización según evaluación</div><div class="detail-desc">No todos los trabajos tienen el mismo alcance. Por eso evitamos darte un precio genérico que pueda ser incorrecto.</div></div></div></div>${footer(bs)}`,r=>bindFooter(r,bs),renderCotizacionInfo);
+}
+function renderGarantiaInfo(label='Garantía'){
+  currentBack=renderRoot;document.getElementById('backHeader').style.visibility='visible';
+  const bs=[{label:'Solicitar seguimiento',icon:'whatsapp',primary:true,onClick:()=>go(renderWhatsAppFlow,'Seguimiento de garantía')},{label:'Volver al menú',icon:'chevronLeft',onClick:back}];
+  showScreen(userMsg(label)+botMsg('En SEPRIGUA damos seguimiento a nuestros trabajos. Si necesitas solicitar una <b>revisión por garantía</b>, comparte el número de orden o referencia del servicio, fecha aproximada, sede y una descripción de lo que observas. El equipo validará el caso y coordinará el seguimiento correspondiente.')+`<div class="detail-card"><div class="detail-head">${iconBadge('shield')}<div><div class="detail-title">Seguimiento profesional</div><div class="detail-desc">La revisión se gestiona con la información del servicio realizado y las condiciones actuales del sitio.</div></div></div></div>${footer(bs)}`,r=>bindFooter(r,bs),renderGarantiaInfo);
+}
+function renderWhatsAppFlow(label='Hablar por WhatsApp'){
+  currentBack=renderRoot;document.getElementById('backHeader').style.visibility='visible';
+  const bs=[{label:'Volver al menú',icon:'chevronLeft',onClick:back}];
+  showScreen(
+    userMsg(label)+botMsg('Nuestro equipo de trabajo te contactará lo antes posible. Para recibir atención personalizada, puedes compartir tu número de celular y una breve descripción de lo que necesitas; también puedes continuar directamente por <b>WhatsApp</b>.')+
+    `<div class="wa-card"><div class="wa-title">Vamos a abrir WhatsApp</div><p>Si la app de WhatsApp está instalada en tu dispositivo, se abrirá automáticamente. Pulsa el botón para conversar directamente con nuestro equipo.</p><a href="${WHATSAPP_LINK}" target="_blank" rel="noopener" class="btn-whatsapp">${svgIcon('whatsapp')} Abrir WhatsApp</a><div class="promo-caption">Serás redirigido a WhatsApp con el enlace oficial de SEPRIGUA.</div></div><a href="${WHATSAPP_LINK}" target="_blank" rel="noopener" class="option-card link-row">${iconBadge('externalLink')}<div class="texts"><div class="title">Abrir WhatsApp manualmente</div><div class="subtitle">Haz clic aquí para continuar</div></div><div class="chev">${svgIcon('chevronRight')}</div></a><div class="wa-thanks">Te atenderemos lo antes posible. ¡Gracias por contactarnos! 😄</div>${footer(bs)}`,
+    r=>bindFooter(r,bs),renderWhatsAppFlow
+  )
+}
+
+
+/* ---------- Conversación libre: respuestas por intención y palabras clave ---------- */
+function normaliza(t){return t.toLowerCase().replace(/[áàä]/g,'a').replace(/[éèë]/g,'e').replace(/[íìï]/g,'i').replace(/[óòö]/g,'o').replace(/[úùü]/g,'u').replace(/ñ/g,'n');}
+function appendChatUser(text){chatBody.insertAdjacentHTML('beforeend',userMsg(text));chatBody.scrollTop=chatBody.scrollHeight}
+function appendChatBot(text){chatBody.insertAdjacentHTML('beforeend',botMsg(text));chatBody.scrollTop=chatBody.scrollHeight}
+function responderLibre(texto){
+  const t=normaliza(texto);
+  if(/whatsapp|asesor|humano|persona|contactar|contacto|telefono|numero|llamar/.test(t)) return ['Puedo conectarte directamente con nuestro equipo. Pulsa <b>Hablar por WhatsApp</b> para continuar con una persona y coordinar tu caso.', 'wa'];
+  if(/emergencia|urgente|urgencia|ahora|rebalse|desbord|inund|tapado|atascado|no drena/.test(t)) return ['Si se trata de una <b>emergencia</b>, necesito que nos indiques ubicación, qué está ocurriendo y si la operación está detenida. Nuestro equipo revisará disponibilidad y prioridad para coordinar la atención.', 'emergency'];
+  if(/precio|cuanto cuesta|costo|cotiza|cotizacion|presupuesto|tarifa/.test(t)) return ['El costo depende del tipo de servicio, ubicación, alcance y condiciones del sitio. Podemos preparar una <b>cotización según evaluación</b>; comparte qué necesitas y dónde se realizará el trabajo.', 'quote'];
+  if(/garantia|garantía|reclamo|revision del trabajo|seguimiento/.test(t)) return ['Sí, damos seguimiento a nuestros trabajos. Para una <b>revisión por garantía</b>, ten a mano el número de orden o referencia, fecha aproximada, sede y una descripción de lo que observas.', 'guarantee'];
+  if(/horario|hora|atienden|atencion|abren|cierran|domingo|sabado/.test(t)) return ['Atendemos servicios programados y coordinamos emergencias según disponibilidad operativa. Para confirmar una hora o atención en una fecha específica, lo mejor es consultarlo directamente con nuestro equipo por WhatsApp.', 'wa'];
+  if(/donde.*cobertura|que lugares.*cobertura|lugares.*cobertura|cobertura|ubicacion|donde estan|zona|departamento|sede/.test(t)) return ['Contamos con cobertura operativa en distintas zonas de Guatemala. Puedes abrir el <b>mapa de cobertura</b> para consultar los departamentos configurados y coordinar la atención según tu ubicación.', 'coverage'];
+  if(/cisterna|cisternas|tanque de agua|deposito de agua/.test(t)) return ['Sí. Realizamos <b>limpieza de cisternas</b>, retirando sedimentos y suciedad acumulada, con revisión visual y recomendaciones de mantenimiento preventivo.', 'services'];
+  if(/planta de tratamiento|plantas de tratamiento|aguas residuales|tratamiento de agua/.test(t)) return ['Brindamos apoyo en <b>mantenimiento y limpieza de plantas de tratamiento</b>, incluyendo extracción de lodos, limpieza de componentes accesibles y trabajos complementarios según evaluación.', 'services'];
+  if(/pozo de absorcion|pozos de absorcion|pozo absorbente|absorcion/.test(t)) return ['Sí. Atendemos <b>limpieza y mantenimiento de pozos de absorción</b>, con extracción de lodos y sedimentos y evaluación de las condiciones observadas.', 'services'];
+  if(/plomeria|plomero|fuga|fugas|tuberia rota|grifo|sanitario|inodoro/.test(t)) return ['También ofrecemos <b>plomería en general</b>: instalación y reparación de tuberías de PVC, CPVC y HG, llaves de paso, bajadas pluviales, conexiones y trabajos complementarios según evaluación.', 'services'];
+  if(/trampa.*grasa|grasa|grasas/.test(t)) return ['Realizamos <b>limpieza y mantenimiento de trampas de grasa</b>, con extracción de residuos, limpieza del sistema y recomendaciones para prevenir obstrucciones y malos olores.', 'services'];
+  if(/lodo|lodos|succion|succión|residuo|fosa septica|fosas septicas/.test(t)) return ['Contamos con servicio de <b>succión de lodos y residuos</b> para fosas, trampas, plantas y otros sistemas que requieren extracción profesional y manejo adecuado de residuos.', 'services'];
+  if(/cctv|camara|cámara|inspeccion|inspección|video.*tuberia|robot/.test(t)) return ['Podemos realizar una <b>inspección interna de tuberías y drenajes</b> para localizar obstrucciones, daños y otras anomalías y así orientar la intervención adecuada.', 'services'];
+  if(/drenaje|drenajes|destape|destapar|desague|desagüe|alcantarill/.test(t)) return ['Atendemos <b>destape, limpieza y mantenimiento de drenajes</b> de forma preventiva y correctiva. Si me indicas qué problema tienes, puedo orientarte mejor.', 'services'];
+  if(/mantenimiento preventivo|mantenimiento programado|plan de mantenimiento|frecuencia/.test(t)) return ['Podemos estructurar <b>mantenimientos programados y personalizados</b> según el tipo de instalación, frecuencia requerida y criticidad de la operación.', 'services'];
+  if(/empresa|quienes son|quienes somos|experiencia|anos|años|seprigua/.test(t)) return ['<b>SEPRIGUA</b> es una empresa guatemalteca con más de 10 años de experiencia. Atendemos mantenimiento de drenajes, cisternas, bombas de agua, biodigestores, plantas de tratamiento, plomería y otras necesidades de empresas, comercios e industrias. Nuestros servicios cuentan con seguimiento profesional y garantía según el trabajo realizado. Soy <b>Tuky</b>, su asistente virtual.', 'general'];
+  if(/hotel|restaurante|industria|empresa|comercio|condominio|residencia/.test(t)) return ['Atendemos distintos tipos de instalaciones: <b>empresas, industrias, restaurantes, hoteles, comercios, edificios, condominios y residencias</b>, según el servicio y la ubicación.', 'services'];
+  if(/que necesito|que datos|que informacion|como solicitar|como pido|solicitar servicio/.test(t)) return ['Para solicitar atención ayuda tener: <b>ubicación, tipo de problema o servicio, una descripción breve, fotografías o video si es posible y un número de contacto</b>. Con eso nuestro equipo puede orientarte mejor.', 'wa'];
+  if(/tecnologia|equipo|equipos|hidrojet|camion|camiones|maquina|maquinas/.test(t)) return ['SEPRIGUA cuenta con los <b>recursos operativos y el personal capacitado</b> necesarios para atender cada servicio. Por política comercial, los detalles específicos de herramientas y recursos utilizados se definen únicamente durante la coordinación del trabajo.', 'general'];
+  if(/restaurante|restaurantes|hotel|hoteles|centro comercial|centros comerciales|plaza|plazas|industria|industrias|empresa|empresas/.test(t)) return ['Atendemos <b>restaurantes, hoteles, centros comerciales, industrias y otras empresas</b>. Podemos coordinar mantenimientos programados, atención correctiva y emergencias según el servicio requerido.', 'services'];
+  if(/biodigestor|biodigestores/.test(t)) return ['Podemos evaluar necesidades relacionadas con <b>biodigestores y sistemas de tratamiento</b>. Cuéntame qué problema presentan o qué mantenimiento necesitas y te indico cómo coordinar la atención.', 'services'];
+  if(/bomba de agua|bombas de agua|bomba hidraulica|bomba hidráulica/.test(t)) return ['Atendemos trabajos relacionados con <b>bombas de agua y sistemas asociados</b> de acuerdo con la condición de la instalación. Para orientarte mejor, indícame si se trata de una falla, mantenimiento o revisión.', 'services'];
+  if(/bajada pluvial|bajadas pluviales|pluvial|lluvia|rebalse|rebalses/.test(t)) return ['Atendemos <b>bajadas pluviales, áreas de rebalse y circuitos de drenaje</b>, tanto en mantenimiento programado como en atención correctiva o de emergencia.', 'services'];
+  if(/quetzaltenango|xela|occidente|costa sur|costa-sur/.test(t)) return ['Contamos con <b>presencia operativa en Quetzaltenango</b>, lo que fortalece la atención hacia occidente y la Costa Sur. También coordinamos servicios en los demás departamentos de Guatemala.', 'coverage'];
+  if(/guatemala capital|ciudad de guatemala|sede principal|donde estan|donde están|ubicacion|ubicación/.test(t)) return ['Nuestra <b>sede principal está en Ciudad de Guatemala</b> y contamos con presencia operativa en Quetzaltenango. Coordinamos atención en los 22 departamentos del país.', 'coverage'];
+  if(/365|todo el año|todos los dias|todos los días|nacional|todo guatemala/.test(t)) return ['SEPRIGUA coordina servicios en los <b>22 departamentos de Guatemala</b>. La atención y programación se organiza según el tipo de servicio, ubicación y disponibilidad operativa.', 'coverage'];
+  if(/servicio|servicios|que hacen|qué hacen|ofrecen|mantenimiento/.test(t)) return ['Ofrecemos <b>mantenimiento de drenajes, limpieza de cisternas, inspección de tuberías, succión de lodos y residuos, trampas de grasa, plantas de tratamiento, pozos de absorción, plomería y mantenimientos personalizados</b>.', 'services'];
+  if(/hola|buenas|buenos|hey|saludos/.test(t)) return ['¡Hola! 👋 Soy <b>Tuky</b>, asistente virtual de SEPRIGUA. Puedo ayudarte con servicios, emergencias, cotizaciones, garantía o cobertura.', 'hello'];
+  if(/gracias|perfecto|excelente|ok|vale/.test(t)) return ['¡Con gusto! Soy <b>Tuky</b>. Puedes preguntarme por servicios, una emergencia, una cotización, garantía, cobertura o cómo contactar al equipo.','general'];
+  return ['Soy <b>Tuky</b> y puedo ayudarte con información sobre servicios, emergencias, cotizaciones, garantía, cobertura y contacto. Prueba preguntas como: <i>“¿Limpian cisternas?”</i>, <i>“Necesito una cotización”</i> o <i>“Tengo una emergencia de drenaje”</i>.','general'];
+}
+
+
+
+
+document.getElementById('chatForm').addEventListener('submit', function(ev){
+  ev.preventDefault();const input=document.getElementById('chatInput');const texto=input.value.trim();if(!texto)return;input.value='';
+  appendChatUser(texto);const [respuesta,tipo]=responderLibre(texto);setTimeout(()=>{
+    appendChatBot(respuesta);
+    if(tipo==='wa'){const q=document.createElement('div');q.className='quick-actions';q.innerHTML='<button class="btn-whatsapp">'+svgIcon('whatsapp')+' Hablar por WhatsApp</button>';chatBody.appendChild(q);q.querySelector('button').onclick=()=>renderWhatsAppFlow('Hablar por WhatsApp');}
+    if(tipo==='coverage'){const q=document.createElement('div');q.className='quick-actions';q.innerHTML='<button>Ver mapa de cobertura</button>';chatBody.appendChild(q);q.querySelector('button').onclick=()=>{q.querySelector('button').classList.add('is-selected');renderCobertura('Cobertura nacional')};}
+    if(tipo==='services'){const q=document.createElement('div');q.className='quick-actions';q.innerHTML='<button>Ver servicios</button>';chatBody.appendChild(q);q.querySelector('button').onclick=()=>renderServiciosList('Nuestros servicios');}
+    if(tipo==='emergency'){const q=document.createElement('div');q.className='quick-actions';q.innerHTML='<button>Ver atención de emergencia</button>';chatBody.appendChild(q);q.querySelector('button').onclick=()=>renderEmergencia('Necesito atención');}
+    if(tipo==='quote'){const q=document.createElement('div');q.className='quick-actions';q.innerHTML='<button>Cómo cotizar</button>';chatBody.appendChild(q);q.querySelector('button').onclick=()=>renderCotizacionInfo('Quiero cotizar');}
+    if(tipo==='guarantee'){const q=document.createElement('div');q.className='quick-actions';q.innerHTML='<button>Solicitar garantía</button>';chatBody.appendChild(q);q.querySelector('button').onclick=()=>renderGarantiaInfo('Garantía');}
+  },180);
+});
+
+/* ---------- Abrir / cerrar el widget ---------- */
+const widget = document.getElementById('chatWidget');
+const launcher = document.getElementById('launcherBtn');
+
+function openWidget(){
+  widget.classList.add('open');
+  launcher.style.display = 'none';
+  isOpen = true;
+  renderRoot(); // siempre inicia en la pantalla raíz, sin memoria de una sesión anterior
+}
+function closeWidget(){
+  widget.classList.remove('open');
+  launcher.style.display = 'flex';
+  isOpen = false;
+}
+launcher.onclick = openWidget;
+document.getElementById('closeBtn').onclick = closeWidget;
+
+/* El widget inicia cerrado (solo se ve el botón flotante), como cualquier
+   chat de sitio web real. Si quieres que se abra solo al cargar la página,
+   descomenta la siguiente línea: */
+// openWidget();
+
+</script>
+<script>window.addEventListener('DOMContentLoaded',()=>document.getElementById('launcherBtn').click());</script>
+<script id="seprigua-chatbot-parent-bridge">
+window.addEventListener("DOMContentLoaded", () => {
+  const widget = document.getElementById("chatWidget");
+  const launcher = document.getElementById("launcherBtn");
+  if (widget) widget.classList.add("open");
+  if (launcher) launcher.style.display = "none";
+
+  const close = document.getElementById("closeBtn");
+  if (close) {
+    close.onclick = () => {
+      window.parent?.postMessage({ type: "SEPRIGUA_CHATBOT_CLOSE" }, "*");
+    };
+  }
+});
+</script>
+
+</body>
+</html>
