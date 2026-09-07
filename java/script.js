@@ -37,6 +37,82 @@ document.addEventListener("DOMContentLoaded",()=>{
     carousel?.addEventListener("touchstart",e=>touchX=e.changedTouches[0].clientX,{passive:true}); carousel?.addEventListener("touchend",e=>{const dx=touchX-e.changedTouches[0].clientX;if(Math.abs(dx)>45){go(current+(dx>0?1:-1));restart()}},{passive:true}); document.addEventListener("visibilitychange",()=>document.hidden?stop():start()); start();
   }
 
-  const form=$("#contactForm"), msg=$("#formMessage"); form?.addEventListener("submit",e=>{e.preventDefault();if(msg){msg.style.display="block";msg.style.color="#078343";msg.textContent="Mensaje preparado correctamente. La conexión con el backend se integrará en el siguiente incremento."}form.reset();setTimeout(()=>{if(msg)msg.style.display="none"},4500)});
+  const form = $("#contactForm");
+  const msg = $("#formMessage");
+  const submitButton = form?.querySelector('button[type="submit"]');
+
+  const showFormMessage = (text, ok = true) => {
+    if (!msg) return;
+
+    msg.style.display = "block";
+    msg.style.color = ok ? "#078343" : "#c92a43";
+    msg.textContent = text;
+  };
+
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    const originalButton = submitButton?.innerHTML || "";
+
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.setAttribute("aria-busy", "true");
+      submitButton.textContent = "Enviando solicitud…";
+    }
+
+    showFormMessage("Enviando tu solicitud a SEPRIGUA…", true);
+
+    try {
+      const formData = new FormData(form);
+
+      const response = await fetch(
+        "https://formsubmit.co/ajax/gadministracion@turamgt.com",
+        {
+          method: "POST",
+          headers: {
+            "Accept": "application/json"
+          },
+          body: formData
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || data?.success === "false") {
+        throw new Error(
+          data?.message ||
+          "No fue posible enviar la solicitud."
+        );
+      }
+
+      showFormMessage(
+        "✓ Solicitud enviada correctamente. Nuestro equipo se pondrá en contacto contigo.",
+        true
+      );
+
+      form.reset();
+    } catch (error) {
+      showFormMessage(
+        "No pudimos enviar la solicitud en este momento. Intenta nuevamente.",
+        false
+      );
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.removeAttribute("aria-busy");
+        submitButton.innerHTML = originalButton;
+
+        if (window.lucide) {
+          lucide.createIcons();
+        }
+      }
+    }
+  });
+
   $("#chatButton")?.addEventListener("click",()=>{}); scrollTopBtn?.addEventListener("click",()=>scrollTo({top:0,behavior:"smooth"}));
 });
