@@ -1,0 +1,190 @@
+/* =========================================================
+   SEPRIGUA V28 — TRANSICIONES SEGURAS
+   Importante:
+   - NO cambia tamaños
+   - NO cambia grid/flex
+   - NO cambia clip-path
+   - NO toca posiciones del hero
+   - reutiliza los .reveal ya existentes
+   ========================================================= */
+
+:root {
+  --safe-motion-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+/* Reveal base: solo opacidad + desplazamiento pequeño */
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  filter: blur(2px);
+
+  transition:
+    opacity .72s var(--safe-motion-ease),
+    transform .78s var(--safe-motion-ease),
+    filter .6s ease;
+
+  transition-delay: var(--safe-delay, 0ms);
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  filter: blur(0);
+}
+
+/* Direcciones suaves, sin sacar elementos de su contenedor */
+.reveal.safe-left {
+  transform: translate3d(-22px, 10px, 0);
+}
+
+.reveal.safe-right {
+  transform: translate3d(22px, 10px, 0);
+}
+
+.reveal.safe-left.visible,
+.reveal.safe-right.visible {
+  transform: translate3d(0, 0, 0);
+}
+
+/* Hero: cascada interna sin modificar geometría */
+.hero-content.reveal.visible .section-label,
+.hero-content.reveal.visible .hero-title,
+.hero-content.reveal.visible .hero-text,
+.hero-content.reveal.visible .primary-button {
+  animation: safeHeroIn .58s var(--safe-motion-ease) both;
+}
+
+.hero-content.reveal.visible .section-label { animation-delay: .04s; }
+.hero-content.reveal.visible .hero-title    { animation-delay: .09s; }
+.hero-content.reveal.visible .hero-text     { animation-delay: .14s; }
+.hero-content.reveal.visible .primary-button{ animation-delay: .19s; }
+
+@keyframes safeHeroIn {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Imágenes: pequeño zoom interno, sin tocar su contenedor */
+.hero-image,
+.about-collage img,
+.service-image img,
+.coverage-map,
+.work-photo img {
+  transition:
+    transform .75s var(--safe-motion-ease),
+    filter .55s ease;
+}
+
+/* Solo cuando el padre reveal ya es visible */
+.hero-image-container.reveal:not(.visible) .hero-image,
+.about-collage.reveal:not(.visible) img,
+.coverage-map-wrapper.reveal:not(.visible) .coverage-map,
+.work-gallery.reveal:not(.visible) img {
+  transform: scale(1.018);
+}
+
+.hero-image-container.reveal.visible .hero-image,
+.about-collage.reveal.visible img,
+.coverage-map-wrapper.reveal.visible .coverage-map,
+.work-gallery.reveal.visible img {
+  transform: scale(1);
+}
+
+/* Tarjetas: hover premium pero seguro */
+@media (hover: hover) and (pointer: fine) {
+  .hero-feature,
+  .about-card,
+  .coverage-card,
+  .work-feature,
+  .locations-panel,
+  .contact-form-wrapper {
+    transition:
+      transform .28s var(--safe-motion-ease),
+      box-shadow .28s ease,
+      background .28s ease;
+  }
+
+  .about-card:hover,
+  .coverage-card:hover,
+  .work-feature:hover,
+  .locations-panel:hover {
+    transform: translateY(-4px);
+  }
+
+  .contact-form-wrapper:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* Footer: aparición por partes sin alterar layout */
+.safe-extra {
+  opacity: 0;
+  transform: translateY(14px);
+
+  transition:
+    opacity .68s var(--safe-motion-ease),
+    transform .72s var(--safe-motion-ease);
+
+  transition-delay: var(--safe-delay, 0ms);
+}
+
+.safe-extra.safe-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Botón volver arriba */
+.scroll-top.visible {
+  animation: safeScrollTopIn .32s var(--safe-motion-ease) both;
+}
+
+@keyframes safeScrollTopIn {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Mobile: menos movimiento */
+@media (max-width: 820px) {
+  .reveal {
+    transform: translate3d(0, 13px, 0);
+    filter: none;
+    transition-duration: .62s;
+  }
+
+  .reveal.safe-left,
+  .reveal.safe-right {
+    transform: translate3d(0, 13px, 0);
+  }
+
+  .reveal.visible,
+  .reveal.safe-left.visible,
+  .reveal.safe-right.visible {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Accesibilidad */
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .safe-extra,
+  .hero-content.reveal.visible *,
+  .scroll-top.visible {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+  }
+}

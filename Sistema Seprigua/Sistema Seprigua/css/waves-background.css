@@ -1,0 +1,240 @@
+/* =========================================================
+   SEPRIGUA — FONDO GLOBAL V10
+   Fix:
+   - Mantiene azul vivo.
+   - Las ondas vuelven a verse claramente.
+   - Reduce el exceso de azul de fondo para que no tape las líneas.
+   ========================================================= */
+
+body {
+  position: relative;
+  background: #F8FAFC;
+}
+
+main {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+.hero-section,
+.about-section,
+.services-section,
+.coverage-section,
+.work-section,
+.contact-section {
+  background: transparent !important;
+}
+
+.site-background {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  min-height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse at 8% 3%, rgba(10,107,255,.055) 0%, rgba(10,107,255,.020) 24%, transparent 48%),
+    radial-gradient(ellipse at 92% 11%, rgba(10,107,255,.090) 0%, rgba(10,107,255,.038) 24%, rgba(10,107,255,.012) 46%, transparent 63%),
+    radial-gradient(ellipse at 3% 37%, rgba(10,107,255,.060) 0%, rgba(10,107,255,.024) 30%, transparent 55%),
+    radial-gradient(ellipse at 96% 63%, rgba(10,107,255,.075) 0%, rgba(10,107,255,.030) 31%, transparent 57%),
+    radial-gradient(ellipse at 12% 88%, rgba(10,107,255,.055) 0%, rgba(10,107,255,.020) 33%, transparent 58%),
+    linear-gradient(180deg, #F8FAFC 0%, #F3F7FA 26%, #EEF3F7 55%, #F6F9FB 78%, #F8FAFC 100%);
+}
+
+.wave-scene,
+.continuous-wave,
+.wave-mesh-root {
+  display: none !important;
+}
+
+.premium-bg-root {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.premium-wave-canvas {
+  position: absolute;
+  z-index: 4;
+  inset: -1% -2%;
+  width: 104%;
+  height: 102%;
+  overflow: visible;
+  opacity: 1;
+}
+
+.premium-wave-canvas svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  shape-rendering: geometricPrecision;
+}
+
+.premium-wave-group {
+  transform-box: fill-box;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.premium-wave-group use,
+.premium-wave-group path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.flow-a { animation: premiumFlowA 27s ease-in-out infinite alternate; }
+.flow-b { animation: premiumFlowB 31s ease-in-out infinite alternate; }
+.flow-c { animation: premiumFlowC 29s ease-in-out infinite alternate; }
+.flow-d { animation: premiumFlowD 33s ease-in-out infinite alternate; }
+.flow-e { animation: premiumFlowE 30s ease-in-out infinite alternate; }
+.flow-f { animation: premiumFlowF 35s ease-in-out infinite alternate; }
+
+@keyframes premiumFlowA { from { transform: translate3d(-10px,-4px,0);} to { transform: translate3d(14px,5px,0);} }
+@keyframes premiumFlowB { from { transform: translate3d(12px,-5px,0);} to { transform: translate3d(-11px,5px,0);} }
+@keyframes premiumFlowC { from { transform: translate3d(-9px,4px,0);} to { transform: translate3d(12px,-5px,0);} }
+@keyframes premiumFlowD { from { transform: translate3d(8px,-5px,0);} to { transform: translate3d(-10px,5px,0);} }
+@keyframes premiumFlowE { from { transform: translate3d(-11px,-4px,0);} to { transform: translate3d(12px,5px,0);} }
+@keyframes premiumFlowF { from { transform: translate3d(9px,4px,0);} to { transform: translate3d(-9px,-4px,0);} }
+
+.premium-decor-layer {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  overflow: hidden;
+}
+
+.gradient-wash {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 1;
+  will-change: transform;
+}
+
+.gradient-wash-a {
+  top: 1.5%; right: -11%; width: min(52vw, 880px); aspect-ratio: 1.18;
+  background: radial-gradient(circle at 40% 45%, rgba(10,107,255,.10) 0%, rgba(10,107,255,.045) 27%, rgba(10,107,255,.014) 47%, transparent 70%);
+  animation: washFloatA 34s ease-in-out infinite alternate;
+}
+.gradient-wash-b {
+  top: 30%; left: -18%; width: min(45vw, 760px); aspect-ratio: .92;
+  background: radial-gradient(circle at 60% 50%, rgba(10,107,255,.08) 0%, rgba(10,107,255,.036) 31%, rgba(10,107,255,.012) 52%, transparent 72%);
+  animation: washFloatB 38s ease-in-out infinite alternate;
+}
+.gradient-wash-c {
+  top: 58%; right: -17%; width: min(48vw, 820px); aspect-ratio: 1.05;
+  background: radial-gradient(circle at 42% 48%, rgba(10,107,255,.09) 0%, rgba(10,107,255,.040) 29%, rgba(10,107,255,.014) 51%, transparent 73%);
+  animation: washFloatC 36s ease-in-out infinite alternate;
+}
+.gradient-wash-d {
+  top: 82%; left: -14%; width: min(39vw, 680px); aspect-ratio: 1.08;
+  background: radial-gradient(circle at 58% 45%, rgba(10,107,255,.08) 0%, rgba(10,107,255,.032) 33%, transparent 70%);
+  animation: washFloatD 40s ease-in-out infinite alternate;
+}
+
+@keyframes washFloatA { from { transform: translate3d(0,0,0) scale(1);} to { transform: translate3d(-20px,16px,0) scale(1.04);} }
+@keyframes washFloatB { from { transform: translate3d(0,0,0) scale(1);} to { transform: translate3d(18px,-14px,0) scale(1.035);} }
+@keyframes washFloatC { from { transform: translate3d(0,0,0) scale(1);} to { transform: translate3d(-16px,14px,0) scale(1.04);} }
+@keyframes washFloatD { from { transform: translate3d(0,0,0) scale(1);} to { transform: translate3d(14px,-10px,0) scale(1.03);} }
+
+.ambient-blob {
+  position: absolute;
+  border-radius: 48% 52% 58% 42% / 55% 44% 56% 45%;
+  opacity: 1;
+  will-change: transform;
+}
+
+.blob-a {
+  top: 4%; right: -13%; width: min(38vw, 650px); aspect-ratio: 1.12;
+  background: linear-gradient(135deg, rgba(10,107,255,.085), rgba(10,107,255,.028) 58%, transparent 80%);
+  animation: blobFloatA 32s ease-in-out infinite alternate;
+}
+.blob-b {
+  top: 39%; left: -17%; width: min(33vw, 570px); aspect-ratio: .95;
+  background: linear-gradient(145deg, rgba(10,107,255,.070), rgba(10,107,255,.025) 60%, transparent 80%);
+  animation: blobFloatB 36s ease-in-out infinite alternate;
+}
+.blob-c {
+  top: 70%; right: -15%; width: min(35vw, 610px); aspect-ratio: 1.06;
+  background: linear-gradient(125deg, rgba(10,107,255,.076), rgba(10,107,255,.026) 61%, transparent 82%);
+  animation: blobFloatC 34s ease-in-out infinite alternate;
+}
+
+@keyframes blobFloatA { from { transform: translate3d(0,0,0) rotate(-2deg);} to { transform: translate3d(-16px,12px,0) rotate(2deg);} }
+@keyframes blobFloatB { from { transform: translate3d(0,0,0) rotate(1deg);} to { transform: translate3d(14px,-11px,0) rotate(-2deg);} }
+@keyframes blobFloatC { from { transform: translate3d(0,0,0) rotate(-1deg);} to { transform: translate3d(-13px,10px,0) rotate(2deg);} }
+
+.dot-matrix {
+  position: absolute;
+  width: 190px;
+  height: 150px;
+  opacity: .12;
+  background-image: radial-gradient(circle, rgba(10,107,255,.26) 1.05px, transparent 1.2px);
+  background-size: 13px 13px;
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 0%, rgba(0,0,0,.86) 45%, transparent 78%);
+  mask-image: radial-gradient(ellipse at center, #000 0%, rgba(0,0,0,.86) 45%, transparent 78%);
+}
+.matrix-a { top: 18%; right: 4%; transform: rotate(-7deg); }
+.matrix-b { top: 52%; left: 2%; transform: rotate(9deg); }
+.matrix-c { top: 82%; right: 7%; transform: rotate(-4deg); }
+
+.accent-dot { position: absolute; border-radius: 50%; background: #0A6BFF; }
+.dot-a { top: 12%; left: 7%; width: 5px; height: 5px; opacity: .12; }
+.dot-b { top: 29%; right: 9%; width: 7px; height: 7px; opacity: .10; }
+.dot-c { top: 46%; left: 4%; width: 4px; height: 4px; opacity: .13; }
+.dot-d { top: 61%; right: 5%; width: 6px; height: 6px; opacity: .11; }
+.dot-e { top: 76%; left: 8%; width: 5px; height: 5px; opacity: .12; }
+.dot-f { top: 89%; right: 10%; width: 4px; height: 4px; opacity: .13; }
+
+@media (max-width: 820px) {
+  .premium-wave-canvas { inset: -1% -18%; width: 136%; }
+  .gradient-wash-a, .gradient-wash-c { width: 88vw; }
+  .gradient-wash-b, .gradient-wash-d { width: 76vw; }
+  .dot-matrix { opacity: .09; }
+}
+
+@media (max-width: 420px) {
+  .premium-wave-canvas { inset: -1% -28%; width: 156%; }
+  .gradient-wash { opacity: .85; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-wave-group, .gradient-wash, .ambient-blob { animation: none !important; }
+}
+
+/* =========================================================
+   V11 — COMPATIBILIDAD CON EL styles.css REAL DEL PROYECTO
+   El styles.css del proyecto todavía conserva reglas antiguas del fondo V1.
+   Estas reglas las neutralizan para que no compitan con el fondo actual.
+   ========================================================= */
+.site-background::before,
+.site-background::after {
+  content: none !important;
+  display: none !important;
+  animation: none !important;
+  filter: none !important;
+  background: none !important;
+}
+
+.site-background-motion,
+.site-background-waves,
+.wave-group,
+.wave-group-a,
+.wave-group-b,
+.wave-group-c,
+.wave-scene,
+.continuous-wave,
+.wave-mesh-root {
+  display: none !important;
+  animation: none !important;
+}

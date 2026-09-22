@@ -1,0 +1,2099 @@
+/* =========================================================
+   SEPRIGUA V29 — HERO WOW
+   Solo mejora INICIO:
+   - eyebrow entra de izquierda a derecha
+   - título cinético por líneas
+   - imagen del camión responde al mouse
+   - 4 tarjetas premium con microcopy de impacto
+   ========================================================= */
+
+/* =========================================================
+   EYEBROW: TECNOLOGÍA. COBERTURA. CONFIANZA.
+   ========================================================= */
+
+.hero-content .section-label {
+  width: fit-content;
+  overflow: visible;
+}
+
+.hero-content .section-label .label-line {
+  transform-origin: left center;
+}
+
+.hero-content.hero-wow-play .section-label {
+  animation:
+    heroEyebrowSlide
+    1.05s cubic-bezier(.16,1,.3,1)
+    both !important;
+}
+
+.hero-content.hero-wow-play .section-label .label-line {
+  animation:
+    heroEyebrowLineGrow
+    .8s cubic-bezier(.16,1,.3,1)
+    .18s both;
+}
+
+.hero-content.hero-wow-play .section-label > span:last-child {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+}
+
+.hero-content.hero-wow-play .section-label > span:last-child::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(255,255,255,.95),
+      rgba(136,190,235,.32),
+      transparent
+    );
+
+  transform: translateX(-145%) skewX(-18deg);
+
+  animation:
+    heroEyebrowShine
+    1.05s cubic-bezier(.22,1,.36,1)
+    .62s both;
+
+  pointer-events: none;
+}
+
+@keyframes heroEyebrowSlide {
+  0% {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translate3d(-170px,0,0);
+  }
+
+  72% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(7px,0,0);
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0,0,0);
+  }
+}
+
+@keyframes heroEyebrowLineGrow {
+  from {
+    opacity: 0;
+    transform: scaleX(.08);
+  }
+
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes heroEyebrowShine {
+  from {
+    transform: translateX(-145%) skewX(-18deg);
+  }
+
+  to {
+    transform: translateX(145%) skewX(-18deg);
+  }
+}
+
+
+/* =========================================================
+   TÍTULO PRINCIPAL — KINETIC TYPOGRAPHY
+   ========================================================= */
+
+.hero-title-wow {
+  overflow: visible;
+}
+
+.hero-title-wow .hero-title-line {
+  display: block;
+
+  color: var(--blue-deep);
+
+  transform-origin: left center;
+
+  opacity: 0;
+  filter: blur(5px);
+
+  will-change:
+    transform,
+    opacity,
+    filter;
+}
+
+.hero-title-wow .hero-accent {
+  position: relative;
+  display: inline-block;
+
+  color: var(--red);
+  font-style: normal;
+
+  transform-origin: center;
+}
+
+.hero-content.hero-wow-play .hero-title-line-1 {
+  animation:
+    heroTitleLineLeft
+    .82s cubic-bezier(.16,1,.3,1)
+    .17s both;
+}
+
+.hero-content.hero-wow-play .hero-title-line-2 {
+  animation:
+    heroTitleLineRight
+    .88s cubic-bezier(.16,1,.3,1)
+    .29s both;
+}
+
+.hero-content.hero-wow-play .hero-title-line-3 {
+  animation:
+    heroTitleLineLeft
+    .86s cubic-bezier(.16,1,.3,1)
+    .41s both;
+}
+
+.hero-content.hero-wow-play .hero-title-line-4 {
+  animation:
+    heroTitleLinePunch
+    .96s cubic-bezier(.16,1,.3,1)
+    .53s both;
+}
+
+/* Drenajes y Guatemala tienen un pequeño punch visual */
+.hero-content.hero-wow-play .hero-title-line-2 .hero-accent {
+  animation:
+    heroAccentPop
+    .68s cubic-bezier(.16,1,.3,1)
+    .66s both;
+}
+
+.hero-content.hero-wow-play .hero-title-line-4 .hero-accent {
+  animation:
+    heroAccentPop
+    .72s cubic-bezier(.16,1,.3,1)
+    .82s both;
+}
+
+@keyframes heroTitleLineLeft {
+  0% {
+    opacity: 0;
+    filter: blur(5px);
+    transform:
+      translate3d(-42px,0,0)
+      skewX(-3deg)
+      scale(.985);
+  }
+
+  72% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(4px,0,0)
+      skewX(0)
+      scale(1.006);
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(0,0,0)
+      scale(1);
+  }
+}
+
+@keyframes heroTitleLineRight {
+  0% {
+    opacity: 0;
+    filter: blur(5px);
+    transform:
+      translate3d(34px,0,0)
+      skewX(2deg)
+      scale(.985);
+  }
+
+  72% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(-3px,0,0)
+      skewX(0)
+      scale(1.006);
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(0,0,0)
+      scale(1);
+  }
+}
+
+@keyframes heroTitleLinePunch {
+  0% {
+    opacity: 0;
+    filter: blur(6px);
+    transform:
+      translate3d(0,19px,0)
+      scale(.92);
+  }
+
+  68% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(0,-2px,0)
+      scale(1.018);
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(0,0,0)
+      scale(1);
+  }
+}
+
+@keyframes heroAccentPop {
+  0% {
+    transform: scale(.94);
+    text-shadow: none;
+  }
+
+  52% {
+    transform: scale(1.045);
+    text-shadow:
+      0 8px 25px rgba(242,30,73,.16);
+  }
+
+  100% {
+    transform: scale(1);
+    text-shadow: none;
+  }
+}
+
+
+/* =========================================================
+   IMAGEN DEL CAMIÓN — HOVER / POINTER PARALLAX
+   ========================================================= */
+
+.hero-image-container.hero-truck-interactive {
+  --truck-rx: 0deg;
+  --truck-ry: 0deg;
+  --truck-x: 0px;
+  --truck-y: 0px;
+  --truck-glow-x: 50%;
+  --truck-glow-y: 50%;
+
+  isolation: isolate;
+
+  transition:
+    box-shadow .38s ease,
+    filter .38s ease;
+}
+
+.hero-image-container.hero-truck-interactive::before {
+  content: "";
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+
+  pointer-events: none;
+
+  background:
+    radial-gradient(
+      circle at var(--truck-glow-x) var(--truck-glow-y),
+      rgba(255,255,255,.22) 0%,
+      rgba(104,173,226,.09) 18%,
+      transparent 42%
+    );
+
+  opacity: 0;
+
+  transition: opacity .28s ease;
+}
+
+.hero-image-container.hero-truck-interactive .hero-image {
+  transform:
+    perspective(1200px)
+    translate3d(var(--truck-x),var(--truck-y),0)
+    rotateX(var(--truck-rx))
+    rotateY(var(--truck-ry))
+    scale(1.018);
+
+  transform-origin: center;
+
+  transition:
+    transform .16s ease-out,
+    filter .32s ease;
+
+  will-change: transform;
+}
+
+.hero-image-container.hero-truck-interactive:hover {
+  box-shadow:
+    0 28px 64px rgba(10,56,105,.18),
+    0 0 0 1px rgba(7,88,153,.10);
+}
+
+.hero-image-container.hero-truck-interactive:hover::before {
+  opacity: 1;
+}
+
+.hero-image-container.hero-truck-interactive:hover .hero-image {
+  filter:
+    saturate(1.035)
+    contrast(1.015);
+}
+
+
+/* =========================================================
+   TARJETAS HERO — DISEÑO PREMIUM
+   ========================================================= */
+
+.hero-features-wow {
+  gap: 16px;
+}
+
+.hero-feature-wow {
+  --feature-accent: #075899;
+  --feature-accent-rgb: 7,88,153;
+
+  position: relative;
+  isolation: isolate;
+
+  min-height: 158px;
+
+  overflow: hidden;
+
+  padding: 21px 47px 21px 20px;
+
+  border:
+    1px solid rgba(255,255,255,.96);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.96),
+      rgba(244,248,252,.89)
+    );
+
+  box-shadow:
+    0 16px 34px rgba(22,50,80,.075),
+    inset 0 1px 0 rgba(255,255,255,.98);
+
+  transition:
+    transform .36s cubic-bezier(.16,1,.3,1),
+    box-shadow .36s ease,
+    border-color .36s ease,
+    background .36s ease;
+}
+
+/* rojo alternado en tarjetas 2 y 4 */
+.hero-feature-wow:nth-child(2),
+.hero-feature-wow:nth-child(4) {
+  --feature-accent: #F21E49;
+  --feature-accent-rgb: 242,30,73;
+}
+
+/* línea luminosa inferior */
+.hero-feature-wow::before {
+  content: "";
+
+  position: absolute;
+  z-index: 1;
+
+  left: 12%;
+  right: 12%;
+  bottom: 0;
+
+  height: 3px;
+
+  border-radius: 999px 999px 0 0;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(var(--feature-accent-rgb),.40),
+      var(--feature-accent),
+      rgba(var(--feature-accent-rgb),.40),
+      transparent
+    );
+
+  box-shadow:
+    0 -3px 18px rgba(var(--feature-accent-rgb),.15);
+
+  transform: scaleX(.55);
+  opacity: .70;
+
+  transition:
+    transform .42s cubic-bezier(.16,1,.3,1),
+    opacity .3s ease;
+}
+
+/* sheen diagonal */
+.hero-feature-wow::after {
+  content: "";
+
+  position: absolute;
+  z-index: 0;
+
+  top: -90%;
+  left: -38%;
+
+  width: 26%;
+  height: 260%;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(255,255,255,.72),
+      transparent
+    );
+
+  transform:
+    rotate(18deg)
+    translateX(-230%);
+
+  opacity: 0;
+
+  pointer-events: none;
+}
+
+.hero-feature-wow > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* icono con anillo premium */
+.hero-feature-wow .feature-icon {
+  width: 58px;
+  height: 58px;
+
+  border-radius: 18px;
+
+  color: var(--feature-accent);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(var(--feature-accent-rgb),.10),
+      rgba(255,255,255,.93)
+    );
+
+  box-shadow:
+    0 0 0 6px rgba(var(--feature-accent-rgb),.045),
+    0 11px 24px rgba(var(--feature-accent-rgb),.10),
+    inset 0 1px 0 rgba(255,255,255,.96);
+
+  transition:
+    transform .40s cubic-bezier(.16,1,.3,1),
+    box-shadow .35s ease,
+    background .35s ease;
+}
+
+.hero-feature-wow .feature-icon svg {
+  width: 28px;
+  height: 28px;
+
+  transition:
+    transform .38s cubic-bezier(.16,1,.3,1);
+}
+
+.hero-feature-copy {
+  min-width: 0;
+  padding-right: 3px;
+}
+
+.feature-kicker {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color: var(--feature-accent);
+
+  font:
+    800 8px/1
+    Montserrat,
+    sans-serif;
+
+  letter-spacing: 1.25px;
+
+  opacity: .80;
+}
+
+.hero-feature-wow h3 {
+  margin-bottom: 7px;
+
+  font:
+    800 15px/1.17
+    Montserrat,
+    sans-serif;
+
+  color: var(--blue);
+
+  letter-spacing: -.15px;
+}
+
+.hero-feature-wow p {
+  max-width: 220px;
+
+  font-size: 10.4px;
+  line-height: 1.45;
+
+  color: #5D7187;
+}
+
+/* flecha circular */
+.feature-arrow {
+  position: absolute !important;
+  z-index: 4 !important;
+
+  top: 16px;
+  right: 15px;
+
+  width: 29px;
+  height: 29px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 50%;
+
+  color: var(--feature-accent);
+
+  background:
+    rgba(255,255,255,.84);
+
+  border:
+    1px solid rgba(var(--feature-accent-rgb),.10);
+
+  box-shadow:
+    0 6px 15px rgba(22,50,80,.06);
+
+  transition:
+    transform .38s cubic-bezier(.16,1,.3,1),
+    color .3s ease,
+    background .3s ease,
+    box-shadow .3s ease;
+}
+
+.feature-arrow svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.2;
+}
+
+/* puntos decorativos */
+.hero-feature-wow .hero-feature-copy::after {
+  content: "";
+
+  position: absolute;
+
+  right: 9px;
+  bottom: 11px;
+
+  width: 38px;
+  height: 28px;
+
+  opacity: .11;
+
+  background-image:
+    radial-gradient(
+      circle,
+      var(--feature-accent) 1px,
+      transparent 1.2px
+    );
+
+  background-size: 7px 7px;
+
+  pointer-events: none;
+}
+
+
+/* Hover = tarjeta “cobra vida” */
+@media (hover:hover) and (pointer:fine) {
+
+  .hero-feature-wow:hover {
+    transform:
+      translateY(-8px)
+      scale(1.012);
+
+    border-color:
+      rgba(var(--feature-accent-rgb),.18);
+
+    background:
+      linear-gradient(
+        145deg,
+        #fff,
+        rgba(var(--feature-accent-rgb),.035)
+      );
+
+    box-shadow:
+      0 24px 48px rgba(22,50,80,.12),
+      0 8px 28px rgba(var(--feature-accent-rgb),.08),
+      inset 0 1px 0 rgba(255,255,255,.98);
+  }
+
+  .hero-feature-wow:hover::before {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+
+  .hero-feature-wow:hover::after {
+    opacity: .65;
+
+    animation:
+      heroCardSheen
+      .85s cubic-bezier(.22,1,.36,1)
+      both;
+  }
+
+  .hero-feature-wow:hover .feature-icon {
+    transform:
+      translateY(-3px)
+      scale(1.065)
+      rotate(-2deg);
+
+    box-shadow:
+      0 0 0 8px rgba(var(--feature-accent-rgb),.055),
+      0 16px 28px rgba(var(--feature-accent-rgb),.14),
+      inset 0 1px 0 rgba(255,255,255,.98);
+  }
+
+  .hero-feature-wow:hover .feature-icon svg {
+    transform:
+      scale(1.06);
+  }
+
+  .hero-feature-wow:hover .feature-arrow {
+    transform:
+      translate(2px,-2px)
+      rotate(7deg);
+
+    color: #fff;
+
+    background:
+      var(--feature-accent);
+
+    box-shadow:
+      0 9px 20px rgba(var(--feature-accent-rgb),.18);
+  }
+}
+
+@keyframes heroCardSheen {
+  from {
+    transform:
+      rotate(18deg)
+      translateX(-230%);
+  }
+
+  to {
+    transform:
+      rotate(18deg)
+      translateX(640%);
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1199px) {
+  .hero-feature-wow {
+    min-height: 142px;
+    padding:
+      17px 40px
+      17px 14px;
+  }
+
+  .hero-feature-wow .feature-icon {
+    width: 46px;
+    height: 46px;
+  }
+
+  .hero-feature-wow .feature-icon svg {
+    width: 23px;
+    height: 23px;
+  }
+
+  .feature-kicker {
+    font-size: 6.8px;
+    letter-spacing: .85px;
+  }
+
+  .hero-feature-wow h3 {
+    font-size: 12px;
+  }
+
+  .hero-feature-wow p {
+    font-size: 8.8px;
+  }
+
+  .feature-arrow {
+    top: 12px;
+    right: 10px;
+    width: 25px;
+    height: 25px;
+  }
+}
+
+@media (max-width: 820px) {
+
+  /* En móvil no forzamos animación lateral del título */
+  .hero-title-wow .hero-title-line {
+    display: block;
+  }
+
+  .hero-feature-wow {
+    min-height: 125px;
+
+    padding:
+      18px 47px
+      18px 18px;
+
+    grid-template-columns:
+      50px 1fr;
+  }
+
+  .hero-feature-wow .feature-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .feature-kicker {
+    font-size: 7px;
+  }
+
+  .hero-feature-wow h3 {
+    font-size: 15px;
+  }
+
+  .hero-feature-wow p {
+    max-width: none;
+    font-size: 11px;
+  }
+
+  /* Tilt desactivado visualmente en dispositivos táctiles */
+  .hero-image-container.hero-truck-interactive .hero-image {
+    transform: scale(1);
+  }
+
+  .hero-image-container.hero-truck-interactive::before {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-content .section-label,
+  .hero-content .section-label *,
+  .hero-title-wow .hero-title-line,
+  .hero-title-wow .hero-accent,
+  .hero-feature-wow,
+  .hero-feature-wow *,
+  .hero-image-container.hero-truck-interactive .hero-image {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+}
+
+
+/* =========================================================
+   V30 — CARRUSEL DE FORTALEZAS
+   Inspirado en el ejemplo adjunto:
+   - tarjeta central protagonista
+   - laterales reducidas / blur
+   - autoplay
+   - flechas grandes a ambos lados
+   - hover agranda tarjeta + texto
+   ========================================================= */
+
+.hero-feature-carousel {
+  position: relative;
+  z-index: 12;
+
+  width: min(100%, var(--page));
+  margin: 18px auto 0;
+
+  padding: 0 46px;
+
+  overflow: visible;
+}
+
+.hero-feature-carousel-window {
+  position: relative;
+
+  width: 100%;
+  overflow: hidden;
+
+  /* espacio vertical para que el hover no se corte */
+  padding: 22px 0 28px;
+
+  -webkit-mask-image:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      #000 5%,
+      #000 95%,
+      transparent 100%
+    );
+  mask-image:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      #000 5%,
+      #000 95%,
+      transparent 100%
+    );
+}
+
+/* Sobrescribe el grid original SIN cambiar el ancho de la página */
+.hero-feature-carousel .hero-features-wow {
+  position: relative;
+
+  display: flex !important;
+  grid-template-columns: none !important;
+
+  align-items: center;
+
+  width: 100%;
+  gap: 18px;
+
+  margin-top: 0 !important;
+
+  transform: translate3d(0,0,0);
+
+  transition:
+    transform .68s cubic-bezier(.16,1,.3,1);
+
+  will-change: transform;
+}
+
+/* Aproximadamente 3.2 tarjetas visibles:
+   centro protagonista + laterales parcialmente visibles */
+.hero-feature-carousel .hero-feature-wow {
+  flex:
+    0 0
+    calc((100% - 36px) / 3.18);
+
+  min-width: 0;
+  min-height: 158px;
+
+  opacity: .46;
+
+  filter:
+    blur(2.2px)
+    saturate(.88);
+
+  transform:
+    scale(.89);
+
+  transform-origin: center;
+
+  transition:
+    transform .48s cubic-bezier(.16,1,.3,1),
+    opacity .38s ease,
+    filter .42s ease,
+    box-shadow .38s ease,
+    border-color .38s ease,
+    background .38s ease;
+
+  will-change:
+    transform,
+    opacity,
+    filter;
+}
+
+/* Vecinas de la protagonista */
+.hero-feature-carousel .hero-feature-wow.is-near {
+  opacity: .82;
+
+  filter:
+    blur(.55px)
+    saturate(.96);
+
+  transform:
+    scale(.955);
+}
+
+/* Protagonista */
+.hero-feature-carousel .hero-feature-wow.is-active {
+  z-index: 8;
+
+  opacity: 1;
+
+  filter:
+    blur(0)
+    saturate(1);
+
+  transform:
+    scale(1.055);
+
+  border-color:
+    rgba(var(--feature-accent-rgb),.16);
+
+  box-shadow:
+    0 26px 54px rgba(22,50,80,.14),
+    0 10px 32px rgba(var(--feature-accent-rgb),.08),
+    inset 0 1px 0 rgba(255,255,255,.98);
+}
+
+/* Tarjetas todavía más lejanas */
+.hero-feature-carousel .hero-feature-wow.is-edge {
+  opacity: .30;
+
+  filter:
+    blur(3.2px)
+    saturate(.78);
+
+  transform:
+    scale(.84);
+}
+
+/* Las flechas internas de V29 ya no existen */
+.hero-feature-carousel .feature-arrow {
+  display: none !important;
+}
+
+/* Flechas laterales del carrusel */
+.hero-feature-carousel-nav {
+  position: absolute;
+  z-index: 30;
+
+  top: 50%;
+
+  width: 46px;
+  height: 46px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 50%;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.95),
+      rgba(226,236,245,.91)
+    );
+
+  color: #075899;
+
+  border:
+    1px solid rgba(255,255,255,.94);
+
+  box-shadow:
+    0 12px 28px rgba(19,49,81,.13),
+    inset 0 1px 0 rgba(255,255,255,.98);
+
+  -webkit-backdrop-filter:
+    blur(12px)
+    saturate(135%);
+  backdrop-filter:
+    blur(12px)
+    saturate(135%);
+
+  cursor: pointer;
+
+  transform:
+    translateY(-50%);
+
+  transition:
+    transform .30s cubic-bezier(.16,1,.3,1),
+    color .28s ease,
+    background .28s ease,
+    box-shadow .28s ease;
+}
+
+.hero-feature-carousel-prev {
+  left: 0;
+}
+
+.hero-feature-carousel-next {
+  right: 0;
+}
+
+.hero-feature-carousel-nav svg {
+  width: 21px;
+  height: 21px;
+
+  stroke-width: 2.1;
+}
+
+.hero-feature-carousel-nav:hover {
+  color: #fff;
+
+  background:
+    linear-gradient(
+      145deg,
+      #075899,
+      #0A68B5
+    );
+
+  transform:
+    translateY(-50%)
+    scale(1.10);
+
+  box-shadow:
+    0 16px 32px rgba(7,88,153,.23),
+    0 0 22px rgba(7,88,153,.13),
+    inset 0 1px 0 rgba(255,255,255,.20);
+}
+
+.hero-feature-carousel-nav:active {
+  transform:
+    translateY(-50%)
+    scale(.96);
+}
+
+
+/* =========================================================
+   HOVER DE UNA TARJETA
+   Debe crecer la tarjeta Y el texto, sin salir del margen.
+   ========================================================= */
+
+@media (hover:hover) and (pointer:fine) {
+
+  .hero-feature-carousel .hero-feature-wow:hover {
+    z-index: 20;
+
+    opacity: 1 !important;
+
+    filter:
+      blur(0)
+      saturate(1.025) !important;
+
+    transform:
+      scale(1.105) !important;
+
+    border-color:
+      rgba(var(--feature-accent-rgb),.22);
+
+    box-shadow:
+      0 30px 58px rgba(22,50,80,.16),
+      0 12px 34px rgba(var(--feature-accent-rgb),.11),
+      inset 0 1px 0 rgba(255,255,255,.98);
+  }
+
+  .hero-feature-carousel .hero-feature-wow:hover h3 {
+    transform:
+      scale(1.055);
+
+    transform-origin:
+      left center;
+  }
+
+  .hero-feature-carousel .hero-feature-wow:hover p {
+    transform:
+      scale(1.035);
+
+    transform-origin:
+      left top;
+
+    color: #405C77;
+  }
+
+  .hero-feature-carousel .hero-feature-wow:hover .feature-kicker {
+    transform:
+      scale(1.04);
+
+    transform-origin:
+      left center;
+  }
+
+  .hero-feature-carousel .hero-feature-wow h3,
+  .hero-feature-carousel .hero-feature-wow p,
+  .hero-feature-carousel .hero-feature-wow .feature-kicker {
+    transition:
+      transform .34s cubic-bezier(.16,1,.3,1),
+      color .28s ease;
+  }
+}
+
+
+/* =========================================================
+   V30 — CAMIÓN CON MOVIMIENTO REAL MÁS NOTORIO
+   ========================================================= */
+
+.hero-image-container.hero-truck-interactive {
+  perspective: 1400px;
+}
+
+.hero-image-container.hero-truck-interactive .hero-image {
+  /*
+    El JS controla estas variables.
+    El scale extra evita mostrar bordes al mover la imagen.
+  */
+  transform:
+    perspective(1400px)
+    translate3d(var(--truck-x),var(--truck-y),0)
+    rotateX(var(--truck-rx))
+    rotateY(var(--truck-ry))
+    scale(1.065);
+
+  transition:
+    filter .32s ease;
+
+  will-change: transform;
+}
+
+.hero-image-container.hero-truck-interactive:hover .hero-image {
+  filter:
+    saturate(1.055)
+    contrast(1.02)
+    brightness(1.01);
+}
+
+
+/* =========================================================
+   RESPONSIVE DEL CARRUSEL
+   ========================================================= */
+
+@media (max-width: 1199px) {
+
+  .hero-feature-carousel {
+    padding:
+      0 40px;
+  }
+
+  .hero-feature-carousel .hero-feature-wow {
+    flex:
+      0 0
+      calc((100% - 18px) / 2.45);
+  }
+
+  .hero-feature-carousel-nav {
+    width: 42px;
+    height: 42px;
+  }
+}
+
+@media (max-width: 820px) {
+
+  .hero-feature-carousel {
+    padding:
+      0 32px;
+
+    margin-top: 14px;
+  }
+
+  .hero-feature-carousel-window {
+    padding:
+      16px 0
+      22px;
+  }
+
+  .hero-feature-carousel .hero-feature-wow {
+    flex:
+      0 0
+      78%;
+
+    min-height: 132px;
+
+    opacity: .54;
+
+    filter:
+      blur(1.3px);
+
+    transform:
+      scale(.92);
+  }
+
+  .hero-feature-carousel .hero-feature-wow.is-active {
+    opacity: 1;
+
+    filter: none;
+
+    transform:
+      scale(1);
+  }
+
+  .hero-feature-carousel .hero-feature-wow.is-near {
+    opacity: .66;
+
+    filter:
+      blur(.8px);
+
+    transform:
+      scale(.94);
+  }
+
+  .hero-feature-carousel-nav {
+    width: 38px;
+    height: 38px;
+  }
+
+  .hero-feature-carousel-prev {
+    left: 0;
+  }
+
+  .hero-feature-carousel-next {
+    right: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .hero-feature-carousel .hero-features-wow {
+    transition: none !important;
+  }
+
+  .hero-feature-carousel .hero-feature-wow,
+  .hero-feature-carousel .hero-feature-wow *,
+  .hero-feature-carousel-nav {
+    transition: none !important;
+  }
+}
+
+
+/* =========================================================
+   V31 — CARRUSEL INDUSTRIAL / CENTRO NÍTIDO / HOVER ROJO
+   ========================================================= */
+
+/* La tarjeta protagonista SIEMPRE debe verse totalmente nítida. */
+.hero-feature-carousel .hero-feature-wow.is-active {
+  opacity: 1 !important;
+  filter: none !important;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.99),
+      rgba(244,248,252,.97)
+    ) !important;
+
+  border-color:
+    rgba(var(--feature-accent-rgb),.18) !important;
+
+  transform:
+    scale(1.065) !important;
+
+  box-shadow:
+    0 28px 58px rgba(18,48,79,.15),
+    0 11px 32px rgba(var(--feature-accent-rgb),.09),
+    inset 0 1px 0 rgba(255,255,255,1) !important;
+}
+
+/* Título/copy de la central también nítidos y con más contraste. */
+.hero-feature-carousel .hero-feature-wow.is-active h3 {
+  color: #07346F;
+}
+
+.hero-feature-carousel .hero-feature-wow.is-active p {
+  color: #425D78;
+}
+
+.hero-feature-carousel .hero-feature-wow.is-active .feature-kicker {
+  opacity: .96;
+}
+
+/* Las tarjetas vecinas sí conservan profundidad, sin exagerar. */
+.hero-feature-carousel .hero-feature-wow.is-near {
+  opacity: .74;
+  filter: blur(.75px) saturate(.94);
+  transform: scale(.94);
+}
+
+.hero-feature-carousel .hero-feature-wow.is-edge {
+  opacity: .26;
+  filter: blur(3px) saturate(.80);
+  transform: scale(.83);
+}
+
+/* =========================================================
+   ICONOGRAFÍA MÁS INDUSTRIAL
+   ========================================================= */
+
+.hero-feature-carousel .feature-icon {
+  border-radius: 16px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(var(--feature-accent-rgb),.12),
+      rgba(255,255,255,.98)
+    );
+
+  border:
+    1px solid rgba(var(--feature-accent-rgb),.10);
+}
+
+.hero-feature-carousel .feature-icon svg {
+  stroke-width: 2.05;
+}
+
+/* =========================================================
+   HOVER: LA TARJETA SE CONVIERTE EN ROJA
+   ========================================================= */
+
+@media (hover:hover) and (pointer:fine) {
+
+  .hero-feature-carousel .hero-feature-wow:hover {
+    --feature-accent: #F21E49;
+    --feature-accent-rgb: 242,30,73;
+
+    z-index: 40;
+
+    opacity: 1 !important;
+    filter: none !important;
+
+    transform:
+      scale(1.115) !important;
+
+    background:
+      linear-gradient(
+        145deg,
+        #F52A55 0%,
+        #F21E49 48%,
+        #D9143D 100%
+      ) !important;
+
+    border-color:
+      rgba(255,255,255,.34) !important;
+
+    box-shadow:
+      0 32px 64px rgba(111,13,42,.22),
+      0 14px 38px rgba(242,30,73,.24),
+      inset 0 1px 0 rgba(255,255,255,.28) !important;
+  }
+
+  .hero-feature-carousel .hero-feature-wow:hover::before {
+    background:
+      linear-gradient(
+        90deg,
+        transparent,
+        rgba(255,255,255,.42),
+        #fff,
+        rgba(255,255,255,.42),
+        transparent
+      );
+
+    box-shadow:
+      0 -3px 18px rgba(255,255,255,.16);
+
+    opacity: 1;
+  }
+
+  .hero-feature-carousel .hero-feature-wow:hover .feature-icon {
+    color: #fff !important;
+
+    background:
+      linear-gradient(
+        145deg,
+        rgba(255,255,255,.22),
+        rgba(255,255,255,.09)
+      );
+
+    border-color:
+      rgba(255,255,255,.30);
+
+    box-shadow:
+      0 0 0 7px rgba(255,255,255,.08),
+      0 15px 28px rgba(90,0,28,.16),
+      inset 0 1px 0 rgba(255,255,255,.32);
+  }
+
+  .hero-feature-carousel .hero-feature-wow:hover .feature-icon svg {
+    color: #fff !important;
+    stroke: #fff !important;
+    transform:
+      scale(1.08)
+      rotate(-2deg);
+  }
+
+  .hero-feature-carousel .hero-feature-wow:hover .feature-kicker {
+    color: rgba(255,255,255,.83) !important;
+    opacity: 1;
+    letter-spacing: 1.35px;
+  }
+
+  .hero-feature-carousel .hero-feature-wow:hover h3 {
+    color: #fff !important;
+
+    transform:
+      scale(1.07);
+
+    text-shadow:
+      0 5px 16px rgba(88,0,25,.18);
+  }
+
+  .hero-feature-carousel .hero-feature-wow:hover p {
+    color: rgba(255,255,255,.90) !important;
+
+    transform:
+      scale(1.045);
+  }
+
+  /* Los puntitos decorativos pasan a blanco en hover. */
+  .hero-feature-carousel .hero-feature-wow:hover .hero-feature-copy::after {
+    background-image:
+      radial-gradient(
+        circle,
+        rgba(255,255,255,.88) 1px,
+        transparent 1.2px
+      );
+
+    opacity: .18;
+  }
+}
+
+/* En touch no hay estado rojo permanente accidental. */
+@media (hover:none) {
+  .hero-feature-carousel .hero-feature-wow:active {
+    transform:
+      scale(1.02);
+  }
+}
+
+
+/* =========================================================
+   V32 — HOVER ROJO SUAVE / PREMIUM
+   Corrección del hover rojo de V31.
+   Se mantiene la tarjeta clara y el rojo actúa como acento,
+   igual al estilo mostrado por el usuario.
+   ========================================================= */
+
+@media (hover:hover) and (pointer:fine) {
+
+  .hero-feature-carousel .hero-feature-wow:hover {
+    --feature-accent: #F51F4B;
+    --feature-accent-rgb: 245,31,75;
+
+    z-index: 40;
+
+    opacity: 1 !important;
+    filter: none !important;
+
+    transform:
+      scale(1.105) !important;
+
+    /* Fondo blanco con blush rojo muy sutil */
+    background:
+      radial-gradient(
+        circle at 16% 26%,
+        rgba(245,31,75,.10) 0%,
+        rgba(245,31,75,.045) 20%,
+        transparent 42%
+      ),
+      linear-gradient(
+        145deg,
+        rgba(255,255,255,.995) 0%,
+        rgba(255,247,249,.985) 55%,
+        rgba(255,252,253,.995) 100%
+      ) !important;
+
+    border-color:
+      rgba(245,31,75,.16) !important;
+
+    box-shadow:
+      0 30px 58px rgba(22,50,80,.13),
+      0 12px 34px rgba(245,31,75,.10),
+      0 0 0 1px rgba(255,255,255,.92),
+      inset 0 1px 0 rgba(255,255,255,1) !important;
+  }
+
+  /* Línea inferior roja, fina y elegante */
+  .hero-feature-carousel .hero-feature-wow:hover::before {
+    background:
+      linear-gradient(
+        90deg,
+        transparent,
+        rgba(245,31,75,.20),
+        #F51F4B,
+        rgba(245,31,75,.20),
+        transparent
+      );
+
+    box-shadow:
+      0 -2px 14px rgba(245,31,75,.13);
+
+    opacity: .92;
+  }
+
+  /* Icono con fondo rosado claro, no rojo sólido */
+  .hero-feature-carousel .hero-feature-wow:hover .feature-icon {
+    color: #F51F4B !important;
+
+    background:
+      linear-gradient(
+        145deg,
+        rgba(245,31,75,.105),
+        rgba(255,255,255,.98)
+      ) !important;
+
+    border-color:
+      rgba(245,31,75,.14) !important;
+
+    box-shadow:
+      0 0 0 7px rgba(245,31,75,.045),
+      0 14px 28px rgba(245,31,75,.10),
+      inset 0 1px 0 rgba(255,255,255,.98) !important;
+  }
+
+  .hero-feature-carousel .hero-feature-wow:hover .feature-icon svg {
+    color: #F51F4B !important;
+    stroke: #F51F4B !important;
+
+    transform:
+      scale(1.08)
+      rotate(-2deg);
+  }
+
+  /* Kicker rojo */
+  .hero-feature-carousel .hero-feature-wow:hover .feature-kicker {
+    color: #F51F4B !important;
+    opacity: .92 !important;
+    letter-spacing: 1.35px;
+  }
+
+  /* Título se mantiene azul oscuro para no perder elegancia */
+  .hero-feature-carousel .hero-feature-wow:hover h3 {
+    color: #07346F !important;
+
+    transform:
+      scale(1.065);
+
+    text-shadow: none !important;
+  }
+
+  /* Texto normal, más legible */
+  .hero-feature-carousel .hero-feature-wow:hover p {
+    color: #536A82 !important;
+
+    transform:
+      scale(1.035);
+  }
+
+  /* Puntitos en rojo suave */
+  .hero-feature-carousel .hero-feature-wow:hover .hero-feature-copy::after {
+    background-image:
+      radial-gradient(
+        circle,
+        rgba(245,31,75,.58) 1px,
+        transparent 1.2px
+      );
+
+    opacity: .13;
+  }
+
+  /* Shine mucho más delicado */
+  .hero-feature-carousel .hero-feature-wow:hover::after {
+    opacity: .34;
+  }
+}
+
+
+/* =========================================================
+   V33 — AJUSTES DE INICIO
+   ========================================================= */
+
+/* 1) TODAS LAS CARDS PARTEN AZULES */
+.hero-feature-carousel .hero-feature-wow {
+  --feature-accent: #075899;
+  --feature-accent-rgb: 7,88,153;
+}
+
+.hero-feature-carousel .hero-feature-wow:not(:hover) .feature-icon {
+  color: #075899 !important;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(7,88,153,.105),
+      rgba(255,255,255,.98)
+    ) !important;
+  border-color: rgba(7,88,153,.10) !important;
+  box-shadow:
+    0 0 0 7px rgba(7,88,153,.040),
+    0 13px 25px rgba(7,88,153,.08),
+    inset 0 1px 0 rgba(255,255,255,.98) !important;
+}
+
+.hero-feature-carousel .hero-feature-wow:not(:hover) .feature-icon svg {
+  color: #075899 !important;
+  stroke: #075899 !important;
+}
+
+.hero-feature-carousel .hero-feature-wow:not(:hover) .feature-kicker {
+  color: #075899 !important;
+}
+
+.hero-feature-carousel .hero-feature-wow:not(:hover)::before {
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(7,88,153,.18),
+      #075899,
+      rgba(7,88,153,.18),
+      transparent
+    ) !important;
+  box-shadow: 0 -2px 14px rgba(7,88,153,.10) !important;
+}
+
+.hero-feature-carousel .hero-feature-wow.is-active:not(:hover) {
+  opacity: 1 !important;
+  filter: none !important;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.995),
+      rgba(243,248,252,.985)
+    ) !important;
+  border-color: rgba(7,88,153,.13) !important;
+  box-shadow:
+    0 28px 58px rgba(18,48,79,.145),
+    0 10px 31px rgba(7,88,153,.07),
+    inset 0 1px 0 rgba(255,255,255,1) !important;
+}
+
+/* Hover rojo suave aprobado */
+@media (hover:hover) and (pointer:fine) {
+  .hero-feature-carousel .hero-feature-wow:hover {
+    --feature-accent: #F51F4B;
+    --feature-accent-rgb: 245,31,75;
+    opacity: 1 !important;
+    filter: none !important;
+    background:
+      radial-gradient(
+        circle at 16% 26%,
+        rgba(245,31,75,.10) 0%,
+        rgba(245,31,75,.045) 20%,
+        transparent 42%
+      ),
+      linear-gradient(
+        145deg,
+        rgba(255,255,255,.995) 0%,
+        rgba(255,247,249,.985) 55%,
+        rgba(255,252,253,.995) 100%
+      ) !important;
+    border-color: rgba(245,31,75,.16) !important;
+  }
+
+  .hero-feature-carousel .hero-feature-wow:hover .feature-icon {
+    color: #F51F4B !important;
+    background:
+      linear-gradient(
+        145deg,
+        rgba(245,31,75,.105),
+        rgba(255,255,255,.98)
+      ) !important;
+    border-color: rgba(245,31,75,.14) !important;
+  }
+
+  .hero-feature-carousel .hero-feature-wow:hover .feature-icon svg {
+    color: #F51F4B !important;
+    stroke: #F51F4B !important;
+  }
+
+  .hero-feature-carousel .hero-feature-wow:hover .feature-kicker {
+    color: #F51F4B !important;
+  }
+
+  .hero-feature-carousel .hero-feature-wow:hover::before {
+    background:
+      linear-gradient(
+        90deg,
+        transparent,
+        rgba(245,31,75,.20),
+        #F51F4B,
+        rgba(245,31,75,.20),
+        transparent
+      ) !important;
+  }
+}
+
+
+/* 2) CTA "POP" PARA VER SERVICIOS Y CHAT */
+.primary-button,
+.chat-button {
+  overflow: visible !important;
+}
+
+.cta-attention-ring {
+  position: absolute;
+  z-index: -1;
+  inset: -6px;
+  display: block;
+  border: 1.5px solid rgba(7,88,153,.34);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.primary-button.cta-attention-pop,
+.chat-button.cta-attention-pop {
+  animation:
+    sepriguaCtaPop
+    .86s cubic-bezier(.16,1,.3,1)
+    both !important;
+}
+
+.primary-button.cta-attention-pop .cta-attention-ring,
+.chat-button.cta-attention-pop .cta-attention-ring {
+  animation:
+    sepriguaCtaRing
+    .86s cubic-bezier(.16,1,.3,1)
+    both;
+}
+
+.primary-button.cta-attention-pop .button-circle,
+.chat-button.cta-attention-pop .chat-icon {
+  animation:
+    sepriguaCtaIconPop
+    .72s cubic-bezier(.16,1,.3,1)
+    .08s both;
+}
+
+@keyframes sepriguaCtaPop {
+  0%   { transform: translateY(0) scale(1); filter: brightness(1); }
+  34%  { transform: translateY(-6px) scale(1.075); filter: brightness(1.075) drop-shadow(0 9px 18px rgba(7,88,153,.18)); }
+  55%  { transform: translateY(1px) scale(.985); }
+  74%  { transform: translateY(-2px) scale(1.035); }
+  100% { transform: translateY(0) scale(1); filter: brightness(1); }
+}
+
+@keyframes sepriguaCtaRing {
+  0%   { opacity: 0; transform: scale(.90); }
+  24%  { opacity: .70; }
+  100% { opacity: 0; transform: scale(1.22); }
+}
+
+@keyframes sepriguaCtaIconPop {
+  0%   { transform: scale(1); }
+  48%  { transform: scale(1.15) rotate(-4deg); }
+  100% { transform: scale(1); }
+}
+
+.primary-button:hover,
+.chat-button:hover {
+  animation: none !important;
+}
+
+
+/* 3) CAMIÓN: MOVIMIENTO AMBIENTAL + ARO TIPO ENGRANAJE */
+.hero-image-container .hero-gear-stage {
+  position: absolute;
+  z-index: 1;
+  inset: -4%;
+  overflow: hidden;
+  transform-origin: center;
+  animation:
+    sepriguaTruckAmbient
+    18s ease-in-out infinite;
+  animation-play-state: paused;
+  will-change: transform;
+}
+
+.hero-image-container.hero-ambient-active .hero-gear-stage {
+  animation-play-state: running;
+}
+
+.hero-image-container .hero-gear-stage .hero-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 51% center;
+}
+
+.hero-gear-ring {
+  position: absolute;
+  z-index: 6;
+  top: 50%;
+  right: -13%;
+  width: 67%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: .18;
+
+  background:
+    repeating-conic-gradient(
+      from 0deg,
+      rgba(7,88,153,.52) 0deg 3.2deg,
+      transparent 3.2deg 9.5deg
+    );
+
+  -webkit-mask:
+    radial-gradient(
+      circle,
+      transparent 0 76%,
+      #000 77% 83%,
+      transparent 84% 100%
+    );
+  mask:
+    radial-gradient(
+      circle,
+      transparent 0 76%,
+      #000 77% 83%,
+      transparent 84% 100%
+    );
+
+  transform: translateY(-50%) rotate(0deg);
+  animation: sepriguaGearRotate 26s linear infinite;
+  animation-play-state: paused;
+  filter: drop-shadow(0 0 6px rgba(7,88,153,.10));
+}
+
+.hero-image-container.hero-ambient-active .hero-gear-ring {
+  animation-play-state: running;
+}
+
+.hero-gear-ring::before {
+  content: "";
+  position: absolute;
+  inset: 13%;
+  border: 1px solid rgba(7,88,153,.20);
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 18px rgba(7,88,153,.035),
+    0 0 18px rgba(7,88,153,.035);
+}
+
+/* Mantiene el parallax del cursor dentro del movimiento ambiental */
+.hero-image-container.hero-truck-interactive .hero-gear-stage .hero-image {
+  transform:
+    perspective(1400px)
+    translate3d(var(--truck-x),var(--truck-y),0)
+    rotateX(var(--truck-rx))
+    rotateY(var(--truck-ry))
+    scale(1.055);
+
+  transition: filter .32s ease;
+  will-change: transform;
+}
+
+@keyframes sepriguaTruckAmbient {
+  0%   { transform: translate3d(-4px,2px,0) rotate(-.20deg) scale(1.015); }
+  24%  { transform: translate3d(5px,-4px,0) rotate(.18deg) scale(1.023); }
+  50%  { transform: translate3d(8px,3px,0) rotate(.28deg) scale(1.018); }
+  76%  { transform: translate3d(-3px,5px,0) rotate(-.12deg) scale(1.026); }
+  100% { transform: translate3d(-4px,2px,0) rotate(-.20deg) scale(1.015); }
+}
+
+@keyframes sepriguaGearRotate {
+  from { transform: translateY(-50%) rotate(0deg); }
+  to   { transform: translateY(-50%) rotate(360deg); }
+}
+
+@media (max-width: 820px) {
+  .hero-image-container .hero-gear-stage {
+    inset: -2%;
+    animation-duration: 22s;
+  }
+
+  .hero-gear-ring {
+    width: 78%;
+    right: -24%;
+    opacity: .11;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primary-button.cta-attention-pop,
+  .chat-button.cta-attention-pop,
+  .cta-attention-ring,
+  .hero-image-container .hero-gear-stage,
+  .hero-gear-ring {
+    animation: none !important;
+  }
+
+  .hero-image-container .hero-gear-stage {
+    transform: none !important;
+  }
+}
+
+
+/* =========================================================
+   V35 — CHAT POP GLOBAL / SIN POP EN VER SERVICIOS
+   ========================================================= */
+
+/* El botón Ver Servicios vuelve a comportamiento normal. */
+.primary-button.cta-attention-pop {
+  animation: none !important;
+}
+
+.primary-button .cta-attention-ring {
+  display: none !important;
+}
+
+.primary-button.cta-attention-pop .button-circle {
+  animation: none !important;
+}
+
+
+/* =========================================================
+   V35 — SE ELIMINA POR COMPLETO EL EFECTO DE ENGRANAJE
+   Se conserva únicamente el movimiento/parallax de la foto.
+   ========================================================= */
+
+.hero-gear-ring,
+.hero-gear-system,
+.hero-gear-cog,
+.hero-gear-orbit {
+  display: none !important;
+}
+
+/* El stage sigue permitiendo el movimiento suave de la imagen,
+   pero ya no se interpreta visualmente como engranaje. */
+.hero-image-container .hero-gear-stage {
+  animation:
+    sepriguaTruckNaturalFloat
+    16s ease-in-out infinite !important;
+
+  animation-play-state: paused !important;
+}
+
+.hero-image-container.hero-ambient-active .hero-gear-stage {
+  animation-play-state: running !important;
+}
+
+@keyframes sepriguaTruckNaturalFloat {
+  0% {
+    transform:
+      translate3d(-4px, 2px, 0)
+      scale(1.012);
+  }
+
+  25% {
+    transform:
+      translate3d(4px, -3px, 0)
+      scale(1.018);
+  }
+
+  50% {
+    transform:
+      translate3d(7px, 3px, 0)
+      scale(1.014);
+  }
+
+  75% {
+    transform:
+      translate3d(-3px, 4px, 0)
+      scale(1.020);
+  }
+
+  100% {
+    transform:
+      translate3d(-4px, 2px, 0)
+      scale(1.012);
+  }
+}
+
+
+/* =========================================================
+   V35 — CHAT: POP MÁS NOTORIO PERO ELEGANTE
+   ========================================================= */
+
+.chat-button.cta-attention-pop {
+  animation:
+    sepriguaChatGlobalPop
+    .92s cubic-bezier(.16,1,.3,1)
+    both !important;
+}
+
+.chat-button.cta-attention-pop .cta-attention-ring {
+  display: block !important;
+
+  animation:
+    sepriguaChatGlobalRing
+    .92s cubic-bezier(.16,1,.3,1)
+    both !important;
+}
+
+.chat-button.cta-attention-pop .chat-icon {
+  animation:
+    sepriguaChatGlobalIcon
+    .72s cubic-bezier(.16,1,.3,1)
+    .08s both !important;
+}
+
+@keyframes sepriguaChatGlobalPop {
+  0% {
+    transform:
+      translateY(0)
+      scale(1);
+  }
+
+  34% {
+    transform:
+      translateY(-6px)
+      scale(1.09);
+
+    box-shadow:
+      0 18px 38px rgba(7,88,153,.24),
+      0 0 30px rgba(7,88,153,.13);
+  }
+
+  58% {
+    transform:
+      translateY(1px)
+      scale(.985);
+  }
+
+  78% {
+    transform:
+      translateY(-2px)
+      scale(1.035);
+  }
+
+  100% {
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+@keyframes sepriguaChatGlobalRing {
+  0% {
+    opacity: 0;
+    transform: scale(.88);
+  }
+
+  24% {
+    opacity: .75;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.28);
+  }
+}
+
+@keyframes sepriguaChatGlobalIcon {
+  0% {
+    transform: scale(1);
+  }
+
+  45% {
+    transform:
+      scale(1.18)
+      rotate(-5deg);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Hover normal siempre tiene prioridad. */
+.chat-button:hover {
+  animation: none !important;
+}

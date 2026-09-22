@@ -1,0 +1,1128 @@
+/* =========================================================
+   SEPRIGUA V40 — NOSOTROS PREMIUM
+   Mejora únicamente:
+   - panel de estadísticas
+   - ubicaciones
+   - Misión
+   - Nuestro compromiso
+   ========================================================= */
+
+#nosotros {
+  --about-blue: #075899;
+  --about-blue-dark: #07346F;
+  --about-blue-rgb: 7, 88, 153;
+  --about-red: #F51F4B;
+  --about-red-rgb: 245, 31, 75;
+  --about-ink: #183F68;
+  --about-muted: #698096;
+}
+
+
+/* =========================================================
+   BLOQUE DE PRUEBA / RESULTADOS
+   ========================================================= */
+
+#nosotros .about-middle {
+  position: relative;
+  z-index: 4;
+
+  display: grid;
+  grid-template-columns: 1.38fr 1fr;
+  gap: 12px;
+
+  width: min(var(--page), calc(100% - 42px));
+  margin: 24px auto 0;
+
+  padding: 7px;
+
+  border-radius: 27px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.62),
+      rgba(216,231,243,.34)
+    );
+
+  border: 1px solid rgba(255,255,255,.88);
+
+  box-shadow:
+    0 24px 60px rgba(18,48,79,.11),
+    inset 0 1px 0 rgba(255,255,255,.95);
+
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  backdrop-filter: blur(14px) saturate(130%);
+}
+
+
+/* Panel azul */
+#nosotros .stats-panel {
+  --spot-x: 50%;
+  --spot-y: 50%;
+
+  position: relative;
+  isolation: isolate;
+
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: stretch;
+
+  min-height: 126px;
+
+  padding: 13px;
+
+  overflow: hidden;
+
+  border-radius: 21px;
+
+  background:
+    radial-gradient(
+      circle at var(--spot-x) var(--spot-y),
+      rgba(95,174,235,.22),
+      transparent 28%
+    ),
+    linear-gradient(
+      118deg,
+      #082F67 0%,
+      #0A417A 32%,
+      #173E8F 66%,
+      #263F9B 100%
+    );
+
+  border: 1px solid rgba(255,255,255,.09);
+
+  box-shadow:
+    0 18px 40px rgba(9,39,83,.17),
+    inset 0 1px 0 rgba(255,255,255,.12),
+    inset 0 -1px 0 rgba(0,18,45,.16);
+
+  transition:
+    box-shadow .35s ease,
+    transform .35s cubic-bezier(.16,1,.3,1);
+}
+
+#nosotros .stats-panel::before {
+  content: "EXPERIENCIA OPERATIVA";
+
+  position: absolute;
+  z-index: 0;
+
+  top: 11px;
+  left: 17px;
+
+  color: rgba(198,228,251,.42);
+
+  font:
+    800 6px/1
+    Montserrat, sans-serif;
+
+  letter-spacing: 1.75px;
+
+  pointer-events: none;
+}
+
+#nosotros .stats-panel::after {
+  content: "";
+
+  position: absolute;
+  z-index: 0;
+
+  width: 240px;
+  height: 240px;
+
+  right: -105px;
+  top: -126px;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(255,255,255,.16),
+      rgba(126,190,239,.05) 38%,
+      transparent 69%
+    );
+
+  pointer-events: none;
+}
+
+#nosotros .stats-panel:hover {
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 23px 48px rgba(9,39,83,.21),
+    inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+
+/* El separador original ya no hace falta */
+#nosotros .stats-panel .stat-separator {
+  display: none !important;
+}
+
+
+#nosotros .stats-panel .stat-item {
+  position: relative;
+  z-index: 2;
+
+  display: flex;
+  align-items: center;
+  gap: 11px;
+
+  min-width: 0;
+
+  padding: 24px 12px 12px;
+
+  border-radius: 16px;
+
+  border: 1px solid transparent;
+
+  transition:
+    transform .32s cubic-bezier(.16,1,.3,1),
+    background .28s ease,
+    border-color .28s ease,
+    box-shadow .28s ease;
+}
+
+#nosotros .stats-panel .stat-item + .stat-item::before {
+  content: "";
+
+  position: absolute;
+
+  left: -1px;
+  top: 27px;
+  bottom: 12px;
+
+  width: 1px;
+
+  background:
+    linear-gradient(
+      180deg,
+      transparent,
+      rgba(255,255,255,.20) 18%,
+      rgba(255,255,255,.20) 82%,
+      transparent
+    );
+}
+
+#nosotros .stats-panel .stat-item:hover {
+  transform:
+    translateY(-4px)
+    scale(1.018);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.105),
+      rgba(255,255,255,.035)
+    );
+
+  border-color: rgba(255,255,255,.11);
+
+  box-shadow:
+    0 12px 25px rgba(0,18,50,.11),
+    inset 0 1px 0 rgba(255,255,255,.10);
+}
+
+#nosotros .stats-panel .stat-item > svg {
+  width: 35px;
+  height: 35px;
+
+  flex: 0 0 35px;
+
+  padding: 9px;
+
+  overflow: visible;
+
+  border-radius: 12px;
+
+  color: #D7EEFF;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.12),
+      rgba(255,255,255,.055)
+    );
+
+  border: 1px solid rgba(255,255,255,.11);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.13),
+    0 8px 17px rgba(0,19,51,.09);
+
+  transition:
+    transform .34s cubic-bezier(.16,1,.3,1),
+    color .26s ease,
+    background .26s ease;
+}
+
+#nosotros .stats-panel .stat-item:hover > svg {
+  transform:
+    scale(1.10)
+    rotate(-3deg);
+
+  color: #fff;
+
+  background: rgba(255,255,255,.15);
+}
+
+#nosotros .stat-number {
+  margin-bottom: 5px;
+
+  color: #fff;
+
+  font:
+    850 clamp(18px,1.65vw,27px)/.92
+    Montserrat, sans-serif;
+
+  letter-spacing: -.9px;
+
+  text-shadow:
+    0 5px 20px rgba(0,18,51,.16);
+}
+
+#nosotros .stat-item p {
+  margin: 0;
+
+  color: rgba(225,241,253,.71);
+
+  font:
+    600 7px/1.28
+    Montserrat, sans-serif;
+}
+
+
+/* =========================================================
+   UBICACIONES — GLASS CON PROFUNDIDAD
+   ========================================================= */
+
+#nosotros .locations-panel {
+  --loc-x: 50%;
+  --loc-y: 50%;
+
+  position: relative;
+  isolation: isolate;
+
+  display: grid;
+  grid-template-columns: 125px 1fr;
+  gap: 17px;
+  align-items: center;
+
+  min-height: 126px;
+
+  padding: 16px 20px;
+
+  overflow: hidden;
+
+  border-radius: 21px;
+
+  background:
+    radial-gradient(
+      circle at var(--loc-x) var(--loc-y),
+      rgba(7,88,153,.065),
+      transparent 31%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.96),
+      rgba(241,247,251,.91)
+    );
+
+  border:
+    1px solid rgba(255,255,255,.98);
+
+  box-shadow:
+    0 14px 34px rgba(18,48,79,.07),
+    inset 0 1px 0 rgba(255,255,255,1);
+
+  transition:
+    transform .34s cubic-bezier(.16,1,.3,1),
+    box-shadow .32s ease;
+}
+
+#nosotros .locations-panel:hover {
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 20px 42px rgba(18,48,79,.105),
+    inset 0 1px 0 rgba(255,255,255,1);
+}
+
+#nosotros .locations-panel::before {
+  content: "COBERTURA";
+
+  position: absolute;
+
+  top: 11px;
+  right: 15px;
+
+  color: rgba(7,88,153,.16);
+
+  font:
+    900 6px/1
+    Montserrat, sans-serif;
+
+  letter-spacing: 1.7px;
+}
+
+#nosotros .mini-map {
+  position: relative;
+
+  width: 112px !important;
+  height: 91px !important;
+
+  justify-self: center;
+
+  transform: scale(1.04);
+
+  filter:
+    drop-shadow(0 10px 15px rgba(7,88,153,.08));
+}
+
+#nosotros .mini-map::before {
+  content: "";
+
+  position: absolute;
+
+  left: 50%;
+  top: 50%;
+
+  width: 88px;
+  height: 88px;
+
+  border-radius: 50%;
+
+  border: 1px solid rgba(7,88,153,.10);
+
+  box-shadow:
+    0 0 0 11px rgba(7,88,153,.024),
+    0 0 0 23px rgba(7,88,153,.012);
+
+  transform: translate(-50%,-50%);
+
+  pointer-events: none;
+
+  animation:
+    aboutMapOrbitPulse
+    4.8s ease-in-out infinite;
+}
+
+@keyframes aboutMapOrbitPulse {
+  0%,100% {
+    opacity: .52;
+    transform: translate(-50%,-50%) scale(.96);
+  }
+
+  50% {
+    opacity: .95;
+    transform: translate(-50%,-50%) scale(1.04);
+  }
+}
+
+#nosotros .location-list {
+  display: grid;
+  gap: 9px;
+}
+
+#nosotros .location-item {
+  position: relative;
+
+  display: grid;
+  grid-template-columns: 23px 1fr;
+  gap: 8px;
+  align-items: center;
+
+  padding: 5px 7px;
+
+  border-radius: 11px;
+
+  transition:
+    transform .28s cubic-bezier(.16,1,.3,1),
+    background .26s ease;
+}
+
+#nosotros .location-item:hover {
+  transform: translateX(4px);
+
+  background:
+    rgba(7,88,153,.035);
+}
+
+#nosotros .location-item.red-location:hover {
+  background:
+    rgba(245,31,75,.035);
+}
+
+#nosotros .location-item > svg {
+  width: 18px;
+  height: 18px;
+
+  color: var(--about-blue);
+
+  padding: 3px;
+
+  border-radius: 7px;
+
+  background: rgba(7,88,153,.07);
+}
+
+#nosotros .red-location > svg {
+  color: var(--about-red);
+
+  background: rgba(245,31,75,.07);
+}
+
+#nosotros .location-item small {
+  color: #91A2B2;
+
+  font:
+    600 6px/1.2
+    Inter, sans-serif;
+}
+
+#nosotros .location-item strong {
+  color: #153F6B;
+
+  font:
+    800 9px/1.2
+    Montserrat, sans-serif;
+}
+
+#nosotros .red-location strong {
+  color: #F51F4B;
+}
+
+#nosotros .location-item span {
+  color: #8598AA;
+
+  font-size: 6px;
+  line-height: 1.25;
+}
+
+
+/* =========================================================
+   MISIÓN + COMPROMISO — PREMIUM MODERN CARDS
+   ========================================================= */
+
+#nosotros .about-bottom {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 17px;
+
+  width: min(var(--page), calc(100% - 42px));
+  margin: 16px auto 0;
+}
+
+#nosotros .about-card {
+  --card-x: 50%;
+  --card-y: 50%;
+  --card-accent: 7,88,153;
+
+  position: relative;
+  isolation: isolate;
+
+  min-height: 190px;
+
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  align-items: center;
+  gap: 18px;
+
+  padding: 27px 32px;
+
+  overflow: hidden;
+
+  border-radius: 26px;
+
+  background:
+    radial-gradient(
+      circle at var(--card-x) var(--card-y),
+      rgba(var(--card-accent),.072),
+      transparent 32%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.97),
+      rgba(242,247,251,.91)
+    );
+
+  border: 1px solid rgba(255,255,255,.96);
+
+  box-shadow:
+    0 18px 42px rgba(18,48,79,.075),
+    inset 0 1px 0 rgba(255,255,255,1);
+
+  transition:
+    transform .40s cubic-bezier(.16,1,.3,1),
+    border-color .32s ease,
+    box-shadow .35s ease;
+}
+
+#nosotros .about-card:nth-child(2) {
+  --card-accent: 245,31,75;
+}
+
+#nosotros .about-card:hover {
+  transform:
+    translateY(-7px)
+    scale(1.006);
+
+  border-color:
+    rgba(var(--card-accent),.11);
+
+  box-shadow:
+    0 28px 58px rgba(18,48,79,.12),
+    0 8px 28px rgba(var(--card-accent),.055),
+    inset 0 1px 0 rgba(255,255,255,1);
+}
+
+
+/* Número gigante editorial */
+#nosotros .about-card::before {
+  content: "01";
+
+  position: absolute;
+  z-index: 0;
+
+  right: 22px;
+  top: 13px;
+
+  color:
+    rgba(var(--card-accent),.055);
+
+  font:
+    900 68px/.8
+    Montserrat, sans-serif;
+
+  letter-spacing: -5px;
+
+  pointer-events: none;
+
+  transition:
+    transform .40s cubic-bezier(.16,1,.3,1),
+    color .30s ease;
+}
+
+#nosotros .about-card:nth-child(2)::before {
+  content: "02";
+}
+
+#nosotros .about-card:hover::before {
+  transform:
+    translate3d(-5px,4px,0)
+    scale(1.05);
+
+  color:
+    rgba(var(--card-accent),.080);
+}
+
+
+/* Shine diagonal */
+#nosotros .about-card::after {
+  content: "";
+
+  position: absolute;
+  z-index: 0;
+
+  top: -95%;
+  left: -40%;
+
+  width: 24%;
+  height: 280%;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(255,255,255,.72),
+      transparent
+    );
+
+  transform:
+    rotate(17deg)
+    translateX(-250%);
+
+  opacity: 0;
+
+  pointer-events: none;
+}
+
+#nosotros .about-card:hover::after {
+  opacity: .52;
+
+  animation:
+    aboutPremiumSheen
+    .9s cubic-bezier(.22,1,.36,1)
+    both;
+}
+
+@keyframes aboutPremiumSheen {
+  from {
+    transform:
+      rotate(17deg)
+      translateX(-250%);
+  }
+
+  to {
+    transform:
+      rotate(17deg)
+      translateX(670%);
+  }
+}
+
+
+#nosotros .about-card-icon {
+  position: relative;
+  z-index: 2;
+
+  width: 68px;
+  height: 68px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 21px;
+
+  color: var(--about-blue);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(7,88,153,.095),
+      rgba(255,255,255,.95)
+    );
+
+  border:
+    1px solid rgba(7,88,153,.075);
+
+  box-shadow:
+    0 0 0 8px rgba(7,88,153,.027),
+    0 13px 28px rgba(7,88,153,.09),
+    inset 0 1px 0 rgba(255,255,255,.99);
+
+  transition:
+    transform .40s cubic-bezier(.16,1,.3,1),
+    box-shadow .32s ease,
+    color .28s ease,
+    background .28s ease;
+}
+
+#nosotros .about-card:nth-child(2) .about-card-icon {
+  color: var(--about-red);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(245,31,75,.085),
+      rgba(255,255,255,.95)
+    );
+
+  border-color:
+    rgba(245,31,75,.075);
+
+  box-shadow:
+    0 0 0 8px rgba(245,31,75,.026),
+    0 13px 28px rgba(245,31,75,.075),
+    inset 0 1px 0 rgba(255,255,255,.99);
+}
+
+#nosotros .about-card:hover .about-card-icon {
+  transform:
+    translateY(-4px)
+    scale(1.075)
+    rotate(-3deg);
+
+  box-shadow:
+    0 0 0 10px rgba(var(--card-accent),.035),
+    0 18px 34px rgba(var(--card-accent),.12),
+    inset 0 1px 0 rgba(255,255,255,.99);
+}
+
+#nosotros .about-card-icon svg {
+  width: 31px;
+  height: 31px;
+
+  stroke-width: 1.9;
+}
+
+
+/* Copy */
+#nosotros .about-card > div:last-child {
+  position: relative;
+  z-index: 2;
+
+  min-width: 0;
+}
+
+
+/* Micro etiqueta */
+#nosotros .about-card h3::before {
+  content: "PROPÓSITO";
+
+  display: block;
+
+  margin-bottom: 7px;
+
+  color:
+    rgb(var(--card-accent));
+
+  font:
+    800 6.3px/1
+    Montserrat, sans-serif;
+
+  letter-spacing: 1.55px;
+}
+
+#nosotros .about-card:nth-child(2) h3::before {
+  content: "PROMESA DE SERVICIO";
+}
+
+
+#nosotros .about-card h3 {
+  margin: 0 0 10px;
+
+  color: #07346F;
+
+  font:
+    850 clamp(17px,1.35vw,22px)/1.12
+    Montserrat, sans-serif;
+
+  letter-spacing: -.45px;
+}
+
+#nosotros .about-card p {
+  max-width: 570px;
+
+  margin: 0;
+
+  color: #61778D;
+
+  font-size: 9.5px;
+  line-height: 1.65;
+}
+
+
+/* Cambiamos la línea pequeña por barra premium */
+#nosotros .about-card .small-red-line {
+  display: block;
+
+  width: 72px;
+  height: 3px;
+
+  margin-top: 17px;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      90deg,
+      rgb(var(--card-accent)),
+      rgba(var(--card-accent),.15)
+    );
+
+  box-shadow:
+    0 3px 12px rgba(var(--card-accent),.09);
+
+  transition:
+    width .38s cubic-bezier(.16,1,.3,1);
+}
+
+#nosotros .about-card:hover .small-red-line {
+  width: 118px;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1100px) {
+  #nosotros .about-middle {
+    grid-template-columns: 1.18fr .82fr;
+  }
+
+  #nosotros .stats-panel {
+    grid-template-columns: repeat(2,1fr);
+  }
+
+  #nosotros .stats-panel .stat-item + .stat-item::before {
+    display: none;
+  }
+
+  #nosotros .locations-panel {
+    grid-template-columns: 96px 1fr;
+  }
+
+  #nosotros .mini-map {
+    width: 88px !important;
+    height: 75px !important;
+  }
+
+  #nosotros .about-card {
+    grid-template-columns: 68px 1fr;
+    padding: 24px;
+  }
+
+  #nosotros .about-card-icon {
+    width: 58px;
+    height: 58px;
+  }
+
+  #nosotros .about-card-icon svg {
+    width: 27px;
+    height: 27px;
+  }
+}
+
+@media (max-width: 820px) {
+  #nosotros .about-middle,
+  #nosotros .about-bottom {
+    grid-template-columns: 1fr;
+
+    width: calc(100% - 24px);
+  }
+
+  #nosotros .stats-panel {
+    min-height: auto;
+  }
+
+  #nosotros .locations-panel {
+    grid-template-columns: 100px 1fr;
+  }
+
+  #nosotros .about-card {
+    min-height: 180px;
+  }
+}
+
+@media (max-width: 520px) {
+  #nosotros .stats-panel {
+    grid-template-columns: 1fr 1fr;
+    padding-top: 20px;
+  }
+
+  #nosotros .stats-panel .stat-item {
+    padding: 18px 8px 10px;
+  }
+
+  #nosotros .stats-panel .stat-item > svg {
+    width: 31px;
+    height: 31px;
+    flex-basis: 31px;
+  }
+
+  #nosotros .locations-panel {
+    grid-template-columns: 1fr;
+  }
+
+  #nosotros .mini-map {
+    justify-self: start;
+  }
+
+  #nosotros .about-card {
+    grid-template-columns: 1fr;
+
+    padding: 25px 21px;
+  }
+
+  #nosotros .about-card::before {
+    font-size: 58px;
+  }
+
+  #nosotros .about-card-icon {
+    width: 55px;
+    height: 55px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #nosotros .mini-map::before,
+  #nosotros .about-card::after {
+    animation: none !important;
+  }
+
+  #nosotros .stats-panel,
+  #nosotros .locations-panel,
+  #nosotros .about-card,
+  #nosotros .about-card-icon,
+  #nosotros .stat-item {
+    transition: none !important;
+  }
+}
+
+
+/* =========================================================
+   V41 — TEXTO REALMENTE VISIBLE
+   - Aumenta tipografía de estadísticas, ubicaciones y cards
+   - Elimina por completo 01 / 02
+   ========================================================= */
+
+/* ===== ESTADÍSTICAS ===== */
+
+#nosotros .stat-number {
+  font-size: clamp(23px, 1.95vw, 32px) !important;
+  line-height: .95 !important;
+  letter-spacing: -1px !important;
+}
+
+#nosotros .stat-item p {
+  font-size: 9px !important;
+  line-height: 1.35 !important;
+  font-weight: 650 !important;
+  color: rgba(235,246,255,.82) !important;
+}
+
+#nosotros .stats-panel::before {
+  font-size: 7px !important;
+  letter-spacing: 1.65px !important;
+}
+
+#nosotros .stats-panel .stat-item > svg {
+  width: 40px !important;
+  height: 40px !important;
+  flex-basis: 40px !important;
+  padding: 10px !important;
+}
+
+
+/* ===== UBICACIONES ===== */
+
+#nosotros .location-item small {
+  font-size: 7.5px !important;
+  line-height: 1.25 !important;
+}
+
+#nosotros .location-item strong {
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+}
+
+#nosotros .location-item span {
+  font-size: 7.2px !important;
+  line-height: 1.35 !important;
+}
+
+#nosotros .locations-panel::before {
+  font-size: 7px !important;
+  letter-spacing: 1.55px !important;
+}
+
+
+/* ===== MISIÓN / COMPROMISO ===== */
+
+/* ELIMINAR LOS 01 / 02 */
+#nosotros .about-card::before,
+#nosotros .about-card:nth-child(2)::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* Etiquetas superiores */
+#nosotros .about-card h3::before {
+  font-size: 8px !important;
+  letter-spacing: 1.45px !important;
+  margin-bottom: 9px !important;
+}
+
+/* Títulos mucho más visibles */
+#nosotros .about-card h3 {
+  font-size: clamp(23px, 1.75vw, 30px) !important;
+  line-height: 1.08 !important;
+  letter-spacing: -.65px !important;
+  margin-bottom: 13px !important;
+}
+
+/* Descripción legible */
+#nosotros .about-card p {
+  max-width: 620px !important;
+  font-size: 12px !important;
+  line-height: 1.68 !important;
+  color: #536D86 !important;
+}
+
+/* Cards un poco más altas para respirar con el texto grande */
+#nosotros .about-card {
+  min-height: 215px !important;
+  grid-template-columns: 90px 1fr !important;
+  gap: 22px !important;
+  padding: 30px 34px !important;
+}
+
+/* Iconos también más grandes para mantener proporción */
+#nosotros .about-card-icon {
+  width: 74px !important;
+  height: 74px !important;
+  border-radius: 23px !important;
+}
+
+#nosotros .about-card-icon svg {
+  width: 34px !important;
+  height: 34px !important;
+}
+
+/* Barra inferior visible y proporcionada */
+#nosotros .about-card .small-red-line {
+  width: 82px !important;
+  height: 3px !important;
+  margin-top: 20px !important;
+}
+
+#nosotros .about-card:hover .small-red-line {
+  width: 135px !important;
+}
+
+
+/* ===== RESPONSIVE ===== */
+
+@media (max-width: 1100px) {
+  #nosotros .about-card {
+    grid-template-columns: 78px 1fr !important;
+    gap: 18px !important;
+    padding: 27px !important;
+  }
+
+  #nosotros .about-card-icon {
+    width: 64px !important;
+    height: 64px !important;
+  }
+
+  #nosotros .about-card-icon svg {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  #nosotros .about-card p {
+    font-size: 11px !important;
+  }
+}
+
+@media (max-width: 820px) {
+  #nosotros .about-card {
+    min-height: 195px !important;
+  }
+
+  #nosotros .stat-number {
+    font-size: 25px !important;
+  }
+
+  #nosotros .stat-item p {
+    font-size: 8.5px !important;
+  }
+}
+
+@media (max-width: 520px) {
+  #nosotros .about-card {
+    grid-template-columns: 1fr !important;
+    gap: 17px !important;
+    padding: 26px 22px !important;
+  }
+
+  #nosotros .about-card h3 {
+    font-size: 24px !important;
+  }
+
+  #nosotros .about-card p {
+    font-size: 11px !important;
+  }
+}

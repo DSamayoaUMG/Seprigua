@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="color-scheme" content="light">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="SEPRIGUA">
+  <style id="seprigua-critical-boot">
+    html:not(.se-css-ready) body{visibility:hidden;}
+    html.se-css-failed body{visibility:hidden !important;}
+    html,html[data-theme="light"],html[data-theme="dark"]{color-scheme:light;}
+  </style>
+  <script>
+    (()=>{
+      try{document.documentElement.dataset.theme=localStorage.getItem("seprigua_theme")==="dark"?"dark":"light";}
+      catch(_){document.documentElement.dataset.theme="light";}
+    })();
+  </script>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/assets/pwa/seprigua-192.png">
+  <title>Sistema | SEPRIGUA</title>
+  <script src="/java/vendor/lucide.min.js?v=1"></script>
+  <link id="systemStyles" rel="stylesheet" href="/css/sistema.css?v=25" onload="document.documentElement.classList.add('se-css-ready')" onerror="document.documentElement.classList.add('se-css-failed')">
+</head>
+<body class="seprigua-hoja-v4 ui-booting">
+  <div class="system-shell" id="systemShell">
+    <aside class="system-sidebar" id="sidebar" aria-label="Navegación principal">
+<button class="system-brand system-brand-home" type="button" data-module="dashboard" aria-label="Ir a Centro de control" title="Ir a Centro de control">
+        <img src="/assets/img/logo-seprigua-hd.png" alt="SEPRIGUA">
+      </button>
+      <div class="sidebar-role-row">
+        <div class="role-chip" id="roleChip">CARGANDO...</div>
+        <button class="sidebar-collapse-button" id="sidebarCollapseButton" type="button" aria-label="Ocultar menú" title="Ocultar menú">
+          <i data-lucide="panel-left-close"></i>
+        </button>
+      </div>
+      <nav class="system-nav" id="systemNav" aria-label="Módulos del sistema"></nav>
+      <div class="sidebar-sheet-notch" id="sidebarSheetNotch" aria-hidden="true"></div>
+      <div class="sidebar-footer">
+        <div class="sidebar-user-card" aria-label="Sesión actual">
+          <span class="sidebar-user-avatar"><i data-lucide="user-round"></i></span>
+          <span class="sidebar-user-copy"><strong id="sidebarUserName">Usuario SEPRIGUA</strong><small id="sidebarUserRole">Portal operativo</small></span>
+        </div>
+        <button class="logout-button" id="logoutButton" type="button"><i data-lucide="log-out"></i><span>Cerrar sesión</span></button>
+      </div>
+    </aside>
+    <button class="sidebar-scrim" id="sidebarScrim" type="button" aria-label="Cerrar menú" hidden></button>
+
+    <main class="system-main">
+      <div class="prototype-meta" aria-label="Información de la sesión">
+        <div class="prototype-date-wrap" id="topCalendarWrap">
+          <button class="prototype-date prototype-date-button" id="calendarButton" type="button" aria-label="Abrir calendario" aria-expanded="false" aria-controls="calendarPopover">
+            <i data-lucide="calendar-days" aria-hidden="true"></i>
+            <span class="prototype-date-copy">
+              <small id="topDayName">Día</small>
+              <span id="topDate">Cargando fecha...</span>
+            </span>
+            <i class="prototype-date-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+          </button>
+          <div class="top-calendar-popover" id="calendarPopover" hidden>
+            <div class="calendar-popover-head">
+              <button class="calendar-nav-button" id="calendarPrev" type="button" aria-label="Mes anterior"><i data-lucide="chevron-left"></i></button>
+              <div class="calendar-month-title">
+                <strong id="calendarMonthLabel">Mes</strong>
+                <small id="calendarTodayLabel">Hoy</small>
+              </div>
+              <button class="calendar-nav-button" id="calendarNext" type="button" aria-label="Mes siguiente"><i data-lucide="chevron-right"></i></button>
+            </div>
+            <div class="calendar-weekdays" aria-hidden="true">
+              <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+            </div>
+            <div class="calendar-days-grid" id="calendarDaysGrid" role="grid" aria-label="Calendario mensual"></div>
+            <div class="calendar-popover-foot">
+              <button class="calendar-today-button" id="calendarTodayButton" type="button">Ir a hoy</button>
+            </div>
+          </div>
+        </div>
+        <div class="prototype-time-weather" id="topTimeWeather" aria-label="Hora y clima">
+          <span class="time-weather-part">
+            <i data-lucide="clock-3" aria-hidden="true"></i>
+            <span id="topClock">--:--</span>
+          </span>
+          <span class="time-weather-divider" aria-hidden="true"></span>
+          <span class="time-weather-part weather-part" title="Condiciones meteorológicas actuales en Guatemala">
+            <i data-lucide="cloud-sun" aria-hidden="true"></i>
+            <span id="topWeather">Consultando clima · Guatemala</span>
+          </span>
+        </div>
+        <div class="prototype-meta-actions">
+          <div class="top-action-wrap">
+            <button class="prototype-bell top-action-button" id="notificationButton" type="button" aria-label="Abrir notificaciones" aria-expanded="false">
+              <i data-lucide="bell"></i><span class="notification-count" id="notificationCount" hidden>0</span>
+            </button>
+            <div class="top-popover notification-popover" id="notificationPopover" hidden>
+              <div class="popover-header"><div><span class="popover-eyebrow">CENTRO DE AVISOS</span><strong>Notificaciones</strong></div><button class="icon-button popover-close" type="button" data-close-popover aria-label="Cerrar"><i data-lucide="x"></i></button></div>
+              <div id="notificationPreview" class="notification-preview"><div class="popover-loading">Cargando avisos...</div></div>
+              <div class="popover-footer"><button class="btn small" type="button" data-action="leer-todas-notificaciones">Marcar todas leídas</button><button class="btn small primary" type="button" data-action="ver-todas-notificaciones">Ver todas</button></div>
+            </div>
+          </div>
+          <div class="top-action-wrap theme-action-wrap">
+            <button class="top-action-button theme-toggle-button" id="themeToggleButton" type="button" aria-label="Cambiar a modo oscuro" title="Cambiar tema">
+              <i data-lucide="moon" aria-hidden="true"></i><span class="theme-toggle-label">Tema</span>
+            </button>
+          </div>
+          <span class="prototype-divider theme-divider" aria-hidden="true"></span>
+          <div class="top-action-wrap">
+            <button class="prototype-user-trigger" id="userMenuButton" type="button" aria-label="Abrir menú de usuario" aria-expanded="false">
+              <span class="prototype-avatar" aria-hidden="true"><i data-lucide="user-round"></i></span>
+              <span class="prototype-user-copy"><strong id="topUser">Usuario SEPRIGUA</strong><small id="topRole">Portal operativo</small></span>
+              <i class="user-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+            </button>
+            <div class="top-popover user-popover" id="userPopover" hidden>
+              <div class="user-popover-card"><span class="prototype-avatar large"><i data-lucide="user-round"></i></span><div><strong id="userPopoverName">Usuario SEPRIGUA</strong><small id="userPopoverEmail">Cuenta del sistema</small><em id="userPopoverRole">Portal operativo</em></div></div>
+              <button class="popover-menu-item" type="button" data-action="abrir-cuenta"><i data-lucide="user-cog"></i><span><strong>Mi cuenta</strong><small>Datos, contraseña y sesiones</small></span></button>
+              <button class="popover-menu-item" type="button" data-action="ver-todas-notificaciones"><i data-lucide="bell-ring"></i><span><strong>Notificaciones</strong><small>Revisar avisos pendientes</small></span></button>
+              <button class="popover-menu-item danger" type="button" data-action="cerrar-sesion"><i data-lucide="log-out"></i><span><strong>Cerrar sesión</strong><small>Salir de forma segura</small></span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="system-scroll-region" id="systemScrollRegion">
+        <header class="system-topbar">
+          <button class="menu-button" id="menuButton" type="button" aria-label="Abrir menú"><i data-lucide="menu"></i></button>
+          <div class="module-hero-icon" id="moduleHeroIcon" aria-hidden="true"><i data-lucide="layout-dashboard"></i></div>
+          <div class="heading-block">
+            <span class="eyebrow" id="pageEyebrow">PORTAL SEPRIGUA</span>
+            <h1 id="pageTitle">Cargando...</h1>
+            <p id="pageSubtitle">Preparando tu espacio de trabajo.</p>
+          </div>
+          <div class="connection-badge" id="dbBadge"><span></span><span id="dbBadgeText">Conectando</span></div>
+        </header>
+
+        <section id="appContent" class="app-content" aria-live="polite"></section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-header"><h2 id="modalTitle">Detalle</h2><button class="icon-button" id="modalClose" type="button" aria-label="Cerrar"><i data-lucide="x"></i></button></header>
+      <div class="modal-body" id="modalBody"></div>
+    </section>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="/java/avatar-identity.js?v=1"></script>
+  <script src="/java/global-loader.js?v=2"></script>
+  <script src="/java/sistema.js?v=21"></script>
+  <script src="/java/sidebar.js?v=1"></script>
+  <script src="/java/centro-control-ui.js?v=4"></script>
+  <script src="/java/theme.js?v=3"></script>
+</body>
+</html>

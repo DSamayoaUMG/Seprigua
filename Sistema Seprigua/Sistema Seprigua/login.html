@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Acceso al sistema principal de SEPRIGUA.">
+  <meta name="theme-color" content="#062a61">
+  <title>Ingresar al sistema | SEPRIGUA</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <link rel="stylesheet" href="css/login.css?v=20260915-recovery1">
+</head>
+
+<body>
+  <main class="login-page">
+    <video
+      class="login-bg"
+      autoplay
+      muted
+      loop
+      playsinline
+      preload="auto"
+      poster="assets/img/login-background-hd.jpg"
+      aria-hidden="true"
+    >
+      <source src="assets/img/login-background-hd.mp4" type="video/mp4">
+    </video>
+
+    <div class="video-shade" aria-hidden="true"></div>
+
+    <a class="back-link" href="index.html">
+      <i data-lucide="arrow-left"></i>
+      <span>Volver al sitio web</span>
+    </a>
+
+    <section class="login-card" aria-labelledby="loginTitle">
+      <header class="login-brand">
+        <img
+          class="login-logo"
+          src="assets/img/logo-seprigua-hd.png"
+          alt="SEPRIGUA Corporación Turam, S.A."
+        >
+        <div class="brand-separator" aria-hidden="true">
+          <span></span>
+          <small>ACCESO AL SISTEMA</small>
+          <span></span>
+        </div>
+        <h1 id="loginTitle">Bienvenido de nuevo</h1>
+        <p>Ingresa con las credenciales asignadas para continuar.</p>
+      </header>
+
+      <form class="login-form" id="loginForm" novalidate>
+        <div class="field-group">
+          <label for="identity">USUARIO O EMAIL</label>
+          <div class="field-control">
+            <span class="field-icon"><i data-lucide="user-round"></i></span>
+            <input
+              id="identity"
+              name="identity"
+              type="text"
+              autocomplete="username"
+              placeholder="Ej. daniel.tuc"
+              required
+            >
+          </div>
+          <p class="field-error" id="identityError"></p>
+        </div>
+
+        <div class="field-group">
+          <label for="password">CONTRASEÑA</label>
+          <div class="field-control">
+            <span class="field-icon"><i data-lucide="lock-keyhole"></i></span>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Ingresa tu contraseña"
+              required
+            >
+            <button
+              class="password-toggle"
+              id="togglePassword"
+              type="button"
+              aria-label="Mostrar contraseña"
+            >
+              <i data-lucide="eye"></i>
+            </button>
+          </div>
+          <p class="field-error" id="passwordError"></p>
+        </div>
+
+        <div class="login-options">
+          <label class="remember-option" for="remember">
+            <input id="remember" name="remember" type="checkbox">
+            <span class="checkbox-ui" aria-hidden="true">
+              <i data-lucide="check"></i>
+            </span>
+            <span>Recordarme</span>
+          </label>
+
+          <a class="forgot-link" id="forgotPasswordLink" href="#recuperar-contrasena">
+            ¿Olvidaste tu contraseña?
+          </a>
+        </div>
+
+        <button class="login-submit" type="submit">
+          <span>INGRESAR</span>
+          <i data-lucide="arrow-right"></i>
+        </button>
+
+        <p class="login-status" id="loginStatus" role="status" aria-live="polite"></p>
+
+        <a
+          class="support-link"
+          href="https://wa.me/50254108947?text=Hola%20SEPRIGUA%2C%20necesito%20ayuda%20para%20ingresar%20al%20sistema."
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span class="support-icon"><i data-lucide="headphones"></i></span>
+          <span class="support-copy">
+            <small>¿Necesitas ayuda para ingresar?</small>
+            <strong>Contáctanos por WhatsApp</strong>
+          </span>
+          <i class="support-chevron" data-lucide="chevron-right"></i>
+        </a>
+
+        <div class="secure-note">
+          <i data-lucide="shield-check"></i>
+          <span>Acceso protegido para usuarios autorizados.</span>
+        </div>
+      </form>
+    </section>
+  </main>
+
+
+  <div class="recovery-modal" id="recoveryModal" hidden>
+    <div class="recovery-backdrop" data-recovery-close></div>
+    <section class="recovery-dialog" role="dialog" aria-modal="true" aria-labelledby="recoveryTitle">
+      <button class="recovery-close" type="button" data-recovery-close aria-label="Cerrar">
+        <i data-lucide="x"></i>
+      </button>
+
+      <div class="recovery-icon"><i data-lucide="key-round"></i></div>
+
+      <div id="recoveryRequestView">
+        <span class="recovery-kicker">RECUPERACIÓN SEGURA</span>
+        <h2 id="recoveryTitle">Restablecer contraseña</h2>
+        <p>Ingresa tu usuario o correo. Si la cuenta tiene un correo registrado, recibirás un enlace temporal para crear una nueva contraseña.</p>
+
+        <form id="recoveryRequestForm" class="recovery-form" novalidate>
+          <label for="recoveryIdentity">USUARIO O CORREO</label>
+          <div class="recovery-control">
+            <i data-lucide="mail"></i>
+            <input id="recoveryIdentity" autocomplete="username" placeholder="Ej. daniel.tuc" required>
+          </div>
+          <button class="recovery-primary" type="submit">
+            <i data-lucide="send"></i><span>Enviar enlace de recuperación</span>
+          </button>
+        </form>
+        <p class="recovery-status" id="recoveryRequestStatus" aria-live="polite"></p>
+        <a class="recovery-whatsapp" href="https://wa.me/50254108947?text=Hola%20SEPRIGUA%2C%20necesito%20ayuda%20para%20recuperar%20mi%20acceso%20al%20sistema." target="_blank" rel="noopener noreferrer">
+          <i data-lucide="message-circle"></i> ¿Necesitas ayuda? Escríbenos por WhatsApp
+        </a>
+      </div>
+
+      <div id="recoveryConfirmView" hidden>
+        <span class="recovery-kicker">NUEVA CONTRASEÑA</span>
+        <h2>Protege tu cuenta</h2>
+        <p>Elige una contraseña nueva. El enlace es temporal y dejará de funcionar después del cambio.</p>
+
+        <form id="recoveryConfirmForm" class="recovery-form" novalidate>
+          <label for="newPassword">NUEVA CONTRASEÑA</label>
+          <div class="recovery-control">
+            <i data-lucide="lock-keyhole"></i>
+            <input id="newPassword" type="password" autocomplete="new-password" placeholder="Nueva contraseña" required>
+          </div>
+          <label for="confirmPassword">CONFIRMAR CONTRASEÑA</label>
+          <div class="recovery-control">
+            <i data-lucide="shield-check"></i>
+            <input id="confirmPassword" type="password" autocomplete="new-password" placeholder="Repite la contraseña" required>
+          </div>
+          <div class="recovery-rules">8+ caracteres · mayúscula · minúscula · número</div>
+          <button class="recovery-primary" type="submit">
+            <i data-lucide="check-circle-2"></i><span>Guardar nueva contraseña</span>
+          </button>
+        </form>
+        <p class="recovery-status" id="recoveryConfirmStatus" aria-live="polite"></p>
+      </div>
+    </section>
+  </div>
+
+  <script src="java/login.js?v=20260916-recovery2"></script>
+</body>
+</html>

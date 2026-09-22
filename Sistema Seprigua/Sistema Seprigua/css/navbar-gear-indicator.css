@@ -1,0 +1,227 @@
+/* =========================================================
+   SEPRIGUA — NAVBAR + ENGRANAJE ESTABLE
+   Mantiene el botón "Ingresar al sistema" dentro del menú,
+   conserva el medio engranaje rojo y evita desbordes.
+   ========================================================= */
+
+:root{
+  --nav-blue:#193E58;
+  --nav-red:#F51F4B;
+  --nav-ink:#29485E;
+}
+
+/* La barra siempre recorta el medio engranaje. */
+.header .navbar{
+  position:relative!important;
+  isolation:isolate!important;
+  overflow:hidden!important;
+}
+
+.header .logo-container{
+  position:relative!important;
+  z-index:6!important;
+}
+
+/* Desktop: menú normal, sin absolute ni auto-compact. */
+.header .nav-menu{
+  position:relative!important;
+  z-index:5!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:clamp(14px,1.55vw,28px)!important;
+  height:100%!important;
+  margin-left:auto!important;
+  min-width:0!important;
+}
+
+.header .nav-link{
+  position:relative!important;
+  isolation:isolate!important;
+  overflow:visible!important;
+  color:var(--nav-ink)!important;
+  white-space:nowrap!important;
+  transition:color .22s ease,transform .22s ease,text-shadow .22s ease!important;
+}
+
+/* Quitamos subrayados/placas viejas: el engranaje será el indicador. */
+.header .nav-link::after{
+  content:none!important;
+  display:none!important;
+}
+
+/* Haz rojo suave que nace del engranaje. */
+.header .nav-link::before{
+  content:""!important;
+  position:absolute!important;
+  z-index:-1!important;
+  pointer-events:none!important;
+  left:50%!important;
+  bottom:0!important;
+  width:82px!important;
+  height:54px!important;
+  clip-path:polygon(8% 0,92% 0,61% 100%,39% 100%)!important;
+  background:linear-gradient(0deg,rgba(245,31,75,.27) 0%,rgba(245,31,75,.13) 36%,rgba(245,31,75,0) 100%)!important;
+  filter:blur(2px)!important;
+  opacity:0!important;
+  transform:translateX(-50%) scaleY(.12)!important;
+  transform-origin:bottom center!important;
+  transition:opacity .24s ease,transform .38s cubic-bezier(.16,1,.3,1)!important;
+}
+
+.header .nav-link:hover:not(.active){
+  color:#173f5a!important;
+  transform:translateY(-1px)!important;
+}
+.header .nav-link:hover:not(.active)::before{
+  opacity:.18!important;
+  transform:translateX(-50%) scaleY(.56)!important;
+}
+.header .nav-link.active{
+  color:var(--nav-blue)!important;
+  font-weight:750!important;
+  text-shadow:0 1px 0 rgba(255,255,255,.9),0 0 10px rgba(245,31,75,.06)!important;
+}
+.header .nav-link.active::before{
+  opacity:.82!important;
+  transform:translateX(-50%) scaleY(1)!important;
+}
+
+/* Botón existente: NO se duplica y NO se saca del nav-menu. */
+.header .system-login-link{
+  flex:0 0 auto!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:8px!important;
+  min-height:42px!important;
+  margin:0!important;
+  padding:0 15px!important;
+  border:1px solid rgba(7,52,111,.10)!important;
+  border-radius:13px!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(233,239,244,.95))!important;
+  color:#31516b!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.98),0 6px 15px rgba(13,43,75,.08)!important;
+  font-size:12px!important;
+  font-weight:800!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+  text-decoration:none!important;
+  opacity:1!important;
+  visibility:visible!important;
+  pointer-events:auto!important;
+  transform:none!important;
+  transition:transform .2s ease,background .2s ease,color .2s ease,box-shadow .2s ease!important;
+}
+.header .system-login-link svg{
+  width:16px!important;
+  height:16px!important;
+  flex:0 0 16px!important;
+}
+.header .system-login-link:hover{
+  color:#0b477d!important;
+  background:linear-gradient(145deg,#fff,#e8f0f6)!important;
+  transform:translateY(-1px)!important;
+  box-shadow:inset 0 1px 0 #fff,0 9px 20px rgba(13,43,75,.12)!important;
+}
+
+/* Un solo medio engranaje compartido. El navbar lo recorta. */
+.nav-shared-gear{
+  --gear-x:50%;
+  --gear-rotation:0deg;
+  position:absolute!important;
+  z-index:8!important;
+  left:var(--gear-x)!important;
+  bottom:-18px!important;
+  width:36px!important;
+  height:36px!important;
+  pointer-events:none!important;
+  opacity:0!important;
+  transform:translateX(-50%) rotate(var(--gear-rotation))!important;
+  transform-origin:center!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  filter:drop-shadow(0 -1px 0 rgba(255,255,255,.75)) drop-shadow(0 2px 5px rgba(245,31,75,.25))!important;
+  transition:left .5s cubic-bezier(.16,1,.3,1),transform .5s cubic-bezier(.16,1,.3,1),opacity .18s ease!important;
+}
+.nav-shared-gear.is-ready{opacity:1!important}
+.nav-shared-gear svg{display:block!important;width:100%!important;height:100%!important;overflow:visible!important}
+
+/* Laptops: compactar únicamente espacios, sin mover el engranaje fuera. */
+@media (max-width:1240px) and (min-width:821px){
+  .header .navbar{padding-left:24px!important;padding-right:24px!important;gap:18px!important}
+  .header .logo-container{width:136px!important;flex-basis:136px!important}
+  .header .logo{height:42px!important}
+  .header .nav-menu{gap:clamp(9px,1.05vw,16px)!important}
+  .header .nav-link{font-size:12px!important}
+  .header .system-login-link{min-height:40px!important;padding:0 12px!important;font-size:11px!important}
+}
+
+@media (max-width:980px) and (min-width:821px){
+  .header .navbar{padding-left:18px!important;padding-right:18px!important;gap:12px!important}
+  .header .logo-container{width:116px!important;flex-basis:116px!important}
+  .header .logo{height:38px!important}
+  .header .nav-menu{gap:8px!important}
+  .header .nav-link{font-size:11px!important}
+  .header .system-login-link{width:42px!important;min-width:42px!important;height:40px!important;min-height:40px!important;padding:0!important;border-radius:12px!important}
+  .header .system-login-link span{display:none!important}
+  .header .system-login-link svg{width:18px!important;height:18px!important}
+  .header .nav-link::before{width:68px!important;height:48px!important}
+  .nav-shared-gear{width:34px!important;height:34px!important;bottom:-17px!important}
+}
+
+/* Móvil: se usa el drawer que ya existe en styles.css. */
+@media (max-width:820px){
+  .header{
+    left:12px!important;
+    right:auto!important;
+    width:calc(100% - 24px)!important;
+    transform:none!important;
+  }
+  .header .navbar{overflow:visible!important}
+  .header .nav-menu{
+    position:fixed!important;
+    top:0!important;
+    right:-100%!important;
+    width:min(82vw,340px)!important;
+    height:100dvh!important;
+    margin:0!important;
+    padding:92px 26px 30px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    justify-content:flex-start!important;
+    gap:0!important;
+    background:rgba(248,251,254,.98)!important;
+    box-shadow:-18px 0 42px rgba(0,34,76,.18)!important;
+    transition:right .32s ease!important;
+    z-index:20!important;
+    overflow-y:auto!important;
+  }
+  .header .nav-menu.open{right:0!important}
+  .header .nav-link{
+    width:100%!important;
+    height:auto!important;
+    padding:15px 4px!important;
+    font-size:16px!important;
+    border-bottom:1px solid rgba(7,52,111,.07)!important;
+  }
+  .header .nav-link::before{display:none!important;content:none!important}
+  .header .system-login-link{
+    width:100%!important;
+    min-height:50px!important;
+    margin-top:18px!important;
+    padding:0 16px!important;
+    justify-content:flex-start!important;
+    border-radius:14px!important;
+    font-size:15px!important;
+  }
+  .header .system-login-link span{display:inline!important}
+  .header .system-login-link svg{width:19px!important;height:19px!important}
+  .nav-shared-gear{display:none!important}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .header .nav-link,.header .nav-link::before,.nav-shared-gear{transition:none!important;animation:none!important}
+}

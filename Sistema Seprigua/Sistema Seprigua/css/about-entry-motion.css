@@ -1,0 +1,974 @@
+/* =========================================================
+   SEPRIGUA V43
+   - Corrige el gran espacio al navegar por navbar
+   - Da protagonismo individual a:
+     SOMOS SEPRIGUA
+     Nosotros
+     leyenda de respuesta
+   ========================================================= */
+
+
+/* =========================================================
+   ALINEACIÓN AL NAVEGAR
+   El JS usa el contenido visual como punto de llegada.
+   Este CSS solo asegura que el bloque respire bien.
+   ========================================================= */
+
+#nosotros .about-top {
+  position: relative;
+}
+
+#servicios .services-heading,
+#cobertura .coverage-grid,
+#trabajos .work-top,
+#contacto .contact-main {
+  position: relative;
+}
+
+
+/* =========================================================
+   1. "SOMOS SEPRIGUA"
+   Animación: barrido lateral + línea que se dibuja.
+   ========================================================= */
+
+#nosotros .about-text .section-label {
+  overflow: visible;
+}
+
+#nosotros .about-text .section-label .label-line {
+  transform-origin: left center;
+}
+
+#nosotros .about-text.about-protagonist-play .section-label {
+  animation:
+    aboutEyebrowSlide
+    .92s cubic-bezier(.16,1,.3,1)
+    .03s both;
+}
+
+#nosotros .about-text.about-protagonist-play .section-label .label-line {
+  animation:
+    aboutEyebrowLine
+    .78s cubic-bezier(.16,1,.3,1)
+    .13s both;
+}
+
+#nosotros .about-text.about-protagonist-play .section-label > span:last-child {
+  display: inline-block;
+  position: relative;
+}
+
+#nosotros .about-text.about-protagonist-play .section-label > span:last-child::after {
+  content: "";
+
+  position: absolute;
+  pointer-events: none;
+
+  left: -5%;
+  top: -35%;
+
+  width: 22%;
+  height: 170%;
+
+  opacity: 0;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(255,255,255,.92),
+      transparent
+    );
+
+  transform:
+    translateX(-160%)
+    skewX(-18deg);
+
+  animation:
+    aboutEyebrowShine
+    .85s ease
+    .63s both;
+}
+
+@keyframes aboutEyebrowSlide {
+  0% {
+    opacity: 0;
+    filter: blur(4px);
+    transform:
+      translate3d(-95px,0,0);
+    letter-spacing: 5px;
+  }
+
+  70% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(5px,0,0);
+    letter-spacing: 2.2px;
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(0,0,0);
+  }
+}
+
+@keyframes aboutEyebrowLine {
+  from {
+    opacity: 0;
+    transform: scaleX(.06);
+  }
+
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes aboutEyebrowShine {
+  0% {
+    opacity: 0;
+    transform:
+      translateX(-160%)
+      skewX(-18deg);
+  }
+
+  25% {
+    opacity: .65;
+  }
+
+  100% {
+    opacity: 0;
+    transform:
+      translateX(620%)
+      skewX(-18deg);
+  }
+}
+
+
+/* =========================================================
+   2. TÍTULO "NOSOTROS"
+   Animación distinta:
+   entra desde abajo, máscara + punch elegante.
+   ========================================================= */
+
+#nosotros .about-text > .section-title {
+  position: relative;
+  overflow: visible;
+  transform-origin: left bottom;
+}
+
+#nosotros .about-text.about-protagonist-play > .section-title {
+  animation:
+    aboutTitleReveal
+    1.03s cubic-bezier(.16,1,.3,1)
+    .18s both;
+}
+
+#nosotros .about-text > .section-title::after {
+  content: "";
+
+  position: absolute;
+  pointer-events: none;
+
+  left: 0;
+  bottom: -8px;
+
+  width: 0;
+  height: 3px;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      90deg,
+      #075899,
+      rgba(7,88,153,.16),
+      transparent
+    );
+}
+
+#nosotros .about-text.about-protagonist-play > .section-title::after {
+  animation:
+    aboutTitleUnderline
+    .82s cubic-bezier(.16,1,.3,1)
+    .62s both;
+}
+
+@keyframes aboutTitleReveal {
+  0% {
+    opacity: 0;
+    filter: blur(7px);
+    transform:
+      translate3d(0,38px,0)
+      scale(.91);
+  }
+
+  62% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(0,-3px,0)
+      scale(1.018);
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(0,0,0)
+      scale(1);
+  }
+}
+
+@keyframes aboutTitleUnderline {
+  from {
+    width: 0;
+    opacity: 0;
+  }
+
+  to {
+    width: 88px;
+    opacity: .68;
+  }
+}
+
+
+/* =========================================================
+   3. LEYENDA "RESPUESTA CUANDO MÁS IMPORTA"
+   Animación distinta:
+   tarjeta entra tipo glass-card + borde rojo + pulso.
+   ========================================================= */
+
+#nosotros .about-inline-legend {
+  transform-origin: left center;
+}
+
+#nosotros .about-text.about-protagonist-play .about-inline-legend {
+  animation:
+    aboutLegendCardIn
+    .94s cubic-bezier(.16,1,.3,1)
+    .66s both;
+}
+
+#nosotros .about-text.about-protagonist-play .about-inline-legend::before {
+  content: "";
+
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+
+  inset: 0;
+
+  border-radius: inherit;
+
+  opacity: 0;
+
+  background:
+    linear-gradient(
+      115deg,
+      transparent 12%,
+      rgba(255,255,255,.68) 37%,
+      transparent 62%
+    );
+
+  transform: translateX(-115%);
+
+  animation:
+    aboutLegendSweep
+    1.05s cubic-bezier(.22,1,.36,1)
+    1.08s both;
+}
+
+#nosotros .about-text.about-protagonist-play .about-inline-legend-dot {
+  animation:
+    aboutLegendDotHero
+    1.6s ease-in-out
+    .95s 2;
+}
+
+#nosotros .about-inline-legend > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes aboutLegendCardIn {
+  0% {
+    opacity: 0;
+    filter: blur(5px);
+    transform:
+      translate3d(-28px,17px,0)
+      scale(.95);
+  }
+
+  68% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(4px,-2px,0)
+      scale(1.015);
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(0,0,0)
+      scale(1);
+  }
+}
+
+@keyframes aboutLegendSweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-115%);
+  }
+
+  26% {
+    opacity: .72;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(125%);
+  }
+}
+
+@keyframes aboutLegendDotHero {
+  0%,100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 5px rgba(245,31,75,.055),
+      0 0 14px rgba(245,31,75,.13);
+  }
+
+  50% {
+    transform: scale(1.36);
+    box-shadow:
+      0 0 0 9px rgba(245,31,75,.045),
+      0 0 22px rgba(245,31,75,.22);
+  }
+}
+
+
+/* =========================================================
+   Pequeña mejora al entrar: párrafos aparecen después
+   pero SIN robar protagonismo.
+   ========================================================= */
+
+#nosotros .about-text.about-protagonist-play > p {
+  animation:
+    aboutParagraphFade
+    .70s cubic-bezier(.22,1,.36,1)
+    both;
+}
+
+#nosotros .about-text.about-protagonist-play > p:nth-of-type(1) {
+  animation-delay: .48s;
+}
+
+#nosotros .about-text.about-protagonist-play > p:nth-of-type(2) {
+  animation-delay: .57s;
+}
+
+@keyframes aboutParagraphFade {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 820px) {
+  #nosotros .about-text.about-protagonist-play .section-label {
+    animation-duration: .72s;
+  }
+
+  #nosotros .about-text.about-protagonist-play > .section-title {
+    animation-duration: .84s;
+  }
+
+  #nosotros .about-text.about-protagonist-play .about-inline-legend {
+    animation-duration: .78s;
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  #nosotros .about-text .section-label,
+  #nosotros .about-text .section-label *,
+  #nosotros .about-text > .section-title,
+  #nosotros .about-text > .section-title::after,
+  #nosotros .about-text > p,
+  #nosotros .about-inline-legend,
+  #nosotros .about-inline-legend *,
+  #nosotros .about-inline-legend::before {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+}
+
+
+/* =========================================================
+   SEPRIGUA V44 — TODO NOSOTROS ANIMADO
+   Mantiene V43 y agrega animación al resto de la sección.
+   ========================================================= */
+
+/* Estados base SOLO antes de reproducir la secuencia */
+#nosotros.about-sequence-ready .about-gallery,
+#nosotros.about-sequence-ready .stats-panel,
+#nosotros.about-sequence-ready .locations-panel,
+#nosotros.about-sequence-ready .about-card {
+  opacity: 0;
+}
+
+/* =========================================================
+   GALERÍA
+   ========================================================= */
+
+#nosotros.about-full-play .about-gallery {
+  animation:
+    aboutGalleryHeroIn
+    .92s cubic-bezier(.16,1,.3,1)
+    .18s both;
+}
+
+#nosotros.about-full-play .about-gallery-stage {
+  animation:
+    aboutGalleryStageSettle
+    1.05s cubic-bezier(.16,1,.3,1)
+    .32s both;
+}
+
+#nosotros.about-full-play .about-gallery-thumb {
+  opacity: 0;
+  animation:
+    aboutGalleryThumbIn
+    .58s cubic-bezier(.16,1,.3,1)
+    both;
+}
+
+#nosotros.about-full-play .about-gallery-thumb:nth-child(1) {
+  animation-delay: .58s;
+}
+
+#nosotros.about-full-play .about-gallery-thumb:nth-child(2) {
+  animation-delay: .68s;
+}
+
+#nosotros.about-full-play .about-gallery-thumb:nth-child(3) {
+  animation-delay: .78s;
+}
+
+#nosotros.about-full-play .about-gallery-open {
+  animation:
+    aboutGalleryButtonIn
+    .62s cubic-bezier(.16,1,.3,1)
+    .76s both;
+}
+
+#nosotros.about-full-play .about-gallery-pulse {
+  animation:
+    aboutGalleryHintIn
+    .62s ease
+    .88s both;
+}
+
+@keyframes aboutGalleryHeroIn {
+  0% {
+    opacity: 0;
+    filter: blur(7px);
+    transform:
+      translate3d(58px,14px,0)
+      scale(.955);
+  }
+
+  68% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(-4px,-2px,0)
+      scale(1.008);
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(0,0,0)
+      scale(1);
+  }
+}
+
+@keyframes aboutGalleryStageSettle {
+  0% {
+    clip-path: inset(0 0 100% 0 round 18px);
+  }
+
+  100% {
+    clip-path: inset(0 0 0 0 round 18px);
+  }
+}
+
+@keyframes aboutGalleryThumbIn {
+  from {
+    opacity: 0;
+    transform:
+      translateY(16px)
+      scale(.94);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+@keyframes aboutGalleryButtonIn {
+  0% {
+    opacity: 0;
+    transform:
+      translateX(18px)
+      scale(.92);
+  }
+
+  70% {
+    opacity: 1;
+    transform:
+      translateX(-2px)
+      scale(1.035);
+  }
+
+  100% {
+    opacity: 1;
+    transform:
+      translateX(0)
+      scale(1);
+  }
+}
+
+@keyframes aboutGalleryHintIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+/* =========================================================
+   PANEL DE ESTADÍSTICAS
+   ========================================================= */
+
+#nosotros.about-full-play .stats-panel {
+  animation:
+    aboutStatsPanelIn
+    .88s cubic-bezier(.16,1,.3,1)
+    .70s both;
+}
+
+#nosotros.about-full-play .stats-panel .stat-item {
+  opacity: 0;
+
+  animation:
+    aboutStatItemIn
+    .66s cubic-bezier(.16,1,.3,1)
+    both;
+}
+
+#nosotros.about-full-play .stats-panel .stat-item:nth-of-type(1) {
+  animation-delay: .91s;
+}
+
+#nosotros.about-full-play .stats-panel .stat-item:nth-of-type(2) {
+  animation-delay: 1.03s;
+}
+
+#nosotros.about-full-play .stats-panel .stat-item:nth-of-type(3) {
+  animation-delay: 1.15s;
+}
+
+#nosotros.about-full-play .stats-panel .stat-item:nth-of-type(4) {
+  animation-delay: 1.27s;
+}
+
+#nosotros .stat-number.about-counter-finished {
+  animation:
+    aboutCounterFinish
+    .46s cubic-bezier(.16,1,.3,1)
+    both;
+}
+
+@keyframes aboutStatsPanelIn {
+  0% {
+    opacity: 0;
+    filter: blur(5px);
+    transform:
+      translate3d(0,30px,0)
+      scale(.965);
+  }
+
+  72% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(0,-3px,0)
+      scale(1.006);
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(0,0,0)
+      scale(1);
+  }
+}
+
+@keyframes aboutStatItemIn {
+  0% {
+    opacity: 0;
+    transform:
+      translateY(18px)
+      scale(.92);
+  }
+
+  70% {
+    opacity: 1;
+    transform:
+      translateY(-2px)
+      scale(1.025);
+  }
+
+  100% {
+    opacity: 1;
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+@keyframes aboutCounterFinish {
+  0% {
+    transform: scale(1);
+  }
+
+  48% {
+    transform: scale(1.105);
+    text-shadow:
+      0 6px 24px rgba(154,211,249,.30);
+  }
+
+  100% {
+    transform: scale(1);
+    text-shadow: none;
+  }
+}
+
+
+/* =========================================================
+   UBICACIONES
+   ========================================================= */
+
+#nosotros.about-full-play .locations-panel {
+  animation:
+    aboutLocationPanelIn
+    .92s cubic-bezier(.16,1,.3,1)
+    .82s both;
+}
+
+#nosotros.about-full-play .mini-map {
+  animation:
+    aboutMapIn
+    .82s cubic-bezier(.16,1,.3,1)
+    1.02s both;
+}
+
+#nosotros.about-full-play .location-item {
+  opacity: 0;
+
+  animation:
+    aboutLocationItemIn
+    .62s cubic-bezier(.16,1,.3,1)
+    both;
+}
+
+#nosotros.about-full-play .location-item:nth-child(1) {
+  animation-delay: 1.17s;
+}
+
+#nosotros.about-full-play .location-item:nth-child(2) {
+  animation-delay: 1.30s;
+}
+
+@keyframes aboutLocationPanelIn {
+  0% {
+    opacity: 0;
+    filter: blur(5px);
+    transform:
+      translate3d(40px,20px,0)
+      scale(.96);
+  }
+
+  68% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(-3px,-2px,0)
+      scale(1.006);
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(0,0,0)
+      scale(1);
+  }
+}
+
+@keyframes aboutMapIn {
+  0% {
+    opacity: 0;
+    transform:
+      rotate(-8deg)
+      scale(.72);
+  }
+
+  68% {
+    opacity: 1;
+    transform:
+      rotate(2deg)
+      scale(1.055);
+  }
+
+  100% {
+    opacity: 1;
+    transform:
+      rotate(0)
+      scale(1.04);
+  }
+}
+
+@keyframes aboutLocationItemIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+
+/* =========================================================
+   MISIÓN Y NUESTRO COMPROMISO
+   Cada una entra desde un lado distinto.
+   ========================================================= */
+
+#nosotros.about-full-play .about-card:nth-child(1) {
+  animation:
+    aboutMissionCardIn
+    .88s cubic-bezier(.16,1,.3,1)
+    1.18s both;
+}
+
+#nosotros.about-full-play .about-card:nth-child(2) {
+  animation:
+    aboutCommitmentCardIn
+    .88s cubic-bezier(.16,1,.3,1)
+    1.30s both;
+}
+
+#nosotros.about-full-play .about-card:nth-child(1) .about-card-icon {
+  animation:
+    aboutMissionIcon
+    .72s cubic-bezier(.16,1,.3,1)
+    1.53s both;
+}
+
+#nosotros.about-full-play .about-card:nth-child(2) .about-card-icon {
+  animation:
+    aboutCommitmentIcon
+    .72s cubic-bezier(.16,1,.3,1)
+    1.65s both;
+}
+
+#nosotros.about-full-play .about-card .small-red-line {
+  transform-origin: left center;
+
+  animation:
+    aboutCardLineGrow
+    .66s cubic-bezier(.16,1,.3,1)
+    1.72s both;
+}
+
+@keyframes aboutMissionCardIn {
+  0% {
+    opacity: 0;
+    filter: blur(5px);
+    transform:
+      translate3d(-45px,24px,0)
+      scale(.96);
+  }
+
+  70% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(3px,-3px,0)
+      scale(1.006);
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(0,0,0)
+      scale(1);
+  }
+}
+
+@keyframes aboutCommitmentCardIn {
+  0% {
+    opacity: 0;
+    filter: blur(5px);
+    transform:
+      translate3d(45px,24px,0)
+      scale(.96);
+  }
+
+  70% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(-3px,-3px,0)
+      scale(1.006);
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform:
+      translate3d(0,0,0)
+      scale(1);
+  }
+}
+
+@keyframes aboutMissionIcon {
+  0% {
+    transform:
+      scale(.72)
+      rotate(-12deg);
+  }
+
+  58% {
+    transform:
+      scale(1.11)
+      rotate(4deg);
+  }
+
+  100% {
+    transform:
+      scale(1)
+      rotate(0);
+  }
+}
+
+@keyframes aboutCommitmentIcon {
+  0% {
+    transform:
+      scale(.72)
+      rotate(12deg);
+  }
+
+  58% {
+    transform:
+      scale(1.11)
+      rotate(-4deg);
+  }
+
+  100% {
+    transform:
+      scale(1)
+      rotate(0);
+  }
+}
+
+@keyframes aboutCardLineGrow {
+  from {
+    transform: scaleX(.10);
+    opacity: .2;
+  }
+
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+
+/* =========================================================
+   En hover, la animación de entrada ya no interfiere
+   ========================================================= */
+
+#nosotros.about-sequence-done .about-gallery,
+#nosotros.about-sequence-done .stats-panel,
+#nosotros.about-sequence-done .locations-panel,
+#nosotros.about-sequence-done .about-card,
+#nosotros.about-sequence-done .stat-item,
+#nosotros.about-sequence-done .location-item,
+#nosotros.about-sequence-done .about-gallery-thumb {
+  animation: none;
+  opacity: 1;
+  filter: none;
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  #nosotros.about-sequence-ready .about-gallery,
+  #nosotros.about-sequence-ready .stats-panel,
+  #nosotros.about-sequence-ready .locations-panel,
+  #nosotros.about-sequence-ready .about-card,
+  #nosotros .stat-item,
+  #nosotros .location-item,
+  #nosotros .about-gallery-thumb {
+    opacity: 1 !important;
+  }
+
+  #nosotros *,
+  #nosotros *::before,
+  #nosotros *::after {
+    animation: none !important;
+  }
+}
