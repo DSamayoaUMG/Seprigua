@@ -1042,7 +1042,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
   /* =======================================================
-     ANIMACIÓN GENERAL DE LA SECCIÓN COBERTURA
+     ENTRADA ÚNICA DE LA SECCIÓN COBERTURA
      ======================================================= */
 
   const coverageSection =
@@ -1053,14 +1053,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (coverageSection) {
     let coverageAnimationBusy = false;
+    let coverageEntrancePlayed = false;
 
 
-    const replayCoverage =
+    const playCoverageOnce =
       () => {
-        if (coverageAnimationBusy) {
+        if (
+          coverageAnimationBusy ||
+          coverageEntrancePlayed
+        ) {
           return;
         }
 
+        coverageEntrancePlayed = true;
         coverageAnimationBusy = true;
 
         coverageSection.classList.remove(
@@ -1099,12 +1104,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (
                   entry.isIntersecting
                 ) {
-                  replayCoverage();
-                } else if (
-                  entry.intersectionRatio === 0
-                ) {
-                  coverageSection.classList.remove(
-                    "is-coverage-visible"
+                  playCoverageOnce();
+                  coverageObserver.unobserve(
+                    entry.target
                   );
                 }
               }
@@ -1119,7 +1121,7 @@ document.addEventListener("DOMContentLoaded", () => {
         coverageSection
       );
     } else {
-      replayCoverage();
+      playCoverageOnce();
     }
 
 
@@ -1131,7 +1133,7 @@ document.addEventListener("DOMContentLoaded", () => {
           "#cobertura"
         ) {
           window.setTimeout(
-            replayCoverage,
+            playCoverageOnce,
             180
           );
         }

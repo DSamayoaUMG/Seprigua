@@ -771,3 +771,40 @@ a{
     padding-bottom:24px!important;
   }
 }
+
+/* =========================================================
+   RECUPERACIÓN DE CONTRASEÑA · SEPRIGUA
+   ========================================================= */
+body.recovery-open{overflow:hidden;}
+.recovery-modal[hidden]{display:none!important;}
+.recovery-modal{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;}
+.recovery-backdrop{position:absolute;inset:0;background:rgba(2,17,42,.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+.recovery-dialog{position:relative;z-index:1;width:min(100%,520px);padding:30px;border:1px solid rgba(255,255,255,.8);border-radius:26px;background:#fff;box-shadow:0 28px 80px rgba(3,31,73,.28);color:var(--text);}
+.recovery-close{position:absolute;top:14px;right:14px;width:40px;height:40px;border:1px solid #dce6f0;border-radius:12px;background:#fff;color:var(--navy);display:grid;place-items:center;cursor:pointer;}
+.recovery-close:hover{background:#f4f7fb;}
+.recovery-close svg{width:19px;height:19px;}
+.recovery-icon{width:58px;height:58px;border-radius:17px;display:grid;place-items:center;margin-bottom:18px;background:linear-gradient(145deg,#0c3e73,#062a61);color:#fff;box-shadow:0 12px 25px rgba(12,62,115,.2);}
+.recovery-icon svg{width:27px;height:27px;}
+.recovery-kicker{display:block;color:var(--red);font-family:"Montserrat",sans-serif;font-size:10px;font-weight:800;letter-spacing:1.7px;margin-bottom:8px;}
+.recovery-dialog h2{margin:0;color:var(--navy-deep);font-family:"Montserrat",sans-serif;font-size:26px;letter-spacing:-.03em;}
+.recovery-dialog>div>p{margin:9px 0 20px;color:#6f8298;font-size:13px;line-height:1.55;}
+.recovery-form{display:grid;gap:10px;}
+.recovery-form label{font-family:"Montserrat",sans-serif;font-size:10px;font-weight:800;letter-spacing:1.35px;color:var(--navy-deep);margin-top:3px;}
+.recovery-control{height:58px;border:1px solid #cedbea;border-radius:15px;display:flex;align-items:center;gap:10px;padding:0 14px;background:#fff;transition:.18s ease;}
+.recovery-control:focus-within{border-color:#8eaed3;box-shadow:0 0 0 4px rgba(7,45,103,.06);}
+.recovery-control svg{width:20px;height:20px;color:var(--navy);flex:0 0 auto;}
+.recovery-control input{width:100%;border:0;outline:0;background:transparent;color:var(--text);font-size:14px;font-weight:600;}
+.recovery-control input::placeholder{color:#9aabc0;font-weight:500;}
+.recovery-primary{min-height:56px;margin-top:7px;border:0;border-radius:14px;background:linear-gradient(135deg,#0c3e73,#062a61);color:#fff;font-family:"Montserrat",sans-serif;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:9px;cursor:pointer;box-shadow:0 13px 25px rgba(12,62,115,.18);}
+.recovery-primary:hover{filter:brightness(1.06);transform:translateY(-1px);}
+.recovery-primary:disabled{opacity:.65;cursor:wait;transform:none;}
+.recovery-primary svg{width:18px;height:18px;color:#ff3157;}
+.recovery-status{min-height:20px!important;margin:12px 0 4px!important;color:#506b83!important;font-size:12px!important;line-height:1.5!important;text-align:center;}
+.recovery-whatsapp{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:12px;color:#0b6b45;text-decoration:none;font-size:12px;font-weight:700;}
+.recovery-whatsapp:hover{text-decoration:underline;}
+.recovery-whatsapp svg{width:17px;height:17px;}
+.recovery-rules{padding:10px 12px;border-radius:11px;background:#f5f8fb;color:#70859a;font-size:11px;text-align:center;}
+.recovery-debug-link{display:inline-block;margin-top:8px;color:var(--red);font-weight:800;text-decoration:none;}
+.recovery-debug-link:hover{text-decoration:underline;}
+@media(max-width:560px){.recovery-modal{padding:12px}.recovery-dialog{padding:26px 18px 22px;border-radius:22px}.recovery-dialog h2{font-size:22px}.recovery-control{height:54px}.recovery-primary{min-height:54px}}
+

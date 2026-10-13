@@ -123,7 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let sequenceTimer = null;
   let counterTimer = null;
-  let armed = true;
+  let aboutEntrancePlayed = false;
 
   const clearSequenceTimers = () => {
     if (sequenceTimer) {
@@ -137,7 +137,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const replayAboutSequence = () => {
+  const playAboutSequenceOnce = () => {
+    if (aboutEntrancePlayed) return;
+    aboutEntrancePlayed = true;
+
     clearSequenceTimers();
 
     aboutSection.classList.remove(
@@ -207,24 +210,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /*
     La navegación de anclas vive únicamente en
-    navbar-gear-indicator.js. Este archivo se limita a reproducir
-    la animación de Nosotros cuando el navegador le avisa que esa
-    sección fue seleccionada. Así evitamos dos scripts intentando
-    mover la página al mismo tiempo.
+    navbar-gear-indicator.js. Este archivo dispara la entrada de
+    Nosotros únicamente si todavía no se reprodujo en esta carga.
+    Así evitamos repetir transiciones al volver a la sección.
   */
   window.addEventListener("seprigua:section-navigate", (event) => {
     if (event.detail?.id !== "nosotros") return;
 
-    armed = false;
     window.setTimeout(
-      replayAboutSequence,
+      playAboutSequenceOnce,
       reducedMotion ? 0 : 260
     );
   });
 
 
   /* =======================================================
-     AL ENTRAR A NOSOTROS MEDIANTE SCROLL
+     ENTRADA ÚNICA DE NOSOTROS MEDIANTE SCROLL
      ======================================================= */
 
   if (
@@ -237,25 +238,13 @@ document.addEventListener("DOMContentLoaded", () => {
             entry.isIntersecting &&
             entry.intersectionRatio > .22
           ) {
-            if (armed) {
-              armed = false;
-              replayAboutSequence();
-            }
-          } else if (
-            !entry.isIntersecting ||
-            entry.intersectionRatio < .06
-          ) {
-            armed = true;
-
-            aboutSection.classList.remove(
-              "about-full-play"
-            );
+            playAboutSequenceOnce();
+            observer.unobserve(entry.target);
           }
         },
         {
           threshold: [
             0,
-            .06,
             .22,
             .40
           ]
@@ -266,6 +255,6 @@ document.addEventListener("DOMContentLoaded", () => {
       aboutSection
     );
   } else {
-    replayAboutSequence();
+    playAboutSequenceOnce();
   }
 });

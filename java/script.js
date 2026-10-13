@@ -40,6 +40,52 @@ document.addEventListener("DOMContentLoaded",()=>{
   const form = $("#contactForm");
   const msg = $("#formMessage");
   const submitButton = form?.querySelector('button[type="submit"]');
+  const turnstileContainer = $("#contactTurnstile");
+  let turnstileWidgetId = null;
+  let turnstileToken = "";
+  let turnstileRequired = false;
+
+  const loadExternalScript = (src) => new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing) {
+      if (window.turnstile) resolve();
+      else existing.addEventListener("load", resolve, { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.defer = true;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+
+  async function initContactTurnstile() {
+    if (!form || !turnstileContainer) return;
+    try {
+      const response = await fetch("/api/public/security-config", { credentials: "same-origin" });
+      const config = await response.json().catch(() => ({}));
+      const siteKey = String(config.turnstile_site_key || "").trim();
+      turnstileRequired = Boolean(config.turnstile_required);
+      if (!siteKey) return;
+
+      await loadExternalScript("https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit");
+      if (!window.turnstile) throw new Error("Turnstile no disponible");
+      turnstileContainer.hidden = false;
+      turnstileWidgetId = window.turnstile.render(turnstileContainer, {
+        sitekey: siteKey,
+        theme: "light",
+        callback: token => { turnstileToken = token || ""; },
+        "expired-callback": () => { turnstileToken = ""; },
+        "error-callback": () => { turnstileToken = ""; }
+      });
+    } catch (_error) {
+      if (turnstileRequired) {
+        showFormMessage("La verificación anti-bot no pudo cargarse. Actualiza la página.", false);
+      }
+    }
+  }
 
   const showFormMessage = (text, ok = true) => {
     if (!msg) return;
@@ -57,6 +103,11 @@ document.addEventListener("DOMContentLoaded",()=>{
       return;
     }
 
+    if (turnstileRequired && !turnstileToken) {
+      showFormMessage("Completa la verificación anti-bot antes de enviar.", false);
+      return;
+    }
+
     const originalButton = submitButton?.innerHTML || "";
 
     if (submitButton) {
@@ -69,13 +120,16 @@ document.addEventListener("DOMContentLoaded",()=>{
 
     try {
       const formData = new FormData(form);
+      if (turnstileToken) formData.set("turnstile_token", turnstileToken);
 
       const response = await fetch(
-        "https://formsubmit.co/ajax/gadministracion@turamgt.com",
+        "/api/contacto",
         {
           method: "POST",
+          credentials: "same-origin",
           headers: {
-            "Accept": "application/json"
+            "Accept": "application/json",
+            "X-SEPRIGUA-Request": "1"
           },
           body: formData
         }
@@ -83,7 +137,7 @@ document.addEventListener("DOMContentLoaded",()=>{
 
       const data = await response.json().catch(() => null);
 
-      if (!response.ok || data?.success === "false") {
+      if (!response.ok || data?.ok === false) {
         throw new Error(
           data?.message ||
           "No fue posible enviar la solicitud."
@@ -96,6 +150,10 @@ document.addEventListener("DOMContentLoaded",()=>{
       );
 
       form.reset();
+      turnstileToken = "";
+      if (turnstileWidgetId !== null && window.turnstile) {
+        window.turnstile.reset(turnstileWidgetId);
+      }
     } catch (error) {
       showFormMessage(
         "No pudimos enviar la solicitud en este momento. Intenta nuevamente.",
@@ -114,5 +172,6 @@ document.addEventListener("DOMContentLoaded",()=>{
     }
   });
 
+  initContactTurnstile();
   $("#chatButton")?.addEventListener("click",()=>{}); scrollTopBtn?.addEventListener("click",()=>scrollTo({top:0,behavior:"smooth"}));
 });

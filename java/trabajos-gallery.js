@@ -5,7 +5,7 @@
     basePath: "assets/img/trabajos/",
     prefix: "",
     extension: ".webp",
-    maxFilesToProbe: 60,
+    maxFilesToProbe: 5,
     autoplayMs: 4500,
     pauseAfterInteractionMs: 7000
   };
