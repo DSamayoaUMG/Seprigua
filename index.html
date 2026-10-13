@@ -14,7 +14,7 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800;900&display=swap"
         rel="stylesheet">
 
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="/java/vendor/lucide.min.js?v=1"></script>
     <link rel="stylesheet" href="css/styles.css?v=20260905">
     <link rel="stylesheet" href="css/waves-background.css?v=12">
     <link rel="stylesheet" href="css/button-effects.css?v=16">
@@ -1107,11 +1107,11 @@
                         </div>
                     </div>
 
-                    <form class="contact-form contact-form-premium-fields" id="contactForm" action="https://formsubmit.co/gadministracion@turamgt.com" method="POST">
-                        <input type="hidden" name="_subject" value="Nueva solicitud desde el sitio web de SEPRIGUA">
-                        <input type="hidden" name="_template" value="table">
-                        <input type="hidden" name="_captcha" value="false">
-                        <input type="hidden" name="_autoresponse" value="Gracias por contactar a SEPRIGUA. Recibimos tu solicitud y nuestro equipo se pondrá en contacto contigo.">
+                    <form class="contact-form contact-form-premium-fields" id="contactForm" action="/api/contacto" method="POST">
+                        <label aria-hidden="true" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;">
+                            <span>No completar</span>
+                            <input type="text" name="website" tabindex="-1" autocomplete="off">
+                        </label>
 
                         <div class="form-row">
                             <label class="contact-field">
@@ -1146,6 +1146,8 @@
                             <span>Mensaje</span>
                             <textarea name="mensaje" rows="5" placeholder="Cuéntanos brevemente qué necesitas atender..." required></textarea>
                         </label>
+
+                        <div id="contactTurnstile" class="contact-turnstile" hidden aria-label="Verificación anti-bot"></div>
 
                         <div class="contact-form-actions">
                             <button type="submit" class="send-button contact-premium-send">
@@ -1217,7 +1219,7 @@
     <div class="footer-map">
       <span class="footer-kicker">COBERTURA NACIONAL</span>
       <div class="footer-map-frame">
-        <img src="assets/img/mapa-footer.png" alt="Mapa de cobertura SEPRIGUA">
+        <img src="assets/img/mapa-guatemala.png" alt="Mapa de cobertura SEPRIGUA">
         <span class="footer-map-pulse pulse-one"></span>
         <span class="footer-map-pulse pulse-two"></span>
       </div>
