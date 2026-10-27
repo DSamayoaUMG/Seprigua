@@ -1,0 +1,94 @@
+/* SEPRIGUA · Agenda de fechas y recordatorios · afecta solo al calendario */
+#calendarPopover {
+  /* Portal directo en <body>: coordenadas reales del viewport, sin transform
+     ni backdrop-filter heredado del navbar. */
+  position: fixed;
+  z-index: 3200;
+  width: min(390px, calc(100vw - 16px));
+  min-width: 0;
+  max-width: calc(100vw - 16px);
+  max-height: min(670px, calc(100dvh - 16px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 13px;
+  border-radius: 17px;
+  border-color: color-mix(in srgb, var(--se-brand-3) 28%, var(--se-border));
+  /* Elevación sobria en azul grisáceo, sin glow ni sombreado duro. */
+  box-shadow:
+    0 20px 42px rgba(48, 79, 111, .19),
+    0 5px 14px rgba(67, 102, 133, .10);
+}
+html[data-theme="dark"] #calendarPopover {
+  box-shadow:
+    0 20px 48px rgba(0, 12, 27, .48),
+    0 6px 16px rgba(64, 106, 149, .16);
+}
+#calendarPopover .calendar-days-grid { gap: 3px; }
+#calendarPopover #calendarDaysGrid .calendar-day {
+  position: relative;
+  aspect-ratio: auto;
+  min-height: 43px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 2px 3px;
+  border-radius: 10px;
+  transition: background-color .15s ease,border-color .15s ease;
+}
+#calendarPopover .se-cal-day-number { display:block; line-height:19px; font-weight:700; }
+#calendarPopover .se-cal-day-dots { height:7px; display:flex; justify-content:center; align-items:center; gap:3px; }
+.se-cal-dot {display:inline-block;flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:var(--se-brand-3);box-shadow:0 0 0 1px rgba(0,0,0,.03)}
+.se-cal-dot.red {background:#E9234B}
+.se-cal-dot.amber {background:#D99120}
+.se-cal-dot.blue {background:#2587CA}
+.se-cal-dot.green {background:#1C9A64}
+.se-cal-dot.neutral {background:#8092a5}
+#calendarPopover .calendar-day.is-selected .se-cal-dot {box-shadow:0 0 0 1px rgba(255,255,255,.65)}
+#calendarPopover .calendar-day.is-outside .se-cal-day-dots {opacity:.7}
+/* Navbar compacto: únicamente fecha y títulos de las actividades. */
+.se-cal-agenda { margin-top:8px; padding-top:9px; border-top:1px solid var(--se-border); }
+.se-cal-agenda-header { padding:0 2px 7px; }
+.se-cal-agenda-header strong { font-size:13px; font-weight:800; color:var(--se-text-strong); line-height:1.4; }
+.se-cal-day-entries { display:grid; gap:5px; max-height:170px; overflow-y:auto; scrollbar-width:thin; overscroll-behavior:contain; }
+.se-cal-empty { margin:0; padding:8px 9px; border-radius:9px; background:var(--se-surface-2); color:var(--se-muted); font-size:12px; line-height:1.5; }
+.se-cal-entry { display:flex; align-items:center; gap:9px; min-width:0; min-height:31px; padding:6px 9px; border:1px solid var(--se-border); border-radius:9px; background:var(--se-surface-2); }
+.se-cal-entry > .se-cal-dot { width:8px; height:8px; }
+.se-cal-entry-title { min-width:0; font-size:12px; font-weight:750; line-height:1.45; color:var(--se-text-strong); overflow-wrap:anywhere; }
+#calendarPopover .calendar-popover-foot { margin-top:8px; border-top:1px solid var(--se-border); padding-top:6px; }
+#calendarPopover .calendar-today-button { border:1px solid var(--se-border); background:var(--se-input); border-radius:9px; font-weight:800; color:var(--se-brand-3); }
+@media (max-width:520px) {
+  #calendarPopover { padding:10px; border-radius:14px; }
+  #calendarPopover #calendarDaysGrid .calendar-day { min-height:37px; }
+  #calendarPopover .calendar-weekdays { font-size:11px; }
+  #calendarPopover .se-cal-day-entries { max-height:130px; }
+}
+@media (max-width:360px) {
+  #calendarPopover { padding:8px; }
+  #calendarPopover #calendarDaysGrid .calendar-day { min-height:33px; padding:2px 1px; }
+  #calendarPopover .calendar-days-grid { gap:2px; }
+  #calendarPopover .se-cal-agenda-header strong { font-size:12px; }
+}
+@media (max-height:480px) and (orientation:landscape) {
+  #calendarPopover #calendarDaysGrid .calendar-day { min-height:30px; }
+  #calendarPopover .se-cal-day-entries { max-height:90px; }
+}
+@media (prefers-reduced-motion:reduce){ #calendarPopover #calendarDaysGrid .calendar-day { transition:none; } }
+
+/* Adaptación a la consulta de actividades del servidor de esta versión. */
+#calendarPopover .calendar-activity-preview{margin-top:8px;padding:10px 2px 0;border-top:1px solid var(--se-border);max-height:190px;overflow:auto}
+#calendarPopover .calendar-activity-preview>strong{display:block;margin-bottom:8px;color:var(--se-text-strong);font-size:13px}
+#calendarPopover .calendar-activity-preview>p{padding:9px;border-radius:9px;background:var(--se-surface-2);color:var(--se-muted);font-size:12px;line-height:1.5}
+#calendarPopover .calendar-activity-preview ul{display:grid;gap:5px;margin:0;padding:0;list-style:none}
+#calendarPopover .calendar-activity-preview li.se-cal-preview-row{display:grid;grid-template-columns:8px minmax(0,1fr);gap:2px 8px;align-items:center;min-width:0;margin:0;padding:7px 9px;border:1px solid var(--se-border);border-radius:9px;background:var(--se-surface-2)}
+#calendarPopover .se-cal-preview-row:before{grid-row:1/3;width:8px;height:8px;border-radius:50%;background:#2587ca;content:""}
+#calendarPopover .se-cal-preview-row.green:before{background:#1c9a64}
+#calendarPopover .se-cal-preview-row.amber:before{background:#d99120}
+#calendarPopover .se-cal-preview-row.red:before{background:#e9234b}
+#calendarPopover .se-cal-preview-row.neutral:before{background:#8092a5}
+#calendarPopover .se-cal-preview-row span,#calendarPopover .se-cal-preview-row small{grid-column:2;min-width:0;overflow-wrap:anywhere}
+#calendarPopover .se-cal-preview-row span{font-size:12px;font-weight:750;color:var(--se-text-strong)}
+#calendarPopover .se-cal-preview-row small{font-size:11px;color:var(--se-muted)}
+#calendarPopover .calendar-popover-foot[hidden]{display:none!important}

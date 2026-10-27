@@ -23,8 +23,16 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/assets/pwa/seprigua-192.png">
   <title>Sistema | SEPRIGUA</title>
-  <script src="/java/vendor/lucide.min.js?v=1"></script>
-  <link id="systemStyles" rel="stylesheet" href="/css/sistema.css?v=27" onload="document.documentElement.classList.add('se-css-ready')" onerror="document.documentElement.classList.add('se-css-failed')">
+  
+<link id="systemStyles" rel="stylesheet" href="/css/sistema.css?v=20261020-karla-merge-v1" onload="document.documentElement.classList.add('se-css-ready')" onerror="document.documentElement.classList.add('se-css-failed')">
+  <link rel="stylesheet" href="/css/responsive-fixes.css?v=20261019-reporte-semanal-v1">
+  <link rel="stylesheet" href="/css/calendar-agenda.css?v=20261020-karla-merge-v1">
+  <link rel="stylesheet" href="/css/avatar-identity.css?v=20261020-karla-merge-v1">
+  <link rel="stylesheet" href="/css/dashboard-activity-ui.css?v=20261020-karla-merge-v1">
+  <link rel="stylesheet" href="/css/notifications-enterprise.css?v=20261020-karla-merge-v1">
+  <link rel="stylesheet" href="/css/profile-photo-crop.css?v=20261020-karla-merge-v1">
+  <link rel="stylesheet" href="/css/filter-polish.css?v=20261021-v2">
+  <script src="/java/compat-performance.js?v=1"></script>
 </head>
 <body class="seprigua-hoja-v4 ui-booting">
   <div class="system-shell" id="systemShell">
@@ -52,6 +60,10 @@
 
     <main class="system-main">
       <div class="prototype-meta" aria-label="Información de la sesión">
+        <!-- El control del drawer forma parte del navbar FIJO, no del área con scroll. -->
+        <button class="menu-button navbar-mobile-menu" id="menuButton" type="button" aria-label="Abrir menú" aria-controls="sidebar" aria-expanded="false" title="Abrir menú de navegación">
+          <i data-lucide="menu" aria-hidden="true"></i>
+        </button>
         <div class="prototype-date-wrap" id="topCalendarWrap">
           <button class="prototype-date prototype-date-button" id="calendarButton" type="button" aria-label="Abrir calendario" aria-expanded="false" aria-controls="calendarPopover">
             <i data-lucide="calendar-days" aria-hidden="true"></i>
@@ -74,6 +86,7 @@
               <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
             </div>
             <div class="calendar-days-grid" id="calendarDaysGrid" role="grid" aria-label="Calendario mensual"></div>
+            <div class="calendar-activity-preview" id="calendarActivityPreview" aria-live="polite"></div>
             <div class="calendar-popover-foot">
               <button class="calendar-today-button" id="calendarTodayButton" type="button">Ir a hoy</button>
             </div>
@@ -96,9 +109,9 @@
               <i data-lucide="bell"></i><span class="notification-count" id="notificationCount" hidden>0</span>
             </button>
             <div class="top-popover notification-popover" id="notificationPopover" hidden>
-              <div class="popover-header"><div><span class="popover-eyebrow">CENTRO DE AVISOS</span><strong>Notificaciones</strong></div><button class="icon-button popover-close" type="button" data-close-popover aria-label="Cerrar"><i data-lucide="x"></i></button></div>
+              <div class="popover-header"><div><span class="popover-eyebrow">Centro de avisos</span><strong>Notificaciones</strong></div><div class="notice-header-actions"><button class="icon-button popover-refresh" type="button" data-action="refrescar-preview-notificaciones" title="Actualizar avisos" aria-label="Actualizar avisos"><i data-lucide="refresh-cw"></i></button><button class="icon-button popover-close" type="button" data-close-popover aria-label="Cerrar"><i data-lucide="x"></i></button></div></div>
               <div id="notificationPreview" class="notification-preview"><div class="popover-loading">Cargando avisos...</div></div>
-              <div class="popover-footer"><button class="btn small" type="button" data-action="leer-todas-notificaciones">Marcar todas leídas</button><button class="btn small primary" type="button" data-action="ver-todas-notificaciones">Ver todas</button></div>
+              <div class="popover-footer"><button class="btn small" type="button" data-action="leer-todas-notificaciones">Marcar todas como leídas</button><button class="btn small primary" type="button" data-action="ver-todas-notificaciones">Ver todas</button></div>
             </div>
           </div>
           <div class="top-action-wrap theme-action-wrap">
@@ -125,7 +138,6 @@
 
       <div class="system-scroll-region" id="systemScrollRegion">
         <header class="system-topbar">
-          <button class="menu-button" id="menuButton" type="button" aria-label="Abrir menú"><i data-lucide="menu"></i></button>
           <div class="module-hero-icon" id="moduleHeroIcon" aria-hidden="true"><i data-lucide="layout-dashboard"></i></div>
           <div class="heading-block">
             <span class="eyebrow" id="pageEyebrow">PORTAL SEPRIGUA</span>
@@ -148,13 +160,16 @@
   </div>
   <div class="toast" id="toast" hidden></div>
 
-  <script src="/java/avatar-identity.js?v=1"></script>
+  <script src="/java/vendor/lucide.min.js?v=1"></script>
+  <script src="/java/avatar-identity.js?v=20261020-perfiles-v1"></script>
   <script src="/java/global-loader.js?v=2"></script>
-  <script src="/java/portal-ui.js?v=2"></script>
-  <script src="/java/operations-ui.js?v=1"></script>
-  <script src="/java/sistema.js?v=25"></script>
-  <script src="/java/sidebar.js?v=1"></script>
-  <script src="/java/centro-control-ui.js?v=4"></script>
+  <script src="/java/portal-ui.js?v=20261020-cotizacion-v3"></script>
+  <script src="/java/operations-ui.js?v=20261021-filtros-v1"></script>
+  <script src="/java/profile-photo-crop.js?v=20261020-karla-merge-v1"></script>
+  <script src="/java/sistema.js?v=20261021-optimized-v1"></script>
+  <script src="/java/sidebar.js?v=35-scroll-real-nav"></script>
+  <script src="/java/centro-control-ui.js?v=20261021-optimized-v1"></script>
+  <script src="/java/filter-ui-enterprise.js?v=1"></script>
   <script src="/java/theme.js?v=3"></script>
 </body>
 </html>

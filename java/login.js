@@ -12,6 +12,28 @@
   const identityError = document.getElementById("identityError");
   const passwordError = document.getElementById("passwordError");
   const submit = form?.querySelector(".login-submit");
+  const companyModal = document.getElementById("companyDisabledModal");
+
+  function closeCompanyModal() {
+    if (!companyModal) return;
+    companyModal.hidden = true;
+    document.body.classList.remove("recovery-open");
+    identity?.focus();
+  }
+
+  function openCompanyModal() {
+    if (!companyModal) return;
+    companyModal.hidden = false;
+    document.body.classList.add("recovery-open");
+    companyModal.querySelector("[data-company-close].recovery-close")?.focus();
+  }
+
+  companyModal?.querySelectorAll("[data-company-close]").forEach(button => {
+    button.addEventListener("click", closeCompanyModal);
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && companyModal && !companyModal.hidden) closeCompanyModal();
+  });
 
   toggle?.addEventListener("click", () => {
     const isVisible = password.type === "text";
@@ -86,6 +108,10 @@
 
       if (!response.ok || !data.ok) {
         status.textContent = data.message || "No fue posible iniciar sesión.";
+        if (data.codigo === "EMPRESA_DESACTIVADA") {
+          password.value = "";
+          openCompanyModal();
+        }
         return;
       }
 
@@ -113,8 +139,26 @@
   const recoveryIdentity = document.getElementById("recoveryIdentity");
   const recoveryRequestStatus = document.getElementById("recoveryRequestStatus");
   const recoveryConfirmStatus = document.getElementById("recoveryConfirmStatus");
+  const recoveryCodeForm = document.getElementById("recoveryCodeForm");
+  const recoveryCodeStatus = document.getElementById("recoveryCodeStatus");
+  const recoveryCodeTab = document.getElementById("recoveryCodeTab");
+  const recoveryEmailTab = document.getElementById("recoveryEmailTab");
   const newPassword = document.getElementById("newPassword");
   const confirmPassword = document.getElementById("confirmPassword");
+
+  function selectRecoveryMethod(method) {
+    const email = method === "email";
+    recoveryCodeForm.hidden = email;
+    recoveryCodeStatus.hidden = email;
+    recoveryRequestForm.hidden = !email;
+    recoveryRequestStatus.hidden = !email;
+    recoveryCodeTab.classList.toggle("active", !email);
+    recoveryEmailTab.classList.toggle("active", email);
+    recoveryCodeTab.setAttribute("aria-selected", String(!email));
+    recoveryEmailTab.setAttribute("aria-selected", String(email));
+  }
+  recoveryCodeTab?.addEventListener("click", () => selectRecoveryMethod("code"));
+  recoveryEmailTab?.addEventListener("click", () => selectRecoveryMethod("email"));
 
   function openRecovery(mode = "request") {
     if (!recoveryModal) return;
@@ -124,7 +168,7 @@
     if (recoveryRequestView) recoveryRequestView.hidden = confirmMode;
     if (recoveryConfirmView) recoveryConfirmView.hidden = !confirmMode;
     window.lucide?.createIcons();
-    window.setTimeout(() => (confirmMode ? newPassword : recoveryIdentity)?.focus(), 40);
+    window.setTimeout(() => (confirmMode ? newPassword : recoveryCodeForm?.querySelector("input"))?.focus(), 40);
   }
 
   function closeRecovery() {
@@ -137,7 +181,51 @@
     event.preventDefault();
     if (recoveryRequestStatus) recoveryRequestStatus.textContent = "";
     if (recoveryIdentity && identity?.value.trim()) recoveryIdentity.value = identity.value.trim();
+    const codeIdentity = document.getElementById("recoveryCodeIdentity");
+    if (codeIdentity && identity?.value.trim()) codeIdentity.value = identity.value.trim();
+    selectRecoveryMethod("code");
     openRecovery("request");
+  });
+
+  recoveryCodeForm?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const username = document.getElementById("recoveryCodeIdentity").value.trim();
+    const code = document.getElementById("recoveryCode").value.trim();
+    const first = document.getElementById("recoveryCodePassword").value;
+    const second = document.getElementById("recoveryCodeConfirm").value;
+    if (!username || !code) {
+      recoveryCodeStatus.textContent = "Ingresa tu usuario y tu código de seguridad.";
+      return;
+    }
+    if (first !== second) {
+      recoveryCodeStatus.textContent = "Las contraseñas no coinciden.";
+      return;
+    }
+    if (first.length < 8 || !/[A-ZÁÉÍÓÚÑ]/.test(first) || !/[a-záéíóúñ]/.test(first) || !/\d/.test(first)) {
+      recoveryCodeStatus.textContent = "Usa al menos 8 caracteres con mayúscula, minúscula y número.";
+      return;
+    }
+    const button = recoveryCodeForm.querySelector("button[type='submit']");
+    button.disabled = true;
+    recoveryCodeStatus.textContent = "Verificando código...";
+    try {
+      const response = await fetch("/api/auth/password-reset/code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-SEPRIGUA-Request": "1" },
+        credentials: "same-origin",
+        body: JSON.stringify({ identity: username, code, password: first })
+      });
+      const data = await response.json().catch(() => ({}));
+      recoveryCodeStatus.textContent = data.message || "No fue posible restablecer la contraseña.";
+      if (response.ok && data.ok) {
+        recoveryCodeForm.reset();
+        window.setTimeout(() => { closeRecovery(); identity.value = username; identity.focus(); status.textContent = "Contraseña actualizada. Ya puedes ingresar."; }, 1600);
+      }
+    } catch (_error) {
+      recoveryCodeStatus.textContent = "No fue posible conectar con el servidor.";
+    } finally {
+      button.disabled = false;
+    }
   });
 
   recoveryModal?.querySelectorAll("[data-recovery-close]").forEach(button => {

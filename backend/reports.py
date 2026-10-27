@@ -1,33 +1,97 @@
-"""Reporte de OT sobre el expediente autorizado del portal."""
+"""Reporte PDF de la orden sobre el expediente autorizado del portal."""
+from datetime import datetime
 from io import BytesIO
-from html import escape
+from zoneinfo import ZoneInfo
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
-from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,Table,TableStyle
-if __package__:from .pdf_styles import portal_styles
-else:from pdf_styles import portal_styles
+from reportlab.platypus import CondPageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+if __package__:
+    from .pdf_styles import (BORDER, BLUE, INK, MUTED, NAVY, PALE, data_table,
+                             page_frame, pdf_text, portal_styles, section_header)
+else:
+    from pdf_styles import (BORDER, BLUE, INK, MUTED, NAVY, PALE, data_table,
+                            page_frame, pdf_text, portal_styles, section_header)
+
 
 def build_order_report(data):
-    out=BytesIO();item=data['item'];styles=portal_styles()
-    body=ParagraphStyle('Body',parent=styles['BodyText'],fontSize=9,leading=13,spaceAfter=5)
-    head=ParagraphStyle('Head',parent=body,textColor=colors.white,fontName='PortalSans-Bold')
-    text=lambda value:escape(str(value if value not in (None,'') else '-'))
-    paragraph=lambda value:Paragraph(text(value),body)
-    doc=SimpleDocTemplate(out,pagesize=A4,leftMargin=17*mm,rightMargin=17*mm,topMargin=17*mm,bottomMargin=17*mm,title='Reporte '+str(item['numero']),author='SEPRIGUA')
-    story=[Paragraph('SEPRIGUA',styles['Title']),Paragraph('Reporte de servicio · '+text(item['numero']),styles['Heading2'])]
-    for label,key in [('Cliente','cliente'),('Sede','sede'),('Servicio','tipo'),('Estado','estado'),('Ticket','ticket'),('OT física','orden_papel'),('Solicitud','solicitud')]:story.append(Paragraph('<b>'+label+':</b> '+text(item.get(key)),body))
-    def section(title,headers,rows,widths):
-        story.extend([Spacer(1,5*mm),Paragraph(title,styles['Heading2'])])
-        if not rows:story.append(paragraph('Sin registros.'));return
-        cells=[[Paragraph(text(v),head) for v in headers]]+[[paragraph(v) for v in row] for row in rows]
-        table=Table(cells,colWidths=[x*mm for x in widths],repeatRows=1)
-        table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#0B3C78')),('VALIGN',(0,0),(-1,-1),'TOP'),('GRID',(0,0),(-1,-1),.35,colors.HexColor('#D7E2F0')),('TOPPADDING',(0,0),(-1,-1),6),('BOTTOMPADDING',(0,0),(-1,-1),6)]));story.append(table)
-    section('Cuadrilla',['Nombre','Función','Estado'],[[x.get('nombre'),x.get('funcion'),x.get('estado')] for x in data.get('tecnicos',[])],[80,48,48])
-    section('Trabajo realizado',['Descripción','Resultado','Responsable'],[[x.get('Descripcion'),x.get('Resultado'),x.get('empleado')] for x in data.get('actividades',[])],[88,50,38])
-    section('Evidencias',['Archivo','Tipo','Descripción'],[[x.get('nombre'),x.get('tipo'),x.get('Descripcion') or x.get('descripcion')] for x in data.get('evidencias',[])],[64,24,88])
-    story.extend([Spacer(1,5*mm),paragraph('Los archivos originales se consultan desde el expediente autorizado del portal. La cotización comercial se administra por separado.')])
-    def footer(canvas,document):
-        canvas.saveState();canvas.setFont('PortalSans',8);canvas.drawRightString(A4[0]-17*mm,9*mm,f'Página {document.page}');canvas.restoreState()
-    doc.build(story,onFirstPage=footer,onLaterPages=footer);out.seek(0);return out
+    output = BytesIO()
+    item = data['item']
+    styles = portal_styles()
+    page_width = 176 * mm
+    kicker = ParagraphStyle('OrderKicker', parent=styles['Normal'], fontName='PortalSans-Bold',
+                            fontSize=8, leading=11, textColor=BLUE, spaceAfter=4)
+    title = ParagraphStyle('OrderTitle', parent=styles['Title'], fontName='PortalSans-Bold',
+                           fontSize=19, leading=23, textColor=NAVY, alignment=0, spaceAfter=4)
+    sub = ParagraphStyle('OrderSubtitle', parent=styles['Normal'], fontSize=8.5,
+                         leading=12, textColor=MUTED)
+    label = ParagraphStyle('OrderLabel', parent=styles['Normal'], fontName='PortalSans-Bold',
+                           fontSize=7, leading=10, textColor=MUTED)
+    value = ParagraphStyle('OrderValue', parent=styles['Normal'], fontName='PortalSans-Bold',
+                           fontSize=9, leading=12, textColor=INK)
+    note_style = ParagraphStyle('OrderNote', parent=styles['Normal'], fontSize=8,
+                                leading=12, textColor=MUTED)
+    number = str(item.get('numero') or 'Sin número')
+    doc = SimpleDocTemplate(output, pagesize=A4, leftMargin=17 * mm, rightMargin=17 * mm,
+                            topMargin=39 * mm, bottomMargin=23 * mm,
+                            title=f'Reporte de servicio {number}', author='SEPRIGUA')
+    generated = datetime.now(ZoneInfo('America/Guatemala')).strftime('%d/%m/%Y %H:%M')
+    story = [
+        Paragraph('EXPEDIENTE DE SERVICIO', kicker),
+        Paragraph('Reporte de orden de trabajo', title),
+        Paragraph(f'Orden {pdf_text(number)} · Emitido el {generated} · Hora de Guatemala', sub),
+        Spacer(1, 7 * mm),
+    ]
+    blocks = [
+        ('CLIENTE', item.get('cliente')), ('SEDE', item.get('sede')),
+        ('SERVICIO', item.get('tipo')), ('ESTADO', item.get('estado')),
+        ('TICKET', item.get('ticket')), ('OT FÍSICA', item.get('orden_papel')),
+        ('SOLICITUD', item.get('solicitud')), ('REFERENCIA', number),
+    ]
+    cards = []
+    for index in range(0, len(blocks), 2):
+        row = []
+        for caption, content in blocks[index:index + 2]:
+            row.append([Paragraph(caption, label), Paragraph(pdf_text(content), value)])
+        cards.append(row)
+    meta = Table(cards, colWidths=[88 * mm, 88 * mm], hAlign='LEFT')
+    meta.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), PALE),
+        ('BOX', (0, 0), (-1, -1), .6, BORDER),
+        ('INNERGRID', (0, 0), (-1, -1), .4, BORDER),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
+    ]))
+    story.extend([meta, Spacer(1, 8 * mm)])
+
+    sections = [
+        ('Cuadrilla asignada', ['Nombre', 'Función', 'Estado'],
+         [[x.get('nombre'), x.get('funcion'), x.get('estado')] for x in data.get('tecnicos', [])],
+         [80 * mm, 48 * mm, 48 * mm]),
+        ('Trabajo realizado', ['Descripción', 'Resultado', 'Responsable'],
+         [[x.get('Descripcion'), x.get('Resultado'), x.get('empleado')]
+          for x in data.get('actividades', [])], [88 * mm, 50 * mm, 38 * mm]),
+        ('Evidencias registradas', ['Archivo', 'Tipo', 'Descripción'],
+         [[x.get('nombre'), x.get('tipo'), x.get('Descripcion') or x.get('descripcion')]
+          for x in data.get('evidencias', [])], [64 * mm, 24 * mm, 88 * mm]),
+    ]
+    for caption, headers, rows, widths in sections:
+        story.extend([CondPageBreak(31 * mm), section_header(caption, page_width, styles), Spacer(1, 3 * mm)])
+        if rows:
+            story.append(data_table(headers, rows, widths, styles, font_size=8))
+        else:
+            story.append(Paragraph('Sin registros en esta sección.', note_style))
+        story.append(Spacer(1, 7 * mm))
+    story.append(Paragraph('Los archivos originales se consultan desde el expediente autorizado del portal. '
+                           'La cotización comercial se administra por separado.', note_style))
+    draw = lambda canvas, document: page_frame(canvas, document, 'Orden de trabajo', number,
+                                                note='Expediente operativo · Información para uso autorizado')
+    doc.build(story, onFirstPage=draw, onLaterPages=draw)
+    output.seek(0)
+    return output

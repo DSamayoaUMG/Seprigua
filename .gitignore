@@ -1,0 +1,22 @@
+# Configuración y datos privados
+.env
+.env.*
+!.env.example
+.seprigua-private/
+uploads/
+*.pem
+*.key
+*.pfx
+*.p12
+*.bak
+*.sql
+*.log
+*.zip
+.venv/
+venv/
+node_modules/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+tests/test-results/
+diagnostico-*.json

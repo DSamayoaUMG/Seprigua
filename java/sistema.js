@@ -53,7 +53,7 @@
   }
 
   const state = { user: null, role: "", roleName: "", allowedModules: new Set(), isMasterCoordinator: false, catalogs: {}, current: "dashboard", openOrderId: null, orderDetail: null, orderStep: "resumen", notifications: [], notificationFilter: "TODAS", unreadNotifications: 0, account: null, masterCatalog: [], catalogFilter: { q: "", categoria: "TODAS" }, equipmentFilter: { q: "", estado: "TODOS", categoria: "TODAS" }, userAdmin: { q: "", rol_id: "", estado: "", fecha_desde: "", fecha_hasta: "", pagina: 1, tamano: 10, orden: "FECHA", direccion: "DESC", total: 0, paginas: 1, catalogos: null }, clientAdmin: { pagina: 1, tamano: 10, total: 0, paginas: 1 }, clientSites: [], warranties: [], warrantyRequests: [], warrantyTimer: null, rolesAccess: { data: null } };
-  state.documentos = { tab: "servicio", empleadoId: "" };
+  state.documentos = { tab: "laboral", empleadoId: "" };
   state.smartLists = {};
   state.smartListDefaults = {};
   state.listCache = {};
@@ -73,6 +73,7 @@
   state.agenda = { fecha: "", data: null, draft: new Map(), dirty: false, selectedOrderId: null, technicianFilter: "TODOS", onlyEmergencies: false, showAllStaff: false };
   window.addEventListener("beforeunload", event => { if(state.agenda?.dirty){ event.preventDefault(); event.returnValue=""; } });
   let smartSearchTimer = null;
+  let userSearchTimer = null;
 
   const rolePaths = { COORDINADOR: "/sistema/coordinador", TECNICO: "/sistema/tecnico", CLIENTE: "/sistema/cliente" };
   const modules = {
@@ -343,6 +344,14 @@
     if (userPopoverRole) userPopoverRole.textContent = String(state.roleName || state.role || "Portal operativo").replaceAll("_", " ");
     if (sidebarUserName) sidebarUserName.textContent = state.user?.nombre || state.user?.usuario || "Usuario SEPRIGUA";
     if (sidebarUserRole) sidebarUserRole.textContent = String(state.roleName || state.role || "Portal operativo").replaceAll("_", " ");
+    const photoUrl = state.user?.foto_url || "";
+    [document.querySelector(".sidebar-user-avatar"), ...document.querySelectorAll(".prototype-avatar")].filter(Boolean).forEach(node => {
+      let image = node.querySelector("img.profile-avatar-photo");
+      if (!photoUrl) { image?.remove(); node.classList.remove("has-profile-photo"); return; }
+      if (!image) { image = document.createElement("img"); image.className = "profile-avatar-photo"; image.alt = ""; image.onerror = () => { image.remove(); node.classList.remove("has-profile-photo"); }; node.append(image); }
+      image.src = photoUrl;
+      node.classList.add("has-profile-photo");
+    });
     if (moduleHeroIcon) moduleHeroIcon.innerHTML = `<i data-lucide="${esc(currentModuleIcon())}"></i>`;
     window.lucide?.createIcons();
   }
@@ -538,6 +547,7 @@
       const section = moduleSectionLabel(state.current);
       const moduleName = String(title?.textContent || "SEPRIGUA");
       const description = String(subtitle?.textContent || "Información actualizada del portal.");
+      const moduleActions = state.current === "cancelaciones" ? `<div class="se-module-static-actions"><button class="btn" type="button" data-context-module="ordenes"><i data-lucide="arrow-left"></i><span>${state.role === "CLIENTE" ? "Regresar a mis servicios" : "Regresar a órdenes"}</span></button></div>` : "";
       content.insertAdjacentHTML("afterbegin", `<header class="se-module-static-hero se-module-static-generic" data-module="${esc(state.current)}" data-role="${esc(String(state.role || "").toLowerCase())}">
         <div class="se-module-static-icon"><i data-lucide="${esc(currentModuleIcon())}"></i></div>
         <div class="se-module-static-copy">
@@ -545,6 +555,7 @@
           <h2>${esc(moduleName)}</h2>
           <p>${esc(description)}</p>
         </div>
+        ${moduleActions}
       </header>`);
       generic = content.querySelector(":scope > .se-module-static-generic");
     }
@@ -586,6 +597,37 @@
   }
 
 
+  // Consulta por fecha: se filtran registros con fecha disponible. Los KPI de
+  // capacidad/estado actual no se reinterpretan como instantáneas históricas.
+  function historicalDate() { return window.SEPRIGUASelectedDate || ""; }
+  function recordDateKey(value) {
+    if (!value) return "";
+    const raw = String(value);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    return gtDateKey(value);
+  }
+  function filterSelectedDate(module, source) {
+    const selected = historicalDate();
+    if (!selected || !Array.isArray(source)) return source;
+    const resolvers = {
+      solicitudes: x => x.creada || x.fecha || x.fecha_registro,
+      ordenes: x => orderDateForList(x) || x.programada || x.creada || x.fecha,
+      cotizaciones: x => x.emision || x.creada || x.fecha,
+      documentos: x => x.generado || x.entregado || x.creada || x.fecha || x.fecha_documento,
+      auditoria: x => x.fecha,
+      notificaciones: x => x.creada,
+      mantenimientos: x => x.programada || x.fecha_programada || x.fecha
+    };
+    const resolve = resolvers[module];
+    return resolve ? source.filter(item => recordDateKey(resolve(item)) === selected) : source;
+  }
+  function historicalDateNotice() {
+    const selected = historicalDate();
+    if (!selected) return "";
+    const text = new Date(`${selected}T12:00:00Z`).toLocaleDateString("es-GT",{day:"numeric",month:"long",year:"numeric",timeZone:"UTC"});
+    return `<div class="se-date-view-note" role="status"><i data-lucide="calendar-check-2"></i><span>Consulta del <strong>${esc(text)}</strong>. Los registros y conteos disponibles corresponden al día seleccionado; disponibilidad y otros indicadores de operación siguen mostrando valores actuales.</span><button type="button" class="se-date-view-clear" data-action="se-clear-date"><i data-lucide="x"></i><span>Ver actualidad</span></button></div>`;
+  }
+
   function dashboardFirstName() {
     const full = String(state.user?.nombre || state.user?.usuario || "Usuario").trim();
     return full.split(/\s+/)[0] || "Usuario";
@@ -599,6 +641,11 @@
     const months = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
     if (monthIndex >= 0 && monthIndex < 12) return months[monthIndex];
     return raw ? raw.slice(0, 3) : "—";
+  }
+
+  function dashboardReadableLabel(value) {
+    const raw = String(value ?? "").replaceAll("_", " ").replace(/\s+/g, " ").trim();
+    return raw ? raw.toLocaleLowerCase("es").replace(/(^|\s|·)(\p{L})/gu, (_match, prefix, letter) => `${prefix}${letter.toLocaleUpperCase("es")}`) : "";
   }
 
 
@@ -665,9 +712,9 @@
     };
 
     const [tone, icon] = config[normalized] || ["neutral", ""];
-    const label = normalized === "COMPLETADA" ? "FINALIZADA" : normalized;
+    const label = dashboardReadableLabel(normalized === "COMPLETADA" ? "FINALIZADA" : normalized);
 
-    return `<span class="cc-status cc-status-${tone}">${icon ? `<span aria-hidden="true">${icon}</span>` : ""}${esc(label)}</span>`;
+    return `<span class="cc-status cc-status-${tone}">${icon ? `<span class="cc-status-symbol" aria-hidden="true">${icon}</span>` : ""}${esc(label)}</span>`;
   }
 
 
@@ -1446,7 +1493,53 @@
     }
   }
 
-  const pushClient = { registration: null, config: null, busy: false };
+  let liveBackendCheck = null;
+  async function verifyLiveBackend() {
+    if (liveBackendCheck) return liveBackendCheck;
+    liveBackendCheck = (async () => {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 12000);
+      try {
+        const response = await fetch("/api/db/health", {
+          credentials: "same-origin", cache: "no-store", signal: controller.signal,
+          headers: { Accept: "application/json" }
+        });
+        if (!response.ok) throw new Error(response.status === 503
+          ? "La base de datos no está disponible. Revisa la conexión y vuelve a intentar."
+          : "No se pudo comunicar con el sistema. Reinicia Flask y vuelve a intentar.");
+        const health = await response.json();
+        dbBadge.classList.toggle("error", !health.system_migration);
+        dbBadgeText.textContent = health.system_migration ? "Sistema conectado" : "Configuración pendiente";
+      } catch (error) {
+        if (error instanceof TypeError || error?.name === "AbortError") {
+          throw new Error("No se pudo comunicar con el sistema. Reinicia Flask y vuelve a intentar.");
+        }
+        throw error;
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    })();
+    try { return await liveBackendCheck; }
+    finally { liveBackendCheck = null; }
+  }
+
+  function showUnavailableModule(module, error) {
+    state.current = module;
+    state.apiCache.clear();
+    state.listCache = {};
+    state.viewCache.clear();
+    state.dirtyModules.add(module);
+    dbBadge.classList.add("error");
+    dbBadgeText.textContent = "Sin conexión";
+    applyModuleVisualMode(module);
+    renderNav();
+    content.removeAttribute("data-rendered-module");
+    content.dataset.offline = "1";
+    content.innerHTML = `<div class="empty-state"><h3>No se pudo cargar</h3><p>${esc(error.message || "No se pudo comunicar con el sistema.")}</p><button class="btn" type="button" data-action="reintentar-modulo" data-module="${esc(module)}"><i data-lucide="refresh-cw"></i> Reintentar</button></div>`;
+    window.lucide?.createIcons();
+  }
+
+  const pushClient = { registration: null, config: null, inFlight: null, lastError: "" };
 
   function pushBrowserSupported() {
     return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
@@ -1476,8 +1569,7 @@
 
   async function getPushConfig() {
     if (pushClient.config) return pushClient.config;
-    try { pushClient.config = await api("/api/push/config"); }
-    catch (_) { pushClient.config = { enabled:false, public_key:null }; }
+    pushClient.config = await api("/api/push/config");
     return pushClient.config;
   }
 
@@ -1493,9 +1585,18 @@
     return api("/api/push/suscribir", { method:"POST", body:{ subscription: subscription.toJSON(), nombre_dispositivo: currentPushDeviceName() } });
   }
 
+  async function currentPushEndpointHash() {
+    if (!pushBrowserSupported() || !window.isSecureContext || !window.crypto?.subtle) return "";
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    const subscription = await registration?.pushManager.getSubscription();
+    if (!subscription) return "";
+    const digest = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(subscription.endpoint));
+    return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+  }
+
   async function syncPushSubscription({ prompt=false } = {}) {
-    if (pushClient.busy) return null;
-    pushClient.busy = true;
+    if (pushClient.inFlight) return pushClient.inFlight;
+    pushClient.inFlight = (async () => {
     try {
       if (!pushBrowserSupported()) throw new Error("Este navegador no admite notificaciones Web Push.");
       if (!window.isSecureContext) throw new Error("Las notificaciones requieren HTTPS. En la PC local también funcionan usando localhost.");
@@ -1505,15 +1606,36 @@
       let permission = Notification.permission;
       if (permission === "default" && prompt) permission = await Notification.requestPermission();
       if (permission === "denied") throw new Error("Las notificaciones están bloqueadas para SEPRIGUA en este navegador.");
-      if (permission !== "granted") return null;
+      if (permission !== "granted") throw new Error("Debes permitir las notificaciones en el navegador para activarlas.");
       const registration = await getPushRegistration();
       let subscription = await registration.pushManager.getSubscription();
       if (!subscription) {
-        subscription = await registration.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(config.public_key) });
+        const options = { userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(config.public_key) };
+        try {
+          subscription = await registration.pushManager.subscribe(options);
+        } catch (error) {
+          if (!/push service error/i.test(String(error?.message || ""))) throw error;
+          await new Promise(resolve => setTimeout(resolve, 800));
+          subscription = await registration.pushManager.getSubscription();
+          if (!subscription) {
+            try { subscription = await registration.pushManager.subscribe(options); }
+            catch (retryError) {
+              if (!/push service error/i.test(String(retryError?.message || ""))) throw retryError;
+              throw new Error("El navegador no pudo registrarse en su servicio push. Cierra y vuelve a abrir el navegador; si persiste, prueba con Edge u otra red. El permiso concedido todavía no activa los avisos.");
+            }
+          }
+        }
       }
       await savePushSubscription(subscription);
+      pushClient.lastError = "";
       return subscription;
-    } finally { pushClient.busy = false; }
+    } catch (error) {
+      pushClient.lastError = String(error?.message || "No fue posible activar las notificaciones.");
+      throw error;
+    }
+    })();
+    try { return await pushClient.inFlight; }
+    finally { pushClient.inFlight = null; }
   }
 
   async function disablePushOnThisDevice() {
@@ -1535,7 +1657,7 @@
     const secure = window.isSecureContext;
     const iosNeedsInstall = isIosDevice() && !isStandalonePwa();
     const permission = supported ? Notification.permission : "unsupported";
-    const activeHere = permission === "granted" && secure && !iosNeedsInstall;
+    const activeHere = permission === "granted" && secure && !iosNeedsInstall && devices.some(device => device.actual);
     let statusTitle = "Listas para activar";
     let statusText = "Activa los avisos importantes en este dispositivo.";
     let statusClass = "pending";
@@ -1545,6 +1667,7 @@
     else if (permission === "denied") { statusTitle="Bloqueadas en el navegador"; statusText="Debes volver a permitir notificaciones desde la configuración del navegador."; statusClass="off"; }
     else if (!serverConfig.enabled) { statusTitle="Configuración pendiente"; statusText="El servidor todavía no tiene Web Push disponible."; statusClass="off"; }
     else if (activeHere) { statusTitle="Activadas en este dispositivo"; statusText="Recibirás únicamente avisos importantes cuando SEPRIGUA no esté al frente."; statusClass="on"; }
+    else if (permission === "granted") { statusTitle="Registro pendiente"; statusText=pushClient.lastError || "El permiso está concedido, pero este dispositivo aún no figura registrado para recibir avisos."; }
     const actions = supported && secure && !iosNeedsInstall && serverConfig.enabled
       ? (activeHere
           ? `<button class="btn small" type="button" data-action="probar-push"><i data-lucide="bell-ring"></i> Probar</button><button class="btn small danger" type="button" data-action="desactivar-push"><i data-lucide="bell-off"></i> Desactivar aquí</button>`
@@ -1552,7 +1675,7 @@
       : "";
     const deviceCards = devices.length ? devices.map(x=>`<article class="push-device-row"><span class="push-device-icon"><i data-lucide="smartphone"></i></span><div><strong>${esc(x.nombre||"Dispositivo")}</strong><small>${x.ultimo_uso?`Registrado ${fmt(x.ultimo_uso)}`:"Registrado para avisos"}</small></div><button class="icon-button" type="button" data-action="eliminar-dispositivo-push" data-id="${esc(x.id)}" aria-label="Desactivar dispositivo" title="Desactivar"><i data-lucide="x"></i></button></article>`).join("") : `<div class="push-empty">Aún no hay dispositivos registrados.</div>`;
     const headerStatus = activeHere ? "Activo" : statusClass === "off" ? "No disponible" : "Pendiente";
-    const explainerTitle = activeHere ? "Notificaciones activas en este dispositivo" : "Activa notificaciones en este dispositivo";
+    const explainerTitle = activeHere ? "Notificaciones activas en este dispositivo" : statusTitle;
     return `<section class="panel account-panel push-panel"><div class="panel-header push-panel-header"><div><h2>Notificaciones en celular y PC</h2><p class="muted">Recibe avisos importantes aunque el portal esté cerrado o en segundo plano.</p></div><span class="push-state ${statusClass}"><i data-lucide="${activeHere?'bell-ring':'bell'}"></i><span>${esc(headerStatus)}</span></span></div><div class="panel-body push-panel-body"><div class="push-explainer"><span class="push-hero-icon"><i data-lucide="smartphone-nfc"></i></span><div class="push-explainer-copy"><strong>${esc(explainerTitle)}</strong><p>${esc(statusText)}</p><small>Solo enviamos avisos importantes: solicitudes, asignaciones, inicio o finalización, cotizaciones y cambios relevantes.</small></div></div><div class="push-actions">${actions}</div><div class="push-device-list"><div class="push-device-heading"><div><strong>Dispositivos registrados</strong><small>Administra dónde quieres recibir los avisos.</small></div><span>Celular y computadora</span></div>${deviceCards}</div></div></section>`;
   }
 
@@ -1920,15 +2043,21 @@
     const map = {
       solicitudes: renderSolicitudes, ordenes: renderOrdenes, sedes: renderMisSedes, clientes: renderClientes,
       personal: renderPersonal, equipos: renderEquipos, mantenimientos: renderMantenimientos, vacaciones: renderVacaciones,
-      catalogo: renderCatalogoMaestro, cotizaciones: renderCotizaciones, documentos: renderDocumentos,
+      catalogo: renderCatalogoMaestro, cotizaciones: renderCotizaciones, documentos: renderDocumentos, "expediente-unico": renderDocumentos,
       notificaciones: renderNotificaciones, auditoria: renderAuditoria, garantia: renderGarantia, garantiaSolicitudes: renderGarantia,
     };
     const fn = map[key]; if (!fn) return;
+    try { await verifyLiveBackend(); }
+    catch (error) { showUnavailableModule(state.current, error); return; }
     const active = keepSearchFocus ? document.querySelector(`[data-smart-q="${key}"]`) : null;
     const caret = active?.selectionStart ?? null;
     const reopenMobileFilters = window.innerWidth <= 820 && document.body.classList.contains("mobile-filters-open");
     closeMobileFilters();
     await fn();
+    // Los filtros reconstruyen #appContent; restaurar la cabecera del módulo
+    // antes de guardar la vista para que no desaparezca al filtrar o paginar.
+    renderRoleModuleHero();
+    decorateModuleHeader();
     enhanceRenderedContent();
     if (state.current === normalizeViewCacheKey(key)) saveViewSnapshot(state.current);
     if (reopenMobileFilters) openMobileFilters(content.querySelector(".mobile-filter-panel"));
@@ -1957,6 +2086,18 @@
     return "bell-ring";
   }
 
+  function notificationReadableText(value) {
+    const acronyms = new Set(["SEPRIGUA", "OT", "OC", "CAU", "NIT", "PDF", "ID", "SAT", "URL", "SMS", "API"]);
+    return String(value ?? "").replace(/_/g, " ").replace(/\s+/g, " ").trim().replace(/[\p{Lu}]{2,}/gu, word =>
+      acronyms.has(word) ? word : word.charAt(0) + word.slice(1).toLocaleLowerCase("es"));
+  }
+
+  function resetNotificationViews() {
+    invalidateApiCache(["/api/notificaciones"]);
+    invalidateListCache("notificaciones");
+    markModulesDirty("notificaciones");
+  }
+
   function notificationTargetLabel(entity) {
     const value = String(entity || "").toLowerCase();
     if (value === "ordentrabajo") return "Abrir OT";
@@ -1980,21 +2121,47 @@
     notificationPreview.innerHTML = items.map(x => `
       <article class="preview-notification ${x.leida ? "read" : "unread"}">
         <span class="notification-symbol"><i data-lucide="${notificationIcon(x.tipo)}"></i></span>
-        <div class="preview-notification-copy"><strong>${esc(x.titulo)}</strong><p>${esc(x.mensaje)}</p><small>${fmt(x.creada)}</small></div>
-        <div class="preview-notification-actions">${x.entidad ? `<button class="mini-open" type="button" data-action="abrir-notificacion" data-id="${esc(x.id)}" data-entity="${esc(x.entidad||"")}" data-entity-id="${esc(x.entidad_id||"")}" aria-label="Abrir notificación"><i data-lucide="arrow-up-right"></i></button>` : ""}${!x.leida ? `<button class="mini-read" type="button" data-action="leer-notificacion" data-id="${esc(x.id)}" aria-label="Marcar como leída"><i data-lucide="check"></i></button>` : ""}</div>
+        <div class="preview-notification-copy"><strong>${esc(notificationReadableText(x.titulo))}</strong><p>${esc(notificationReadableText(x.mensaje))}</p><div class="notification-preview-meta"><time>${fmt(x.creada)}</time><span class="notice-read-state ${x.leida ? "is-read" : "is-unread"}">${x.leida ? "Leída" : "Sin leer"}</span></div></div>
+        <div class="preview-notification-actions">${x.entidad ? `<button class="mini-open" type="button" data-action="abrir-notificacion" data-id="${esc(x.id)}" data-entity="${esc(x.entidad||"")}" data-entity-id="${esc(x.entidad_id||"")}" aria-label="Abrir notificación" title="Abrir detalle"><i data-lucide="arrow-up-right"></i></button>` : ""}${!x.leida ? `<button class="mini-read" type="button" data-action="leer-notificacion" data-id="${esc(x.id)}" aria-label="Marcar como leída" title="Marcar como leída"><i data-lucide="check"></i></button>` : ""}</div>
       </article>`).join("");
     window.lucide?.createIcons();
   }
 
+  const NOTIFICATION_REMIND_MS = 20 * 60 * 1000;
+  let notificationsVisitedAt = 0;
+  let notificationActiveMs = 0;
+  let notificationLastTick = Date.now();
+  function acknowledgeNotificationsView() {
+    notificationsVisitedAt = Date.now();
+    notificationActiveMs = 0;
+    notificationLastTick = Date.now();
+    notificationButton?.classList.remove("se-notification-attention");
+    notificationButton?.setAttribute("title","Avisos revisados. Se recordarán en 20 minutos si permanecen sin leer.");
+  }
+  function refreshNotificationAttention() {
+    const now = Date.now();
+    if (notificationsVisitedAt && document.visibilityState === "visible" && document.hasFocus()) {
+      notificationActiveMs += Math.min(60000, Math.max(0, now - notificationLastTick));
+    }
+    notificationLastTick = now;
+    const pending = state.unreadNotifications > 0;
+    const cooling = notificationsVisitedAt && notificationActiveMs < NOTIFICATION_REMIND_MS;
+    const animate = pending && !cooling;
+    notificationButton?.classList.toggle("se-notification-attention", Boolean(animate));
+    if (notificationButton) notificationButton.title = animate ? "Tienes notificaciones pendientes" : pending ? "Notificaciones pendientes revisadas" : "No tienes avisos sin leer";
+  }
   async function refreshNotificationBadge(loadPreview = false) {
     const d = await api("/api/notificaciones/resumen");
     const unread = normalizeNumber(d.no_leidas);
+    const hasNewUnread = unread > state.unreadNotifications;
     state.unreadNotifications = unread;
+    if (hasNewUnread && notificationsVisitedAt) notificationsVisitedAt = 0;
     if (notificationDot) notificationDot.hidden = unread < 1;
     if (notificationCount) {
       notificationCount.hidden = unread < 1;
       notificationCount.textContent = unread > 99 ? "99+" : String(unread);
     }
+    refreshNotificationAttention();
     if (state.role) renderNav();
     if (loadPreview || (notificationPopover && !notificationPopover.hidden)) renderNotificationPreview(d.items || []);
     return d;
@@ -2009,14 +2176,14 @@
     const kind = String(entity || "").toLowerCase();
     if (kind === "ordentrabajo" && entityId) return openOrder(entityId, "resumen", true);
     if (kind === "solicitudservicio" && entityId && state.role !== "TECNICO") return openRequest(entityId);
-    if (kind === "cotizacion") return (state.role === "CLIENTE" && entityId) ? openClientQuoteFlow(entityId) : navigate("cotizaciones");
+    if (kind === "cotizacion") {await navigate("cotizaciones",{force:true});return entityId?state.role==="CLIENTE"?openClientQuoteFlow(entityId):portalUI.handle("detalle-cotizacion",entityId):undefined;}
     if (kind === "cambioalcance") return navigate("ordenes");
     if (kind === "vacaciones") {await navigate("vacaciones",{force:true});if(entityId)return portalUI.handle("detalle-vacacion",entityId);return;}
     if (kind === "cancelacion") return navigate("cancelaciones",{force:true});
-    if (kind === "equipo") {await navigate("equipos");if(entityId)return portalUI.handle("detalle-equipo",entityId);return;}
-    if (kind === "mantenimientoequipo") {await navigate("mantenimientos");if(entityId)return portalUI.handle("detalle-mantenimiento",entityId);return;}
+    if (kind === "equipo") {if(entityId)return portalUI.handle("detalle-equipo",entityId);return navigate("equipos",{force:true});}
+    if (kind === "mantenimientoequipo") {if(entityId)return portalUI.handle("detalle-mantenimiento",entityId);return navigate("mantenimientos",{force:true});}
     if (kind === "agendaoperativa") return navigate("agenda",{force:true});
-    if (kind === "usuario") return navigate("cuenta");
+    if (kind === "usuario") return navigate("cuenta",{force:true});
     return navigate("notificaciones");
   }
 
@@ -2025,23 +2192,66 @@
     location.replace("/login");
   }
 
+  // Zoom y tablet comparten el rail fijo; teléfonos estrechos usan drawer.
+  // El control del navbar permanece fijo; el sidebar no se re-renderiza.
+  const sidebarDrawerQuery = window.matchMedia("(max-width: 1120px)");
+  const sidebarRailQuery = window.matchMedia("(min-width: 651px) and (max-width: 1120px)");
+  // Al aplicar zoom, los items cambian de altura: no dejar el activo recortado
+  // en la parte superior/inferior del nav. Solo se desplaza el menú interno.
+  function keepActiveSidebarEntryVisible() {
+    const navScroll = sidebar?.querySelector(".system-nav");
+    const active = navScroll?.querySelector(".nav-button.active");
+    if (!active || !navScroll) return;
+    // No desplazar automáticamente los iconos del rail minimizado.
+    if (document.body.classList.contains("sidebar-collapsed") && !sidebar?.classList.contains("open")) return;
+    const bounds = navScroll.getBoundingClientRect();
+    const chosen = active.getBoundingClientRect();
+    if (chosen.top < bounds.top + 4) navScroll.scrollTop -= bounds.top + 8 - chosen.top;
+    else if (chosen.bottom > bounds.bottom - 4) navScroll.scrollTop += chosen.bottom - bounds.bottom + 8;
+  }
   function setSidebarOpen(open){
-    const mobile = window.matchMedia("(max-width: 820px)").matches;
-    if (!mobile) return;
-    sidebar?.classList.toggle("open", !!open);
-    if (sidebarScrim) { sidebarScrim.hidden = !open; sidebarScrim.classList.toggle("show", !!open); }
-    menuButton?.setAttribute("aria-expanded", String(!!open));
-    document.body.classList.toggle("sidebar-mobile-open", !!open);
+    const show = sidebarDrawerQuery.matches && Boolean(open);
+    sidebar?.classList.toggle("open", show);
+    if (sidebarScrim) {
+      sidebarScrim.hidden = !show;
+      sidebarScrim.classList.toggle("show", show);
+    }
+    menuButton?.setAttribute("aria-expanded", String(show));
+    menuButton?.setAttribute("aria-label", show ? "Cerrar menú" : "Abrir menú");
+    menuButton?.setAttribute("title", show ? "Cerrar menú de navegación" : "Abrir menú de navegación");
+    document.body.classList.toggle("sidebar-mobile-open", show);
+    // Al minimizar el rail, sus iconos empiezan arriba: sin scroll residual.
+    if (!show && sidebarRailQuery.matches) sidebar?.querySelector(".system-nav")?.scrollTo({top: 0, behavior: "instant"});
+    if (show) {
+      // Un menú desplegado empieza desde OPERACIÓN, no a mitad del listado.
+      // El rail compacto conserva su scroll al cerrarse cuando corresponda.
+      sidebar?.querySelector(".system-nav")?.scrollTo({ top: 0, behavior: "instant" });
+    }
+    if (sidebarRailQuery.matches && sidebarCollapseButton) {
+      sidebarCollapseButton.setAttribute("aria-label", show ? "Cerrar menú" : "Mostrar menú");
+      sidebarCollapseButton.setAttribute("title", show ? "Cerrar menú" : "Mostrar menú");
+    }
   }
 
   function applySidebarPreference(){
-    if (window.matchMedia("(max-width: 820px)").matches){
-      document.body.classList.remove("sidebar-collapsed");
-      setSidebarOpen(false);
+    // Al pasar de tablet a escritorio nunca se debe quedar el scrim visible.
+    setSidebarOpen(false);
+    if (sidebarDrawerQuery.matches){
+      // Tablet y zoom: mini sidebar SIEMPRE visible (referencia universidad).
+      // Solo teléfonos estrechos muestran el menú completamente oculto.
+      const isRail = sidebarRailQuery.matches;
+      document.body.classList.toggle("sidebar-collapsed", isRail);
+      if (sidebarCollapseButton) {
+        sidebarCollapseButton.innerHTML = `<i data-lucide="${isRail ? "panel-left-open" : "panel-left-close"}"></i>`;
+        sidebarCollapseButton.title = isRail ? "Mostrar menú" : "Cerrar menú";
+        sidebarCollapseButton.setAttribute("aria-label", sidebarCollapseButton.title);
+      }
+      window.lucide?.createIcons();
       return;
     }
     const collapsed = localStorage.getItem("seprigua_sidebar_collapsed") === "1";
     document.body.classList.toggle("sidebar-collapsed", collapsed);
+    if (collapsed) sidebar?.querySelector(".system-nav")?.scrollTo({top: 0, behavior: "instant"});
     if (sidebarCollapseButton){
       sidebarCollapseButton.innerHTML = `<i data-lucide="${collapsed?"panel-left-open":"panel-left-close"}"></i>`;
       sidebarCollapseButton.title = collapsed ? "Mostrar menú" : "Ocultar menú";
@@ -2051,7 +2261,7 @@
   }
 
   function toggleDesktopSidebar(){
-    if (window.matchMedia("(max-width: 820px)").matches) return setSidebarOpen(!sidebar?.classList.contains("open"));
+    if (sidebarDrawerQuery.matches) return setSidebarOpen(!sidebar?.classList.contains("open"));
     const collapsed = !document.body.classList.contains("sidebar-collapsed");
     document.body.classList.toggle("sidebar-collapsed", collapsed);
     localStorage.setItem("seprigua_sidebar_collapsed", collapsed ? "1" : "0");
@@ -2085,12 +2295,19 @@
       dbBadge.classList.toggle("error", !health.system_migration);
       refreshNotificationBadge().catch(()=>{});
       clearInterval(init.notificationTimer);
-      init.notificationTimer = setInterval(()=>refreshNotificationBadge().catch(()=>{}), 60000);
+      init.notificationTimer = setInterval(()=>{if(document.hidden)return;refreshNotificationBadge().catch(()=>{});refreshNotificationAttention();}, window.SEPRIGUA_LIGHT_MODE ? 120000 : 60000);
       const key = `seprigua_modulo_${state.roleName || state.role}`;
       const saved = sessionStorage.getItem(key);
       const valid = new Set((modules[state.role] || []).filter(([module])=>moduleAllowed(module)).map(([module]) => module));
       await navigate(saved && valid.has(saved) ? saved : firstAllowedModule());
       document.body.classList.remove("ui-booting");
+      clearInterval(init.healthTimer);
+      init.healthTimer = window.setInterval(() => {
+        if (document.hidden || !state.role) return;
+        verifyLiveBackend().then(() => {
+          if (content.dataset.offline === "1") navigate(state.current, { force: true }).catch(() => {});
+        }).catch(error => showUnavailableModule(state.current, error));
+      }, window.SEPRIGUA_LIGHT_MODE ? 60000 : 30000);
       initializePushSilently();
       await handlePushDeepLink();
     } catch (e) {
@@ -2213,6 +2430,12 @@
     // El ZIP de Gabi tenía menos módulos. Con los módulos nuevos, el menú puede
     // necesitar scroll; mantenemos siempre visible el activo sin mover la hoja.
     requestAnimationFrame(() => {
+      // El rail minimizado distribuye todos los iconos sin scroll.
+      // No forzar scrollIntoView: podía desplazar el menú ocultando otros accesos.
+      if (document.body.classList.contains("sidebar-collapsed") && !sidebar?.classList.contains("open")) {
+        if (nav.scrollTop !== 0) nav.scrollTop = 0;
+        return;
+      }
       nav.querySelector(".nav-button.active")?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
     });
   }
@@ -2284,6 +2507,12 @@
   function enhanceRenderedContent(root=content) {
     enhanceResponsiveTables(root);
     enhanceMobileFilters(root);
+    if (!root.querySelector('.se-date-view-note') && historicalDate() && ["dashboard","solicitudes","ordenes","cotizaciones","documentos","notificaciones","auditoria","agenda"].includes(state.current)) {
+      const banner = document.createElement("div");
+      banner.innerHTML = historicalDateNotice();
+      const note = banner.firstElementChild;
+      if (note) root.insertBefore(note,root.firstChild);
+    }
     window.lucide?.createIcons();
   }
 
@@ -2346,6 +2575,8 @@
     module = resolveGroupedModule(module);
     const valid = new Set((modules[state.role] || []).filter(([key])=>moduleAllowed(key)).map(([key]) => key));
     if (!valid.has(module)) module = firstAllowedModule();
+    try { await verifyLiveBackend(); }
+    catch (error) { showUnavailableModule(module, error); return; }
 
     // No volvemos a cargar un módulo que ya está pintado únicamente por volver
     // a presionar su botón. Esto elimina el loader al hacer clic repetido o fuera
@@ -2368,6 +2599,7 @@
     // Si ya visitamos el módulo y nada lo invalidó, restauramos su vista completa
     // directamente desde memoria. No hay petición, loader ni reconstrucción del HTML.
     if (cachedView) {
+      if (module === "notificaciones") acknowledgeNotificationsView();
       beginModuleTransition();
       state.current = module;
       if (state.role) {
@@ -2379,6 +2611,7 @@
       const systemScrollRegion = document.getElementById("systemScrollRegion");
       if (systemScrollRegion) systemScrollRegion.scrollTop = 0;
       restoreViewSnapshot(module, cachedView);
+      delete content.dataset.offline;
       decorateModuleHeader();
       await revealModuleContent();
       return;
@@ -2393,6 +2626,7 @@
     // un módulo previamente cargado, los datos disponibles se pintan al instante
     // y el loader global solo aparece cuando realmente hay que esperar al backend.
     state.current = module;
+    if (module === "notificaciones") acknowledgeNotificationsView();
 
     // CRÍTICO: mientras esperamos la API mantenemos las clases visuales del módulo
     // anterior. Muchos estilos son específicos por módulo (body.*-mode). Cambiarlas
@@ -2440,6 +2674,7 @@
         const head=content.querySelector('.panel-header');if(head){const link=document.createElement('button');link.type='button';link.className='btn';link.dataset.contextModule='cancelaciones';link.textContent='Solicitudes de cancelación';head.append(link);}
       }
       content.dataset.renderedModule = module;
+      delete content.dataset.offline;
       state.dirtyModules.delete(module);
       saveViewSnapshot(module);
       if (globalLoaderToken) await window.SEPRIGUALoader?.finish(globalLoaderToken);
@@ -2466,6 +2701,31 @@
       content.dataset.renderedModule = module;
       await revealModuleContent();
     }
+  }
+
+  async function downloadWeeklyReport(button){
+    const input=content.querySelector("#weeklyReportDate");
+    if(!input?.value||!input.checkValidity())return showToast("Elegí un día de la semana para el reporte.","error");
+    state.weeklyReportDate=input.value;
+    button.disabled=true;
+    try{
+      const response=await fetch(`/api/dashboard/reporte-semanal.pdf?semana=${encodeURIComponent(input.value)}`,{credentials:"same-origin",cache:"no-store"});
+      if(!response.ok||!String(response.headers.get("content-type")||"").includes("application/pdf")){
+        const detail=await response.json().catch(()=>({}));
+        throw new Error(detail.message||"No fue posible descargar el reporte semanal.");
+      }
+      const blob=await response.blob();
+      const url=URL.createObjectURL(blob);
+      const link=document.createElement("a");
+      const [year,month,day]=input.value.split("-").map(Number);
+      const monday=new Date(Date.UTC(year,month-1,day));
+      monday.setUTCDate(monday.getUTCDate()-((monday.getUTCDay()+6)%7));
+      link.href=url;link.download=`SEPRIGUA-reporte-semanal-${monday.toISOString().slice(0,10)}.pdf`;
+      document.body.appendChild(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+      showToast("Reporte semanal descargado.");
+    }catch(error){showToast(error.message||"No fue posible descargar el reporte semanal.","error");}
+    finally{if(button.isConnected)button.disabled=false;}
   }
 
   async function renderDashboard() {
@@ -2504,7 +2764,7 @@
       ).filter(([module]) => moduleAllowed(module));
       const quickMarkup = quicks.map(([module,icon,label,description]) => `<button class="role-quick-action" type="button" data-role-nav="${esc(module)}"><span><i data-lucide="${esc(icon)}"></i></span><div><strong>${esc(label)}</strong><small>${esc(description)}</small></div><i data-lucide="chevron-right"></i></button>`).join("");
 
-      const recent = (d.recent || []).slice(0,6);
+      const recent = historicalDate() ? filterSelectedDate("ordenes",(await loadAllPaged("ordenes","/api/ordenes")).items).slice(0,6) : (d.recent || []).slice(0,6);
       const recentMarkup = recent.length ? recent.map(x => `<article class="role-activity-item">
         <span class="role-activity-icon"><i data-lucide="${x.numero ? "clipboard-list" : "activity"}"></i></span>
         <div class="role-activity-copy"><strong>${esc(x.numero || x.tipo || `#${x.id || "—"}`)}</strong><span>${esc(x.cliente || x.descripcion || (isClient ? "Servicio SEPRIGUA" : "Actividad operativa"))}</span><small>${esc(x.sede || x.clasificacion || "Sin sede")} · ${fmt(x.programada || x.fecha)}</small></div>
@@ -2522,8 +2782,8 @@
           <div class="cc-time-banner-overlay" aria-hidden="true"></div>
           <div class="cc-time-banner-copy">
             <div class="cc-time-banner-topline">
-              <span class="cc-eyebrow">SEPRIGUA · CENTRO DE CONTROL</span>
-              <span class="cc-daypart-badge"><i id="centerDaypartIcon" data-lucide="${daypart.icon}" aria-hidden="true"></i><span id="centerDaypartLabel">${daypart.label}</span></span>
+              <span class="cc-eyebrow">SEPRIGUA · Centro de control</span>
+              <span class="cc-daypart-badge"><i id="centerDaypartIcon" data-lucide="${daypart.icon}" aria-hidden="true"></i><span id="centerDaypartLabel">${dashboardReadableLabel(daypart.label)}</span></span>
             </div>
             <h1 id="centerGreeting" data-user-first="${esc(firstName)}">${daypart.greeting}, ${esc(firstName)}</h1>
             <p>${dashboardSummary}</p>
@@ -2554,11 +2814,27 @@
 
     const d = await api("/api/dashboard");
     const cards = d.cards || {};
-
-    const emergencyCount = normalizeNumber(cards.emergencias);
-    const pendingRequests = normalizeNumber(cards.solicitudes_pendientes);
-    const activeOrders = normalizeNumber(cards.ordenes_activas);
-    const pendingQuotes = normalizeNumber(cards.cotizaciones_pendientes);
+    // Vista por día: estos cuatro indicadores pasan a representar registros
+    // del día seleccionado. No se presentan como estados históricos reconstruidos.
+    let dailyRecords = null;
+    if (historicalDate()) {
+      try {
+        const [requests,orders,quotes] = await Promise.all([
+          loadAllPaged("solicitudes","/api/solicitudes"),
+          loadAllPaged("ordenes","/api/ordenes"),
+          loadAllPaged("cotizaciones","/api/cotizaciones")
+        ]);
+        dailyRecords = {
+          requests:filterSelectedDate("solicitudes",requests.items || []),
+          orders:filterSelectedDate("ordenes",orders.items || []),
+          quotes:filterSelectedDate("cotizaciones",quotes.items || [])
+        };
+      } catch (_) { dailyRecords = null; }
+    }
+    const emergencyCount = dailyRecords ? dailyRecords.requests.filter(requestIsEmergency).length : normalizeNumber(cards.emergencias);
+    const pendingRequests = dailyRecords ? dailyRecords.requests.length : normalizeNumber(cards.solicitudes_pendientes);
+    const activeOrders = dailyRecords ? dailyRecords.orders.length : normalizeNumber(cards.ordenes_activas);
+    const pendingQuotes = dailyRecords ? dailyRecords.quotes.length : normalizeNumber(cards.cotizaciones_pendientes);
     const availableTechs = normalizeNumber(cards.tecnicos_disponibles);
     const staffCapacity = dashboardStaffCapacity();
     const availableEquipment = normalizeNumber(cards.equipos_disponibles);
@@ -2589,39 +2865,49 @@
       cards.mantenimientos_tendencia
     );
 
-    const recent = d.recent || [];
-    const hasActionColumn = recent.some(x => x.numero);
+    const recent = historicalDate() ? filterSelectedDate("ordenes",(await loadAllPaged("ordenes","/api/ordenes")).items) : (d.recent || []);
     const recentPageSize = 4;
     const recentPages = Math.max(1, Math.ceil(recent.length / recentPageSize));
     state.dashboardRecentPage = Math.min(Math.max(1, Number(state.dashboardRecentPage || 1)), recentPages);
     const recentStartIndex = (state.dashboardRecentPage - 1) * recentPageSize;
     const recentVisible = recent.slice(recentStartIndex, recentStartIndex + recentPageSize);
-    const recentRows = recentVisible.map(x => `
-      <tr>
-        <td class="cc-order-id">${esc(x.numero || x.tipo || `#${x.id}`)}</td>
-        <td>${x.cliente ? esc(x.cliente) : esc(x.descripcion || "—")}</td>
-        <td>${esc(x.sede || x.clasificacion || "—")}</td>
-        <td>${dashboardStatusBadge(x.estado || x.prioridad || "")}</td>
-        <td>${fmt(x.programada || x.fecha)}</td>
-        ${hasActionColumn ? `<td>${x.numero ? iconButton("eye", "ver-orden", x.id, "Abrir " + (x.numero || ("OT " + x.id)), "cc-eye-button") : "—"}</td>` : ""}
-      </tr>
-    `);
+    const recentRows = recentVisible.map(x => {
+      const status = String(x.estado || x.prioridad || "").trim().toUpperCase();
+      const kind = String(x.clasificacion || x.tipo || "").trim().toUpperCase();
+      const emergency = /EMERGEN|CRITIC/.test(kind);
+      const finished = /FINALIZ|COMPLET/.test(status);
+      const progress = /PROCESO|CURSO/.test(status);
+      const scheduled = /PROGRAM|ASIGNAD/.test(status);
+      const cancelled = /CANCEL/.test(status);
+      const tone = emergency && !finished ? "danger" : finished ? "success" : progress ? "warning" : scheduled ? "info" : cancelled ? "neutral" : "info";
+      const icon = emergency && !finished ? "triangle-alert" : finished ? "check-circle-2" : progress ? "clock-3" : scheduled ? "calendar-check-2" : "clipboard-list";
+      const reference = x.numero || x.tipo || `#${x.id || "—"}`;
+      const person = x.cliente || x.descripcion || "Sin detalle";
+      const context = x.sede ? `Sede: ${esc(x.sede)}` : x.clasificacion ? esc(dashboardReadableLabel(x.clasificacion)) : "";
+      const open = x.numero ? iconButton("arrow-up-right", "ver-orden", x.id, `Abrir ${x.numero}`, "cc-activity-open") : "";
+      return `<article class="cc-activity-item" role="listitem">
+        <span class="cc-activity-icon cc-activity-icon-${tone}" aria-hidden="true"><i data-lucide="${icon}"></i></span>
+        <div class="cc-activity-main"><strong class="cc-activity-reference">${esc(reference)}</strong><span class="cc-activity-person">${esc(person)}</span>${context ? `<small class="cc-activity-context">${context}</small>` : ""}</div>
+        <div class="cc-activity-side"><div class="cc-activity-meta">${dashboardStatusBadge(x.estado || x.prioridad || "—")}<span class="cc-activity-date">${fmt(x.programada || x.fecha || x.creada)}</span></div>${open}</div>
+      </article>`;
+    });
 
-    const chartItems = d.chart || [];
+    const chartItems = Array.isArray(d.chart) ? d.chart : [];
     const chartMax = Math.max(1, ...chartItems.map(x => normalizeNumber(x.ordenes)));
+    const chartTotal = chartItems.reduce((sum, x) => sum + normalizeNumber(x.ordenes), 0);
     const chartMarkup = chartItems.length
-      ? `<div class="cc-column-chart" role="img" aria-label="Órdenes de los últimos seis meses">
-          ${chartItems.map(x => {
-            const value = normalizeNumber(x.ordenes);
-            const percentage = value <= 0 ? 0 : Math.max(4, Math.round(value / chartMax * 100));
-            return `<div class="cc-chart-column">
-              <span class="cc-chart-value">${value}</span>
-              <div class="cc-chart-track"><span class="cc-chart-bar" style="height:${percentage}%"></span></div>
-              <span class="cc-chart-label">${esc(dashboardMonthLabel(x.mes))}</span>
-            </div>`;
-          }).join("")}
+      ? `<div class="cc-chart-body"><div class="cc-chart-summary"><strong>${chartTotal}</strong><span>${chartTotal === 1 ? "orden registrada" : "órdenes registradas"} en el período</span></div>
+          <div class="cc-column-chart" role="img" aria-label="${chartTotal} órdenes registradas en los últimos seis meses">
+            ${chartItems.map(x => {
+              const value = normalizeNumber(x.ordenes);
+              const percentage = value <= 0 ? 0 : Math.max(4, Math.round(value / chartMax * 100));
+              return `<div class="cc-chart-column ${value > 0 && value === chartMax ? "cc-chart-column-leading" : ""} ${value === 0 ? "cc-chart-column-zero" : ""}">
+                <span class="cc-chart-value">${value}</span><div class="cc-chart-track"><span class="cc-chart-bar" style="height:${percentage}%" title="${esc(dashboardMonthLabel(x.mes))}: ${value} ${value === 1 ? "orden" : "órdenes"}"></span></div><span class="cc-chart-label">${esc(dashboardMonthLabel(x.mes))}</span>
+              </div>`;
+            }).join("")}
+          </div>
         </div>`
-      : `<div class="cc-chart-empty">No hay datos de órdenes para graficar.</div>`;
+      : `<div class="cc-chart-empty"><i data-lucide="chart-no-axes-column"></i><span>No hay datos de órdenes para graficar.</span></div>`;
 
     const firstName = dashboardFirstName();
     const daypart = portalDaypart();
@@ -2633,8 +2919,8 @@
           <div class="cc-time-banner-overlay" aria-hidden="true"></div>
           <div class="cc-time-banner-copy">
             <div class="cc-time-banner-topline">
-              <span class="cc-eyebrow">SEPRIGUA · CENTRO DE CONTROL</span>
-              <span class="cc-daypart-badge"><i id="centerDaypartIcon" data-lucide="${daypart.icon}" aria-hidden="true"></i><span id="centerDaypartLabel">${daypart.label}</span></span>
+              <span class="cc-eyebrow">SEPRIGUA · Centro de control</span>
+              <span class="cc-daypart-badge"><i id="centerDaypartIcon" data-lucide="${daypart.icon}" aria-hidden="true"></i><span id="centerDaypartLabel">${dashboardReadableLabel(daypart.label)}</span></span>
             </div>
             <h1 id="centerGreeting" data-user-first="${esc(firstName)}">${daypart.greeting}, ${esc(firstName)}</h1>
             <p>Resumen operativo del centro de control</p>
@@ -2648,6 +2934,11 @@
           </div>
         </header>
 
+        <section class="cc-weekly-report" aria-label="Reporte semanal">
+          <div class="cc-weekly-report-copy"><span class="cc-weekly-report-icon"><i data-lucide="file-chart-column"></i></span><div><strong>Reporte semanal de operación</strong><small>Clientes, solicitudes, trabajos, técnicos, garantías, reprogramaciones y cancelaciones.</small></div></div>
+          <div class="cc-weekly-report-actions"><label for="weeklyReportDate">Semana que contiene el día</label><input id="weeklyReportDate" type="date" min="2000-01-01" max="2100-12-31" value="${esc(state.weeklyReportDate||historicalDate()||gtDateKey(new Date()))}"><button class="btn primary" type="button" data-action="descargar-reporte-semanal"><i data-lucide="file-down"></i> Descargar PDF</button></div>
+        </section>
+
         <section class="cc-kpi-grid" aria-label="Indicadores operativos principales">
           <article class="cc-kpi cc-kpi-emergency ${emergencyCount > 0 ? "cc-kpi-alert" : "cc-kpi-idle"}">
             <button class="cc-kpi-more" type="button" data-action="dashboard-ver-emergencias" aria-label="Ver más emergencias">
@@ -2655,9 +2946,9 @@
             </button>
             <div class="cc-kpi-icon"><i data-lucide="triangle-alert"></i></div>
             <div class="cc-kpi-copy">
-              <span>Emergencias</span>
+              <span>${dailyRecords ? "Emergencias registradas" : "Emergencias"}</span>
               <strong>${emergencyCount}</strong>
-              <small>Requieren atención</small>
+              <small>${dailyRecords ? "En la fecha seleccionada" : "Requieren atención"}</small>
             </div>
           </article>
 
@@ -2667,9 +2958,9 @@
             </button>
             <div class="cc-kpi-icon"><i data-lucide="inbox"></i></div>
             <div class="cc-kpi-copy">
-              <span>Solicitudes pendientes</span>
+              <span>${dailyRecords ? "Solicitudes registradas" : "Solicitudes pendientes"}</span>
               <strong>${pendingRequests}</strong>
-              <small>Por gestionar</small>
+              <small>${dailyRecords ? "En la fecha seleccionada" : "Por gestionar"}</small>
             </div>
           </article>
 
@@ -2679,9 +2970,9 @@
             </button>
             <div class="cc-kpi-icon"><i data-lucide="clipboard-check"></i></div>
             <div class="cc-kpi-copy">
-              <span>Órdenes activas</span>
+              <span>${dailyRecords ? "Órdenes registradas" : "Órdenes activas"}</span>
               <strong>${activeOrders}</strong>
-              <small>Operación en curso</small>
+              <small>${dailyRecords ? "En la fecha seleccionada" : "Operación en curso"}</small>
             </div>
           </article>
 
@@ -2691,9 +2982,9 @@
             </button>
             <div class="cc-kpi-icon"><i data-lucide="receipt-text"></i></div>
             <div class="cc-kpi-copy">
-              <span>Cotizaciones pendientes</span>
+              <span>${dailyRecords ? "Cotizaciones registradas" : "Cotizaciones pendientes"}</span>
               <strong>${pendingQuotes}</strong>
-              <small>Pendientes de gestión</small>
+              <small>${dailyRecords ? "En la fecha seleccionada" : "Pendientes de gestión"}</small>
             </div>
           </article>
         </section>
@@ -2704,11 +2995,11 @@
           <article class="cc-bento-panel cc-capacity-panel">
             <div class="cc-panel-heading cc-panel-heading-row">
               <div>
-                <span class="cc-panel-kicker">OPERACIÓN</span>
+                <span class="cc-panel-kicker">Operación</span>
                 <h2>Capacidad operativa</h2>
               </div>
               <button class="cc-link-action" type="button" data-action="dashboard-ver-capacidad">
-                Ver más <i data-lucide="arrow-right"></i>
+                <span>Ver más</span><i data-lucide="arrow-right" aria-hidden="true"></i>
               </button>
             </div>
 
@@ -2748,11 +3039,11 @@
           <article class="cc-bento-panel cc-summary-panel">
             <div class="cc-panel-heading cc-panel-heading-row">
               <div>
-                <span class="cc-panel-kicker">RESUMEN</span>
+                <span class="cc-panel-kicker">Resumen</span>
                 <h2>Resumen operativo</h2>
               </div>
               <button class="cc-link-action" type="button" data-action="dashboard-ver-resumen">
-                Ver más <i data-lucide="arrow-right"></i>
+                <span>Ver más</span><i data-lucide="arrow-right" aria-hidden="true"></i>
               </button>
             </div>
 
@@ -2781,19 +3072,17 @@
           <article class="cc-bento-panel cc-recent-panel">
             <div class="cc-panel-heading cc-panel-heading-row">
               <div>
-                <span class="cc-panel-kicker">MOVIMIENTO RECIENTE</span>
+                <span class="cc-panel-kicker">Movimiento reciente</span>
                 <h2>Actividad reciente</h2>
               </div>
               <button class="cc-link-action" type="button" data-action="dashboard-ver-ordenes">
-                Ver más <i data-lucide="arrow-right"></i>
+                <span>Ver más</span><i data-lucide="arrow-right" aria-hidden="true"></i>
               </button>
             </div>
-            <div class="cc-recent-table">
-              ${table(
-                ["Registro","Cliente / detalle","Sede / tipo","Estado","Fecha", ...(hasActionColumn ? ["Acción"] : [])],
-                recentRows,
-                "Todavía no hay actividad para mostrar."
-              )}
+            <div class="cc-recent-table cc-recent-history">
+              <div class="cc-activity-list" role="list" aria-label="Movimientos operativos recientes">
+                ${recentRows.length ? recentRows.join("") : `<div class="cc-activity-empty"><i data-lucide="inbox"></i><span>Todavía no hay actividad para mostrar.</span></div>`}
+              </div>
               ${dashboardRecentPager({ pagina: state.dashboardRecentPage, paginas: recentPages, total: recent.length, tamano: recentPageSize })}
             </div>
           </article>
@@ -2801,8 +3090,8 @@
           <article class="cc-bento-panel cc-chart-panel">
             <div class="cc-panel-heading">
               <div>
-                <span class="cc-panel-kicker">TENDENCIA</span>
-                <h2>Órdenes · últimos 6 meses</h2>
+                <span class="cc-panel-kicker">Tendencia</span>
+                <h2>Órdenes · Últimos 6 meses</h2>
               </div>
               <i data-lucide="chart-column"></i>
             </div>
@@ -2996,7 +3285,7 @@
       <div class="agenda-detail-actions">
         <button class="btn primary" type="button" data-action="ver-orden" data-id="${order.id}"><i data-lucide="external-link"></i> Ver OT</button>
         <button class="btn" type="button" data-action="ver-orden" data-id="${order.id}"><i data-lucide="activity"></i> Seguimiento</button>
-        ${state.role==="COORDINADOR"?`<button class="btn" type="button" data-action="asignar-tecnico" data-id="${order.id}"><i data-lucide="users-round"></i> Cuadrilla</button><button class="btn" type="button" data-action="cotizar-orden" data-id="${order.id}"><i data-lucide="file-text"></i> Cotización</button>`:""}
+        ${state.role==="COORDINADOR"&&movable?`<button class="btn" type="button" data-action="asignar-tecnico" data-id="${order.id}"><i data-lucide="users-round"></i> Cuadrilla</button><button class="btn" type="button" data-action="cotizar-orden" data-id="${order.id}"><i data-lucide="file-text"></i> Cotización</button>`:""}
       </div>
     </div>`;
   }
@@ -3158,6 +3447,7 @@
   async function renderAgendaOperativa() {
     if(!["COORDINADOR","TECNICO"].includes(state.role))return navigate("dashboard");
     setHeading(state.role==="COORDINADOR"?"Agenda operativa":"Mi agenda","Orden visual de atención, trabajos en curso y cola operativa por horario.");
+    if(historicalDate() && !state.agenda.dirty) state.agenda.fecha=historicalDate();
     if(!state.agenda.fecha){
       const now=new Date(),z=n=>String(n).padStart(2,"0");
       state.agenda.fecha=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Guatemala",year:"numeric",month:"2-digit",day:"2-digit"}).format(now);
@@ -3178,7 +3468,7 @@
   }
 
   async function renderSolicitudes() {
-    const all=(await loadAllPaged("solicitudes","/api/solicitudes")).items;
+    const all=filterSelectedDate("solicitudes",(await loadAllPaged("solicitudes","/api/solicitudes")).items);
     if (state.role !== "COORDINADOR") {
       setHeading("Solicitudes de servicio", state.role === "CLIENTE" ? "Crea una solicitud, adjunta imágenes y consulta su estado." : "Recepción de solicitudes programadas y emergencias.");
       const states=listFacet(state.current,"estado",smartUnique(all,x=>String(x.Estado||x.estado||"").toUpperCase()));
@@ -3485,7 +3775,7 @@
 
   async function renderOrdenes() {
     setHeading(state.role === "TECNICO" ? "Mis órdenes" : state.role === "CLIENTE" ? "Mis servicios" : "Órdenes de trabajo", "Flujo real de solicitud → coordinación → ejecución → cierre, usando los estados configurados en el sistema.");
-    const all=(await loadAllPaged("ordenes","/api/ordenes")).items;
+    const all=filterSelectedDate("ordenes",(await loadAllPaged("ordenes","/api/ordenes")).items);
 
     if (state.role !== "COORDINADOR") {
       const states=smartUnique(all,x=>String(x.estado||"").toUpperCase());
@@ -3498,8 +3788,8 @@
         filters:{estado:x=>String(x.estado||"").toUpperCase(),prioridad:x=>String(x.Prioridad||x.prioridad||"").toUpperCase(),servicio:x=>String(x.tipo||"")},
         sort:{cola:x=>techQueueRank(x),programada:x=>smartDateValue(x.programada||x.creada),numero:x=>x.numero||"",cliente:x=>x.cliente||"",estado:x=>x.estado||"",prioridad:x=>x.Prioridad||x.prioridad||""}
       });
-      const rows=result.items.map(x => {const q=queuePositions.get(String(x.id));const qlabel=state.role==="TECNICO"&&q?`<div class="muted" style="margin-top:.25rem;font-size:.72rem;font-weight:800">${esc(q.label)}${String(x.clasificacion||"").toUpperCase()==="EMERGENCIA"?" · EMERGENCIA":""}</div>`:"";return `<tr><td class="mono">${esc(x.numero)}</td><td>${esc(x.cliente)}</td><td>${esc(x.sede)}</td><td>${esc(x.tipo)}</td><td>${badge(x.estado)}${qlabel}</td><td>${badge(x.Prioridad||x.prioridad)}</td><td>${fmt(x.programada)}</td><td>${button("Ver","ver-orden",x.id,"primary")}</td></tr>`;});
-      content.innerHTML = `<div class="toolbar"><div class="toolbar-left"><h2>${state.role==="TECNICO"?"Mis órdenes":"Mis servicios"}</h2><p class="muted">Filtra por estado, prioridad o servicio sin recargar la página.</p></div></div><section class="panel smart-list-panel"><div class="panel-body">${smartControls("ordenes",{placeholder:"Orden, cliente, sede o servicio",filters:[{name:"estado",label:"Estado",options:states},{name:"prioridad",label:"Prioridad",options:priorities},{name:"servicio",label:"Servicio",options:services}],sorts:[...(state.role==="TECNICO"?[["cola","Cola operativa"]]:[]),["programada","Fecha / programación"],["numero","Número de OT"],["cliente","Cliente"],["estado","Estado"],["prioridad","Prioridad"]]})}${smartResultsMeta(result,"órdenes")}</div>${table(["Orden","Cliente","Sede","Servicio","Estado","Prioridad","Atención aproximada","Acción"],rows,"No hay órdenes que coincidan con los filtros.")}${smartPager("ordenes",result)}</section>`;
+      const rows=result.items.map(x => {const q=queuePositions.get(String(x.id));const qlabel=state.role==="TECNICO"&&q?`<div class="muted" style="margin-top:.25rem;font-size:.72rem;font-weight:800">${esc(q.label)}${String(x.clasificacion||"").toUpperCase()==="EMERGENCIA"?" · EMERGENCIA":""}</div>`:"";return `<tr><td class="mono">${esc(x.numero)}</td><td>${esc(x.cliente)}</td><td>${esc(x.sede)}</td><td>${esc(x.tipo)}</td><td>${badge(x.suspendida?"SUSPENDIDA · EN REVISIÓN":x.estado)}${qlabel}</td><td>${badge(x.Prioridad||x.prioridad)}</td><td>${fmt(x.programada)}</td><td>${button("Ver","ver-orden",x.id,"primary")}</td></tr>`;});
+      content.innerHTML = `<div class="toolbar"><div class="toolbar-left"><h2>${state.role==="TECNICO"?"Mis órdenes":"Mis servicios"}</h2><p class="muted">Filtra por estado, prioridad o servicio sin recargar la página.</p></div>${state.role==="CLIENTE"&&moduleAllowed("cancelaciones")?`<div class="orders-page-actions"><button class="btn orders-cancellations-button" type="button" data-context-module="cancelaciones"><i data-lucide="circle-x"></i><span>Solicitudes de cancelación</span></button></div>`:""}</div><section class="panel smart-list-panel"><div class="panel-body">${smartControls("ordenes",{placeholder:"Orden, cliente, sede o servicio",filters:[{name:"estado",label:"Estado",options:states},{name:"prioridad",label:"Prioridad",options:priorities},{name:"servicio",label:"Servicio",options:services}],sorts:[...(state.role==="TECNICO"?[["cola","Cola operativa"]]:[]),["programada","Fecha / programación"],["numero","Número de OT"],["cliente","Cliente"],["estado","Estado"],["prioridad","Prioridad"]]})}${smartResultsMeta(result,"órdenes")}</div>${table(["Orden","Cliente","Sede","Servicio","Estado","Prioridad","Atención aproximada","Acción"],rows,"No hay órdenes que coincidan con los filtros.")}${smartPager("ordenes",result)}</section>`;
       window.lucide?.createIcons();
       return;
     }
@@ -3596,7 +3886,7 @@
         <td class="order-site-cell">${esc(item.sede || "Sin sede")}</td>
         <td class="order-service-cell"><span>${esc(item.tipo || "Sin servicio")}</span></td>
         <td>${orderCrewCell(detail)}</td>
-        <td>${orderStatePill(item.estado)}</td>
+        <td>${item.suspendida?badge("SUSPENDIDA · EN REVISIÓN"):orderStatePill(item.estado)}</td>
         <td>${orderPriorityPill(item.Prioridad || item.prioridad)}</td>
         ${extraCells}
         <td class="order-action-cell"><button class="order-view-button" type="button" data-action="ver-orden" data-id="${esc(item.id)}"><i data-lucide="eye"></i><span>Ver detalle</span></button></td>
@@ -3613,7 +3903,10 @@
     content.innerHTML = `<section class="orders-workspace">
       <header class="orders-page-header">
         <div class="orders-page-copy"><span class="orders-eyebrow">SEPRIGUA · OPERACIÓN</span><h2>Órdenes de trabajo</h2><p>Consulta, asigna y supervisa las órdenes activas de la operación.</p></div>
-        <button class="orders-create-button" type="button" data-action="nueva-orden"><i data-lucide="plus"></i><span>Crear OT</span></button>
+        <div class="orders-page-actions">
+          ${moduleAllowed("cancelaciones") ? `<button class="btn orders-cancellations-button" type="button" data-context-module="cancelaciones"><i data-lucide="circle-x"></i><span>Solicitudes de cancelación</span></button>` : ""}
+          <button class="orders-create-button" type="button" data-action="nueva-orden"><i data-lucide="plus"></i><span>Crear OT</span></button>
+        </div>
       </header>
 
       <section class="orders-filters" aria-label="Filtros de órdenes">
@@ -3767,7 +4060,7 @@
   }
 
   async function uploadOrderFiles(id,files,{etapa="DURANTE",categoria="FOTO_TRABAJO",descripcion=""}={}){
-    const summary={guardados:0,duplicados:0,omitidos:0};
+    const summary={guardados:0,duplicados:0,omitidos:0,ids:[]};
     const seen=new Set();
     for(const file of [...files]){
       const fingerprint=[file.name,file.size,file.lastModified,file.type].join("|");
@@ -3777,6 +4070,7 @@
       fd.append("archivo",file); fd.append("etapa",etapa); if(categoria)fd.append("categoria",categoria);
       if(descripcion)fd.append("descripcion",descripcion);
       const result=await api(`/api/ordenes/${id}/evidencias`,{method:"POST",body:fd});
+       if(result?.id)summary.ids.push(Number(result.id));
       if(result?.duplicada)summary.duplicados++;else summary.guardados++;
     }
     return summary;
@@ -3800,6 +4094,7 @@
     const techs=activeTechs.map(t=>`${esc(t.nombre)} (${esc(t.funcion||"TECNICO")})`).join(", ")||"Sin técnicos asignados";
     const quoteList=d.cotizaciones||[],currentQuote=quoteList[0]||null;
     const orderCode=String(x.estado_codigo||"").toUpperCase();
+    const reschedules=d.reprogramaciones||[],pendingReschedule=reschedules.find(r=>r.estado==="PENDIENTE");
     const p=d.progress||{},photos=normalizeNumber(p.fotos_trabajo),acts=normalizeNumber(p.actividades),docs=normalizeNumber(p.documentos_ot),pendingScopes=normalizeNumber(p.cambios_pendientes);
     const isCoralsa=/CORALSA/i.test(String(x.cliente||""));
     const shellStart=`<div class="order-workspace">${orderHeader(id,x)}${(coord||tech)?orderStepper(id,state.orderStep,d,x):""}`;
@@ -3877,7 +4172,8 @@
       const ready=checks.every(c=>c[0]);
       let finishAction="";
       if(orderCode==="COMPLETADA") finishAction=`<div class="completion-banner"><strong>✓ OT finalizada</strong><span>La orden ya está cerrada y visible como finalizada. La cotización puede enviarse antes o después y no modifica este estado.</span></div>`;
-      else if((coord||tech) && ["PENDIENTE","PROGRAMADA"].includes(orderCode)) finishAction=`<div class="notice-card"><strong>Primero inicia el trabajo</strong><p>La OT debe estar EN PROCESO antes de poder finalizarla.</p><button class="btn primary" type="button" data-action="iniciar-orden" data-id="${esc(id)}">Iniciar trabajo</button></div>`;
+       else if(pendingReschedule) finishAction=`<div class="notice-card"><strong>OT suspendida</strong><p>Coordinación debe resolver la reprogramación antes de reanudar el trabajo.</p></div>`;
+       else if((coord||tech) && ["PENDIENTE","PROGRAMADA"].includes(orderCode)) finishAction=`<div class="notice-card"><strong>Primero inicia el trabajo</strong><p>La OT debe estar EN PROCESO antes de poder finalizarla.</p><button class="btn primary" type="button" data-action="iniciar-orden" data-id="${esc(id)}">Iniciar trabajo</button></div>`;
       else if((coord||tech) && ["EN_PROCESO","POR_CONFIRMAR"].includes(orderCode)) finishAction=`<div class="final-action"><button class="btn finish-button" type="button" data-action="finalizar-tecnico" data-id="${esc(id)}" ${ready?"":"disabled"}>✓ Marcar OT como finalizada</button><p class="muted">${ready?"Coordinación o el técnico pueden cerrar la OT; no se necesita confirmación del cliente ni una cotización previa.":"Completa los puntos pendientes antes de finalizar."}</p></div>`;
       const canSign=["EN_PROCESO","POR_CONFIRMAR","COMPLETADA"].includes(orderCode);
       content.innerHTML=`${shellStart}<section class="panel order-screen"><div class="panel-header"><div><span class="eyebrow">PASO 4 DE 4</span><h2>Finalizar orden de trabajo</h2></div></div><div class="panel-body"><div class="check-list">${checks.map(([ok,label])=>`<div class="check-item ${ok?"ok":"pending"}"><span>${ok?"✓":"○"}</span><strong>${esc(label)}</strong></div>`).join("")}</div>${finishAction}<section class="order-signature-block"><div class="order-signature-head"><div><span class="eyebrow">CONFORMIDAD</span><h3>Firma del cliente o responsable</h3><p>La firma queda guardada como evidencia y sigue visible incluso después de cerrar la OT.</p></div>${canSign?button(orderCode==="COMPLETADA"?"Agregar firma de conformidad":"Guardar firma","firma-orden",id,"primary"):""}</div>${orderSignatureGallery(d,{showEmpty:true})}</section><div class="form-actions"><button class="btn" type="button" data-action="orden-paso" data-id="${esc(id)}" data-step="descripcion">Anterior</button><button class="btn" type="button" data-action="orden-paso" data-id="${esc(id)}" data-step="resumen">Ir al resumen</button></div></div></section>${shellEnd}`;
@@ -3895,16 +4191,18 @@
     const incidents=(d.incidencias||[]).slice(0,6).map(i=>`<div class="timeline-item"><strong>${esc(i.tipo)}</strong> ${badge(i.Estado||i.estado)}<br>${esc(i.Descripcion||i.descripcion)}${i.accion?`<br><span class="muted">Acción: ${esc(i.accion)}</span>`:""}${coord&&!i.resuelta?`<div class="actions">${button("Resolver","resolver-incidencia",i.id)}</div>`:""}</div>`).join("")||`<div class="muted">Sin incidencias.</div>`;
     const scopes=(d.cambios_alcance||[]).slice(0,6).map(c=>`<div class="timeline-item"><strong>${badge(c.estado)} Cambio de alcance</strong><br>${esc(c.detectado)}<br><span class="muted">${esc(c.motivo||"")}</span><div class="actions">${coord&&String(c.estado).toUpperCase()==="PENDIENTE"&&!c.informado_por?button("Enviar al cliente","enviar-cambio",c.id):""}${client&&String(c.estado).toUpperCase()==="PENDIENTE"&&c.informado_por?button("Responder","responder-cambio",c.id,"primary"):""}</div></div>`).join("")||`<div class="muted">Sin cambios de alcance.</div>`;
     const allowedCoordStates=(state.catalogs.estados_orden||[]).filter(s=>!["COMPLETADA","POR_CONFIRMAR"].includes(String(s.codigo||"").toUpperCase()));
-    const stateControl=coord&&orderCode!=="COMPLETADA"?`<select class="inline-select" id="stateSelect"><option value="">Cambiar estado...</option>${optionList(allowedCoordStates)}</select><button class="btn small primary" data-action="cambiar-estado" data-id="${esc(id)}">Aplicar</button>`:"";
-    const startButton=tech&&["PENDIENTE","PROGRAMADA"].includes(orderCode)?button("Iniciar trabajo","iniciar-orden",id,"primary"):"";
-    const opActions=(coord||tech)?`<section class="panel"><div class="panel-header"><h2>Acciones de la OT</h2></div><div class="panel-body"><div class="actions">${stateControl}${startButton}${coord?button("Editar datos","editar-orden",id):""}${coord?button("Gestionar cuadrilla","asignar-tecnico",id):""}${coord?button("Asignar equipo","asignar-equipo",id):""}${button("Incidencia","incidencia",id)}${button("Cambio de alcance","cambio-alcance",id)}</div>${tech?`<p class="muted">El cierre técnico se realiza en las cuatro pantallas superiores.</p>`:""}</div></section>`:"";
+    const stateControl=coord&&orderCode!=="COMPLETADA"&&!pendingReschedule?`<select class="inline-select" id="stateSelect"><option value="">Cambiar estado...</option>${optionList(allowedCoordStates)}</select><button class="btn small primary" data-action="cambiar-estado" data-id="${esc(id)}">Aplicar</button>`:"";
+    const startButton=tech&&!pendingReschedule&&["PENDIENTE","PROGRAMADA"].includes(orderCode)?button("Iniciar trabajo","iniciar-orden",id,"primary"):"";
+    const suspendButton=(coord||tech)&&orderCode==="EN_PROCESO"?button("Suspender y reprogramar","suspender-orden",id,"primary"):"";
+    const opActions=(coord||tech)?`<section class="panel"><div class="panel-header"><h2>Acciones de la OT</h2></div><div class="panel-body"><div class="actions">${stateControl}${startButton}${suspendButton}${coord?button("Editar datos","editar-orden",id):""}${coord?button("Gestionar cuadrilla","asignar-tecnico",id):""}${coord?button("Asignar equipo","asignar-equipo",id):""}${button("Incidencia","incidencia",id)}${button("Cambio de alcance","cambio-alcance",id)}</div>${tech?`<p class="muted">El cierre técnico se realiza en las cuatro pantallas superiores.</p>`:""}</div></section>`:"";
+    const reschedulePanel=reschedules.length?`<section class="panel"><div class="panel-header"><div><h2>Suspensiones y reprogramaciones</h2><p class="muted">Historial de la misma orden de trabajo.</p></div>${pendingReschedule?badge("PENDIENTE"):""}</div><div class="panel-body"><div class="timeline">${reschedules.map(r=>`<div class="timeline-item"><strong>${esc(r.estado==="RESUELTA"?"Reprogramación aprobada":r.estado==="CERRADA"?"Solicitud rechazada":"Solicitud pendiente")}</strong><br><span class="muted">Solicitada: ${fmt(r.solicitada_en)} · Original: ${fmt(r.original)} · Propuesta: ${fmt(r.propuesta)}${r.confirmada?` · Confirmada: ${fmt(r.confirmada)}`:""}</span><p>${esc(r.motivo)}</p>${!client?`<p><strong>Realizado:</strong> ${esc(r.trabajo_realizado||"")}<br><strong>Pendiente:</strong> ${esc(r.pendiente||"")}</p><p class="muted">Solicitó: usuario #${esc(r.solicitada_por||"—")} · Autorizó: ${r.autorizada_por?`usuario #${esc(r.autorizada_por)}`:"pendiente"}</p><div class="actions">${(r.evidencias||[]).map((photo,index)=>`<a class="btn small" href="/api/archivos/evidencia/${Number(photo)}" target="_blank" rel="noopener">Foto ${index+1}</a>`).join("")}</div>${r.decision?`<p class="muted">Decisión: ${esc(r.decision)}</p>`:""}${coord&&r.estado==="PENDIENTE"?`<div class="actions">${button("Aprobar o rechazar","decidir-reprogramacion",id,"primary")}</div>`:""}`:""}</div>`).join("")}</div></div></section>`:"";
     const signatureCount=orderSignatureItems(d).length;
     const signatureSummary=(signatureCount||(coord||tech)&&["EN_PROCESO","POR_CONFIRMAR","COMPLETADA"].includes(orderCode))?`<section class="panel order-signature-summary"><div class="panel-header"><div><h2>Firma de conformidad</h2><p class="muted">${signatureCount?`${signatureCount} firma(s) guardada(s) como evidencia de la OT.`:"Aún no hay firma guardada."}</p></div>${(coord||tech)&&["EN_PROCESO","POR_CONFIRMAR","COMPLETADA"].includes(orderCode)?button(signatureCount?"Agregar otra firma":"Capturar firma","firma-orden",id,"primary"):""}</div><div class="panel-body">${orderSignatureGallery(d,{showEmpty:true})}</div></section>`:"";
     const noChargeWarranty=/GARANT[IÍ]A\s+APROBADA.*SIN\s+COBRO/i.test(String(x.observaciones||""));
     const warrantyChargeBanner=noChargeWarranty?`<div class="order-no-charge-banner"><i data-lucide="shield-check"></i><div><strong>GARANTÍA APROBADA · SIN COBRO</strong><span>Esta atención quedó identificada como trabajo cubierto por garantía.</span></div></div>`:"";
 
-    content.innerHTML=`${shellStart}${warrantyChargeBanner}<section class="panel"><div class="panel-header"><h2>Resumen de la orden</h2></div><div class="panel-body"><div class="info-grid"><div class="info-item"><span>Cliente</span><strong>${esc(x.cliente)}</strong></div><div class="info-item"><span>Sede</span><strong>${esc(x.sede)}</strong></div><div class="info-item"><span>Estado</span><strong>${esc(x.estado)}</strong></div><div class="info-item"><span>Prioridad</span><strong>${esc(x.Prioridad||x.prioridad)}</strong></div><div class="info-item"><span>Servicio</span><strong>${esc(x.tipo)}</strong></div><div class="info-item"><span>Atención aproximada</span><strong>${fmt(x.programada)}</strong></div><div class="info-item"><span>Ticket</span><strong>${esc(x.ticket||"—")}</strong></div><div class="info-item"><span>OT / OC</span><strong>${esc(x.orden_papel||"—")}</strong></div><div class="info-item"><span>Ubicación</span><strong>${esc([x.Direccion||x.direccion,x.Municipio||x.municipio].filter(Boolean).join(", ")||x.sede)}</strong></div><div class="info-item"><span>Cuadrilla</span><strong>${techs}</strong></div></div>${state.role==="CLIENTE"&&!["COMPLETADA","CANCELADA"].includes(orderCode)?button("Solicitar cancelación","solicitar-cancelacion","OrdenTrabajo:"+id):""}<h3 class="section-title">Solicitud</h3><p>${esc(x.solicitud)}</p></div></section>
-      ${correction}${opActions}${signatureSummary}
+    content.innerHTML=`${shellStart}${warrantyChargeBanner}<section class="panel"><div class="panel-header"><h2>Resumen de la orden</h2></div><div class="panel-body"><div class="info-grid"><div class="info-item"><span>Cliente</span><strong>${esc(x.cliente)}</strong></div><div class="info-item"><span>Sede</span><strong>${esc(x.sede)}</strong></div><div class="info-item"><span>Estado</span><strong>${esc(x.estado)}</strong></div><div class="info-item"><span>Prioridad</span><strong>${esc(x.Prioridad||x.prioridad)}</strong></div><div class="info-item"><span>Servicio</span><strong>${esc(x.tipo)}</strong></div><div class="info-item"><span>Atención aproximada</span><strong>${fmt(x.programada)}</strong></div><div class="info-item"><span>Ticket</span><strong>${esc(x.ticket||"—")}</strong></div><div class="info-item"><span>OT / OC</span><strong>${esc(x.orden_papel||"—")}</strong></div><div class="info-item"><span>Ubicación</span><strong>${esc([x.Direccion||x.direccion,x.Municipio||x.municipio].filter(Boolean).join(", ")||x.sede)}</strong></div><div class="info-item"><span>Cuadrilla</span><strong>${techs}</strong></div></div>${state.role==="CLIENTE"&&["PENDIENTE","PROGRAMADA"].includes(orderCode)&&!(x.iniciada||x.iniciada_en)?button("Solicitar cancelación","solicitar-cancelacion","OrdenTrabajo:"+id):""}<h3 class="section-title">Solicitud</h3><p>${esc(x.solicitud)}</p></div></section>
+      ${correction}${pendingReschedule?`<div class="notice-card"><strong>Trabajo suspendido</strong><p>La solicitud de reprogramación está pendiente de decisión. Las evidencias y actividades anteriores permanecen en esta OT.</p></div>`:""}${reschedulePanel}${opActions}${signatureSummary}
       ${tech?"":`<section class="panel"><div class="panel-header"><h2>Cotización</h2><span class="muted">Independiente del cierre técnico</span></div><div class="panel-body">${quoteSummary}${quoteActions}</div></section>`}
       <div class="two-col"><section class="panel"><div class="panel-header"><h2>Historial reciente</h2></div><div class="panel-body"><div class="timeline">${recentHistory}</div></div></section><section class="panel"><div class="panel-header"><h2>Incidencias</h2></div><div class="panel-body"><div class="timeline">${incidents}</div></div></section></div>
       <section class="panel"><div class="panel-header"><h2>Cambios de alcance</h2></div><div class="panel-body"><div class="timeline">${scopes}</div></div></section>${shellEnd}`;
@@ -3912,6 +4210,50 @@
   }
 
   function backToOrder(id){return `<button class="btn" type="button" data-action="ver-orden" data-id="${id}">Volver a la OT</button>`;}
+
+  function suspendOrderForm(id){
+    const coord=state.role==="COORDINADOR";
+    openModal("Suspender y reprogramar",`<form id="suspendOrderForm" class="form-grid">
+      <div class="field full"><label>Motivo de suspensión</label><textarea name="motivo" maxlength="700" minlength="10" required placeholder="Explica por qué no se pudo terminar la intervención."></textarea><small>El motivo general será visible para el cliente cuando se confirme la nueva fecha.</small></div>
+      <div class="field full"><label>Trabajo realizado</label><textarea name="trabajo_realizado" maxlength="220" minlength="5" required></textarea></div>
+      <div class="field full"><label>Actividades pendientes</label><textarea name="pendiente" maxlength="220" minlength="5" required></textarea></div>
+      <div class="field"><label>Fecha y hora propuesta</label><input type="datetime-local" name="propuesta" required></div>
+      ${coord?`<div class="field"><label>Fecha confirmada <small>(opcional)</small></label><input type="datetime-local" name="confirmada_para"><small>Si la indicas, Coordinación aprueba la reprogramación ahora.</small></div>`:""}
+      <div class="field full"><label>Fotografías de la suspensión</label><input type="file" name="fotos" accept="image/*" multiple required><small>Entre 1 y 6 imágenes. Quedarán en la misma OT.</small></div>
+      <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit">${coord?"Guardar suspensión":"Solicitar reprogramación"}</button></div></div>
+    </form>`);
+    $("#suspendOrderForm")?.addEventListener("submit",async event=>{
+      event.preventDefault();const form=event.currentTarget,files=[...form.querySelector('[name="fotos"]').files];
+      if(form.dataset.saving==="1")return;
+      if(files.length<1||files.length>6){showToast("Adjunta entre 1 y 6 fotografías.","error");return;}
+      form.dataset.saving="1";const save=form.querySelector('[type="submit"]');save.disabled=true;
+      try{
+        const fd=new FormData(form);
+        const uploads=await uploadOrderFiles(id,files,{categoria:"FOTO_TRABAJO",etapa:"DURANTE",descripcion:"Evidencia de suspensión y reprogramación"});
+        await api(`/api/ordenes/${id}/reprogramaciones`,{method:"POST",body:{
+          motivo:fd.get("motivo"),trabajo_realizado:fd.get("trabajo_realizado"),pendiente:fd.get("pendiente"),
+          propuesta:fd.get("propuesta"),confirmada_para:fd.get("confirmada_para")||null,evidencias:uploads.ids
+        }});
+        showToast("Suspensión registrada en la misma OT.");await openOrder(id,"resumen",true);
+      }catch(error){showToast(error.message,"error");form.dataset.saving="0";save.disabled=false;}
+    });
+  }
+
+  function decideRescheduleForm(id){
+    const pending=(state.orderDetail?.reprogramaciones||[]).find(r=>r.estado==="PENDIENTE");
+    if(!pending){showToast("No hay solicitud pendiente.","error");return;}
+    openModal("Decidir reprogramación",`<form id="decideRescheduleForm" class="form-grid">
+      <div class="field full"><strong>${esc(pending.motivo)}</strong><p class="muted">Realizado: ${esc(pending.trabajo_realizado||"")}<br>Pendiente: ${esc(pending.pendiente||"")}</p><p class="muted">Fecha original: ${fmt(pending.original)} · Propuesta: ${fmt(pending.propuesta)}</p><div class="actions">${(pending.evidencias||[]).map((photo,index)=>`<a class="btn small" href="/api/archivos/evidencia/${Number(photo)}" target="_blank" rel="noopener">Foto ${index+1}</a>`).join("")}</div></div>
+      <div class="field full"><p class="muted">Puedes ajustar la cuadrilla o el equipo en el resumen de la OT antes de aprobar. Se comprobará la disponibilidad al guardar.</p></div>
+      <div class="field"><label>Fecha y hora confirmada</label><input type="datetime-local" name="confirmada_para" required></div>
+      <div class="field full"><label>Observación de Coordinación <small>(opcional)</small></label><textarea name="observacion" maxlength="120"></textarea></div>
+      <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn danger" type="button" id="rejectReschedule">Rechazar</button><button class="btn primary" type="submit">Aprobar y programar</button></div></div>
+    </form>`);
+    const form=$("#decideRescheduleForm");
+    const decide=async decision=>{if(form.dataset.saving==="1")return;form.dataset.saving="1";try{const fd=new FormData(form);await api(`/api/ordenes/${id}/reprogramaciones/${pending.id}/decision`,{method:"POST",body:{decision,confirmada_para:decision==="APROBAR"?fd.get("confirmada_para"):null,observacion:fd.get("observacion")}});showToast(decision==="APROBAR"?"Reprogramación aprobada.":"Solicitud rechazada.");await openOrder(id,"resumen",true);}catch(error){showToast(error.message,"error");form.dataset.saving="0";}};
+    form?.addEventListener("submit",event=>{event.preventDefault();decide("APROBAR");});
+    $("#rejectReschedule")?.addEventListener("click",()=>decide("RECHAZAR"));
+  }
 
   async function quickAction(action,id) {
     if(action==="iniciar-orden"){
@@ -3995,25 +4337,25 @@
     });
     const cards=`<section class="mini-stats-grid site-summary-grid"><article class="mini-stat"><span>Total de sedes</span><strong>${all.length}</strong></article><article class="mini-stat"><span>Activas</span><strong>${active}</strong></article><article class="mini-stat"><span>Inactivas</span><strong>${inactive}</strong></article></section>`;
     const rows=result.items.map(x=>`<tr><td><div class="site-name-cell"><span class="site-pin"><i data-lucide="map-pin"></i></span><div><strong>${esc(x.nombre||"Sede")}</strong><small>${esc(x.codigo||"Sin código")}</small></div></div></td><td>${esc(x.telefono||"—")}</td><td>${esc(x.direccion||"—")}</td><td>${esc([x.municipio,x.departamento].filter(Boolean).join(", ")||"—")}</td><td>${badge(x.activo?"ACTIVA":"INACTIVA")}</td><td><div class="inline-actions">${button("Editar","editar-sede",x.id)}${button(x.activo?"Desactivar":"Activar","toggle-sede",x.id,x.activo?"danger":"primary")}</div></td></tr>`);
-    content.innerHTML=`${cards}<div class="toolbar"><div class="toolbar-left"><h2>Sedes y tiendas registradas</h2><p class="muted">Busca y filtra tus propias ubicaciones.</p></div><div class="toolbar-right">${button("Agregar sede","nueva-sede","","primary")}</div></div><section class="panel smart-list-panel"><div class="panel-body">${smartControls("sedes",{placeholder:"Sede, código, dirección o municipio",filters:[{name:"estado",label:"Estado",options:[["ACTIVA","Activas"],["INACTIVA","Inactivas"]]}],sorts:[["nombre","Nombre"],["municipio","Municipio"],["estado","Estado"]]})}${smartResultsMeta(result,"sedes")}</div>${table(["Sede / tienda","Teléfono","Dirección","Municipio / departamento","Estado","Acciones"],rows,"No hay sedes que coincidan con los filtros.")}${smartPager("sedes",result)}</section>`;
+    content.innerHTML=`${cards}<div class="toolbar"><div class="toolbar-left"><h2>Sedes y tiendas registradas</h2><p class="muted">Busca y filtra tus propias ubicaciones.</p></div><div class="toolbar-right"><button class="btn" type="button" data-action="importar-mis-sedes"><i data-lucide="file-up"></i> Importar sucursales</button>${button("Agregar sede","nueva-sede","","primary")}</div></div><section class="panel smart-list-panel"><div class="panel-body">${smartControls("sedes",{placeholder:"Sede, código, dirección o municipio",filters:[{name:"estado",label:"Estado",options:[["ACTIVA","Activas"],["INACTIVA","Inactivas"]]}],sorts:[["nombre","Nombre"],["municipio","Municipio"],["estado","Estado"]]})}${smartResultsMeta(result,"sedes")}</div>${table(["Sede / tienda","Teléfono","Dirección","Municipio / departamento","Estado","Acciones"],rows,"No hay sedes que coincidan con los filtros.")}${smartPager("sedes",result)}</section>`;
     window.lucide?.createIcons();
   }
 
 
   function sedeForm(id = null) {
     const current = id ? state.clientSites.find(x => String(x.id) === String(id)) : null;
-    openModal(current ? "Editar sede / tienda" : "Agregar nueva sede / tienda", `<form id="clientSiteForm" class="form-grid" autocomplete="off">
-      <div class="field"><label>Nombre de la sede / tienda</label><input name="nombre" maxlength="180" required placeholder="Ej. Restaurante Zona 10" value="${esc(current?.nombre||"")}"></div>
-      <div class="field"><label>Código interno <small>(opcional)</small></label><input name="codigo" maxlength="30" placeholder="Ej. Z10-01" value="${esc(current?.codigo||"")}"></div>
-      <div class="field"><label>Teléfono <small>(opcional)</small></label><input name="telefono" maxlength="20" inputmode="tel" value="${esc(current?.telefono||"")}"></div>
-      <div class="field"><label>Municipio</label><input name="municipio" maxlength="100" required placeholder="Ej. Guatemala" value="${esc(current?.municipio||"")}"></div>
-      <div class="field"><label>Departamento</label><input name="departamento" maxlength="100" required value="${esc(current?.departamento||"Guatemala")}"></div>
-      <div class="field full"><label>Dirección</label><textarea name="direccion" maxlength="450" required placeholder="Dirección completa de la sede">${esc(current?.direccion||"")}</textarea></div>
-      <div class="field full"><label>Referencia para llegar <small>(opcional)</small></label><textarea name="referencia_llegada" maxlength="400" placeholder="Punto de referencia, entrada, nivel, local...">${esc(current?.referencia_llegada||"")}</textarea></div>
-      <div class="field"><label>Latitud <small>(opcional)</small></label><input name="latitud" type="number" step="0.0000001" min="-90" max="90" value="${esc(current?.latitud??"")}"></div>
-      <div class="field"><label>Longitud <small>(opcional)</small></label><input name="longitud" type="number" step="0.0000001" min="-180" max="180" value="${esc(current?.longitud??"")}"></div>
-      <div class="field full"><label>Observaciones <small>(opcional)</small></label><textarea name="observaciones" maxlength="500">${esc(current?.observaciones||"")}</textarea></div>
-      <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit">${current?"Guardar cambios":"Agregar sede"}</button></div></div>
+    openModal(current ? "Editar sede / tienda" : "Agregar nueva sede / tienda", `<form id="clientSiteForm" class="form-grid se-sede-form" autocomplete="off">
+      <div class="se-sede-form-heading full"><i data-lucide="store"></i><div><strong>Información de la sucursal</strong><p>Identificá el establecimiento y completá su ubicación.</p></div></div>
+      <div class="field full"><label>Nombre de la sede / tienda <span class="se-required">*</span></label><input name="nombre" maxlength="180" required placeholder="Ej. Restaurante Zona 10" value="${esc(current?.nombre||"")}"></div>
+      <div class="field"><label>Código interno</label><input name="codigo" maxlength="30" placeholder="Ej. Z10-01" value="${esc(current?.codigo||"")}"></div>
+      <div class="field"><label>Teléfono</label><input name="telefono" maxlength="20" inputmode="tel" placeholder="Ej. 2424-0000" value="${esc(current?.telefono||"")}"></div>
+      <div class="se-sede-form-section full"><i data-lucide="map-pin"></i><strong>Ubicación</strong></div>
+      <div class="field"><label>Municipio <span class="se-required">*</span></label><input name="municipio" maxlength="100" required placeholder="Ej. Guatemala" value="${esc(current?.municipio||"")}"></div>
+      <div class="field"><label>Departamento <span class="se-required">*</span></label><input name="departamento" maxlength="100" required value="${esc(current?.departamento||"Guatemala")}"></div>
+      <div class="field full"><label>Dirección completa <span class="se-required">*</span></label><textarea name="direccion" maxlength="450" rows="2" required placeholder="Avenida, calle, zona, local o centro comercial">${esc(current?.direccion||"")}</textarea></div>
+      <div class="field full"><label>Referencia para llegar</label><textarea name="referencia_llegada" maxlength="400" rows="2" placeholder="Entrada, nivel, local o punto de referencia">${esc(current?.referencia_llegada||"")}</textarea></div>
+      <div class="field full"><label>Observaciones</label><textarea name="observaciones" maxlength="500" rows="2" placeholder="Indicaciones adicionales (opcional)">${esc(current?.observaciones||"")}</textarea></div>
+      <div class="se-sede-form-footer full"><span>* Campos obligatorios</span><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit">${current?"Guardar cambios":"Agregar sede"}</button></div></div>
     </form>`);
     const form = $("#clientSiteForm");
     form?.addEventListener("submit", async e => {
@@ -4060,11 +4402,11 @@
       defaults:{orden:"nombre",direccion:"ASC",filtros:{peopleQuick:"TODOS"}},
       search:x=>[x.codigo,x.nombre,x.nit,x.telefono,x.correo],
       filters:{estado:x=>x.activo?"ACTIVO":"INACTIVO"},
-      sort:{nombre:x=>x.nombre||"",codigo:x=>x.codigo||"",solicitudes:x=>Number(x.solicitudes||0),sedes:x=>Number(x.sedes||0),estado:x=>x.activo?1:0}
+      sort:{nombre:x=>x.nombre||"",codigo:x=>x.codigo||"",solicitudes:x=>Number(x.solicitudes||0),sedes:x=>Number(x.sedes||0),estado:x=>x.activo?1:0,creado_en:x=>x.creado_en||""}
     });
     const rows=result.items.map(x=>{
       const active=!!x.activo;
-      const contact=[x.correo,x.telefono].filter(Boolean);
+      const contact=[x.contacto_principal_nombre,x.contacto_principal_correo,x.contacto_principal_telefono].filter(Boolean);
       const menu=peopleActionMenu([
         {label:"Editar cliente",icon:"pencil",action:"editar-cliente",id:x.id},
         {label:"Gestionar sedes",icon:"map-pinned",action:"ver-sedes",id:x.id},
@@ -4074,7 +4416,8 @@
       return `<tr>
         <td><div class="people-primary-cell"><strong>${esc(x.nombre||"Cliente")}</strong><span>${esc(x.codigo||"Sin código")}${x.nit?` · NIT ${esc(x.nit)}`:""}</span></div></td>
         <td><div class="people-number-cell"><strong>${normalizeNumber(x.sedes)}</strong><span>${normalizeNumber(x.sedes)===1?"sede":"sedes"}</span></div></td>
-        <td><div class="people-contact-cell">${contact.length?`${x.correo?`<strong>${esc(x.correo)}</strong>`:""}${x.telefono?`<span>${esc(x.telefono)}</span>`:""}`:`<span class="people-muted">Sin contacto principal</span>`}</div></td>
+        <td><span class="people-date-cell">${x.creado_en?fmt(x.creado_en):"—"}</span></td>
+        <td><div class="people-contact-cell">${contact.length?`<strong>${esc(x.contacto_principal_nombre||"Contacto")}</strong>${x.contacto_principal_correo?`<span>${esc(x.contacto_principal_correo)}</span>`:""}${x.contacto_principal_telefono?`<span>${esc(x.contacto_principal_telefono)}</span>`:""}`:`<span class="people-muted">Sin contacto principal</span>`}</div></td>
         <td>${peopleStatusBadge(active?"ACTIVO":"INACTIVO")}</td>
         <td><div class="people-row-actions"><button class="people-outline-action" type="button" data-action="ver-cliente" data-id="${esc(x.id)}"><i data-lucide="eye"></i><span>Ver perfil</span></button>${menu}</div></td>
       </tr>`;
@@ -4094,7 +4437,7 @@
           </label>
           <label class="clients-filter-select sort-filter">
             <span class="clients-filter-icon"><i data-lucide="arrow-up-down"></i></span>
-            <span class="clients-filter-copy"><small>Ordenar</small><select data-smart-sort data-smart-key="clientes"><option value="nombre" ${p.orden==="nombre"?"selected":""}>Nombre</option><option value="sedes" ${p.orden==="sedes"?"selected":""}>Sedes</option><option value="solicitudes" ${p.orden==="solicitudes"?"selected":""}>Solicitudes</option><option value="estado" ${p.orden==="estado"?"selected":""}>Estado</option></select></span>
+            <span class="clients-filter-copy"><small>Ordenar</small><select data-smart-sort data-smart-key="clientes"><option value="nombre" ${p.orden==="nombre"?"selected":""}>Nombre</option><option value="sedes" ${p.orden==="sedes"?"selected":""}>Sedes</option><option value="solicitudes" ${p.orden==="solicitudes"?"selected":""}>Solicitudes</option><option value="creado_en" ${p.orden==="creado_en"?"selected":""}>Fecha de registro</option><option value="estado" ${p.orden==="estado"?"selected":""}>Estado</option></select></span>
           </label>
           <label class="clients-filter-select direction-filter">
             <span class="clients-filter-icon"><i data-lucide="move-vertical"></i></span>
@@ -4113,7 +4456,7 @@
       <section class="people-metrics">${peopleMetric("Clientes activos",activeCount,"Con servicio habilitado")}${peopleMetric("Sedes registradas",siteCount,"Ubicaciones vinculadas")}${peopleMetric("Clientes inactivos",inactiveCount,"Historial conservado")}</section>
       <section class="people-context"><div><h2>Clientes y sedes</h2><p>Consulta empresas, contactos y ubicaciones registradas.</p></div></section>
       ${filters}
-      ${peopleTableShell("Clientes",result,["Cliente","Sedes","Contacto principal","Estado","Acciones"],rows,smartPager("clientes",result),"clientes")}
+      ${peopleTableShell("Clientes",result,["Cliente","Sedes","Fecha de registro","Contacto principal","Estado","Acciones"],rows,smartPager("clientes",result),"clientes")}
     </div>`;
     window.lucide?.createIcons();
   }
@@ -4140,6 +4483,11 @@
       <div class="info-item"><span>Dirección fiscal</span><strong>${esc(x.direccion_fiscal||"—")}</strong></div>
       <div class="info-item"><span>Sedes</span><strong>${normalizeNumber(x.sedes)}</strong></div>
       <div class="info-item"><span>Contactos</span><strong>${normalizeNumber(x.contactos)}</strong></div>
+      <div class="info-item"><span>Fecha de registro del cliente</span><strong>${x.creado_en?fmt(x.creado_en):"—"}</strong></div>
+      <div class="info-item"><span>Contacto principal</span><strong>${esc(x.contacto_principal?.nombre||"Sin registrar")}</strong></div>
+      <div class="info-item"><span>Cargo del contacto</span><strong>${esc(x.contacto_principal?.cargo||"—")}</strong></div>
+      <div class="info-item"><span>Teléfono del contacto</span><strong>${esc(x.contacto_principal?.telefono||"—")}</strong></div>
+      <div class="info-item"><span>Correo del contacto</span><strong>${esc(x.contacto_principal?.correo||"—")}</strong></div>
       <div class="info-item"><span>Solicitudes</span><strong>${normalizeNumber(x.solicitudes)}</strong></div>
       <div class="info-item"><span>Última actualización</span><strong>${fmt(x.actualizado_en)}</strong></div>
     </div>${x.observaciones?`<div class="notice-card"><strong>Observaciones</strong><p>${esc(x.observaciones)}</p></div>`:""}
@@ -4160,11 +4508,12 @@
       <div class="field"><label>Correo principal</label><input type="email" name="correo" maxlength="160" placeholder="contacto@empresa.com" value="${esc(current?.correo||"")}"></div>
       <div class="field full"><label>Dirección fiscal</label><textarea name="direccion_fiscal" maxlength="400" placeholder="Opcional">${esc(current?.direccion_fiscal||"")}</textarea></div>
       <div class="field full"><label>Observaciones</label><textarea name="observaciones" maxlength="700" placeholder="Información interna del cliente">${esc(current?.observaciones||"")}</textarea></div>
-      ${editing?`<div class="field full"><div class="notice-card"><strong>Baja lógica</strong><p>Para desactivar o reactivar al cliente utiliza la acción de estado. No se elimina su historial.</p></div></div>`:`<div class="field full"><div class="user-form-intro"><span><i data-lucide="contact-round"></i></span><div><strong>Contacto principal</strong><p>Opcional. Si este cliente tendrá usuario del portal, conviene registrar aquí a la persona que luego se vinculará desde Usuarios.</p></div></div></div>
-      <div class="field full"><label>Nombre del contacto</label><input name="contacto_nombre" maxlength="180" placeholder="Ej. Ana Pérez"></div>
-      <div class="field"><label>Cargo</label><input name="contacto_cargo" maxlength="120" placeholder="Gerencia, mantenimiento..."></div>
-      <div class="field"><label>Teléfono del contacto</label><input name="contacto_telefono" maxlength="20"></div>
-      <div class="field full"><label>Correo del contacto</label><input type="email" name="contacto_correo" maxlength="160"></div>`}
+      ${editing?`<div class="field full"><div class="notice-card"><strong>Fecha de registro:</strong> ${current?.creado_en?fmt(current.creado_en):"No disponible"}. Este dato es automático y no se puede editar.</div></div><div class="field full"><div class="user-form-intro"><span><i data-lucide="contact-round"></i></span><div><strong>Contacto principal de la empresa</strong><p>Se muestra el contacto principal registrado de la empresa. Es independiente de las cuentas del portal; si estaba vinculado a una cuenta antigua, al cambiarlo se guardará como contacto empresarial separado.</p></div></div></div>
+      <div class="field full"><label>Nombre del contacto</label><input name="contacto_nombre" maxlength="180" placeholder="Ej. Ana Pérez" value="${esc(current?.contacto_principal?.nombre||"")}"></div>
+      <div class="field"><label>Cargo</label><input name="contacto_cargo" maxlength="120" placeholder="Gerencia, mantenimiento..." value="${esc(current?.contacto_principal?.cargo||"")}"></div>
+      <div class="field"><label>Teléfono del contacto</label><input name="contacto_telefono" maxlength="20" value="${esc(current?.contacto_principal?.telefono||"")}"></div>
+      <div class="field full"><label>Correo del contacto</label><input type="email" name="contacto_correo" maxlength="160" value="${esc(current?.contacto_principal?.correo||"")}"></div>
+      <div class="field full"><div class="notice-card"><strong>Baja lógica</strong><p>Para desactivar o reactivar al cliente utiliza la acción de estado. No se elimina su historial.</p></div></div>`:""}
       <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit"><i data-lucide="${editing?"save":"building-2"}"></i> ${editing?"Guardar cambios":"Crear cliente"}</button></div></div>
     </form>`);
     const form=$("#clientCreateForm");
@@ -4173,7 +4522,108 @@
   }
 
   function confirmClientState(id, activate, name){
-    openModal(activate?"Reactivar cliente":"Desactivar cliente",`<div class="confirm-card ${activate?"":"danger"}"><div class="confirm-icon"><i data-lucide="${activate?"circle-check-big":"triangle-alert"}"></i></div><div><h3>${activate?"¿Reactivar este cliente?":"¿Desactivar este cliente?"}</h3><p>${activate?"Volverá a estar disponible para nuevos procesos.":"Se conserva todo su historial y dejará de estar disponible para registrar nuevas solicitudes."}</p><strong>${esc(name||"Cliente")}</strong></div></div><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn ${activate?"primary":"danger"}" type="button" data-action="confirmar-toggle-cliente" data-id="${esc(id)}" data-active="${activate?1:0}">${activate?"Reactivar":"Desactivar"}</button></div>`);
+    openModal(activate?"Reactivar cliente":"Desactivar cliente",`<div class="confirm-card ${activate?"":"danger"}"><div class="confirm-icon"><i data-lucide="${activate?"circle-check-big":"triangle-alert"}"></i></div><div><h3>${activate?"¿Reactivar este cliente?":"¿Desactivar este cliente?"}</h3><p>${activate?"La empresa volverá a estar disponible. Después activa manualmente las cuentas que deban recuperar acceso.":"Se conserva su historial. Todas sus cuentas de usuario se desactivarán y las sesiones abiertas se cerrarán."}</p><strong>${esc(name||"Cliente")}</strong></div></div><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn ${activate?"primary":"danger"}" type="button" data-action="confirmar-toggle-cliente" data-id="${esc(id)}" data-active="${activate?1:0}">${activate?"Reactivar":"Desactivar"}</button></div>`);
+    window.lucide?.createIcons();
+  }
+
+  // Archivo de carga masiva validado en backend. El servidor revisa de nuevo al confirmar.
+  function importarSucursales(clienteId = null){
+    const coord=state.role==="COORDINADOR";
+    const base=coord?`/api/clientes/${Number(clienteId)}/sedes/importar`:`/api/mis-sedes/importar`;
+    if(coord&&!Number(clienteId)){showToast("Seleccioná una empresa.","error");return;}
+    openModal("Importar sucursales",`<form id="seImportSitesForm" class="form-grid" enctype="multipart/form-data">
+      <div class="field full"><div class="notice-card"><strong>Carga masiva · ${coord?"Coordinación":"Mi empresa"}</strong><p>Hasta 300 sucursales por archivo (4 MB). Se valida código, nombre, dirección, municipio y departamento. Las duplicadas no se agregan. ${coord?"Después asigná las sedes a cada cuenta desde Usuarios.":"Las sedes nuevas quedarán asignadas a tu propia cuenta."}</p></div></div>
+      <div class="field full"><label>Archivo Excel, CSV o XML *</label><input type="file" name="archivo" accept=".xlsx,.csv,.xml" required></div>
+      <div class="field full"><p><a href="/assets/plantillas/Plantilla_Importacion_Sucursales_SEPRIGUA.xlsx" download>Descargar plantilla de Excel</a> · Para CSV: encabezados iguales, separados por coma o punto y coma. Para XML: raíz &lt;sucursales&gt; con elementos &lt;sucursal&gt;.</p></div>
+      <div id="seImportSitesPreview" class="field full"></div>
+      <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit" id="seImportPreviewBtn">Revisar archivo</button><button class="btn primary" type="button" id="seImportConfirmBtn" disabled style="display:none">Confirmar importación</button></div></div>
+    </form>`);
+    const form=$("#seImportSitesForm"),view=$("#seImportSitesPreview");
+    const input=form?.querySelector('input[type="file"]');
+    const previewButton=$("#seImportPreviewBtn"),confirmButton=$("#seImportConfirmBtn");
+    let confirmedFile=null;
+    input?.addEventListener("change",()=>{confirmedFile=null;confirmButton.disabled=true;confirmButton.style.display="none";view.innerHTML="";});
+    const formData=file=>{const data=new FormData();data.append("archivo",file,file.name);return data;};
+    form?.addEventListener("submit",async e=>{
+      e.preventDefault();const file=input?.files?.[0];if(!file)return showToast("Seleccioná un archivo.","error");
+      previewButton.disabled=true;
+      try{
+        const result=await api(`${base}/preview`,{method:"POST",body:formData(file)});
+        const stats=result.resumen||{};
+        const invalid=(result.items||[]).filter(x=>x.estado!=="NUEVA");
+        const shown=(invalid.length?invalid:(result.items||[])).slice(0,25);
+        const rows=shown.map(x=>`<tr><td>${esc(x.fila)}</td><td>${esc(x.codigo||"—")}</td><td>${esc(x.nombre||"—")}</td><td>${esc(x.estado)}</td><td>${esc((x.errores||[]).join("; ")||"—")}</td></tr>`);
+        view.innerHTML=`<div class="notice-card"><strong>Resultado de la revisión: ${esc(stats.total||0)} filas</strong><p>Nuevas: ${esc(stats.nuevas||0)} · Duplicadas: ${esc(stats.duplicadas||0)} · Errores: ${esc(stats.errores||0)}</p></div>${rows.length?`<div style="max-height:250px;overflow:auto;margin-top:8px">${table(["Fila","Código","Sucursal","Resultado","Observaciones"],rows,"")}</div>`:""}<p class="muted">${invalid.length?"Se muestran primero las incidencias.":"Se muestran hasta 25 registros."} Solo se agregarán las filas nuevas.</p>`;
+        confirmedFile=file;
+        confirmButton.style.display="";
+        confirmButton.disabled=!(stats.nuevas>0&&!stats.errores);
+        if(stats.errores)showToast("El archivo tiene errores. Corregí esas filas para importar.","error");
+      }catch(error){confirmedFile=null;confirmButton.style.display="none";view.innerHTML="";showToast(error.message,"error");}
+      finally{previewButton.disabled=false;}
+    });
+    confirmButton?.addEventListener("click",async()=>{
+      if(!confirmedFile)return;
+      confirmButton.disabled=true;
+      try{
+        const result=await api(base,{method:"POST",body:formData(confirmedFile)});
+        showToast(result.message||"Importación completada.");
+        state.catalogs={};state.userAdmin.catalogos=null;
+        return coord?openSedes(clienteId):renderMisSedes();
+      }catch(error){showToast(error.message,"error");confirmButton.disabled=false;}
+    });
+    window.lucide?.createIcons();
+  }
+
+  // Coordinación administra las sedes desde la empresa sin crear una cuenta Cliente.
+  // Si el alta parte de "Sucursales autorizadas", asignamos la nueva sede a esa cuenta.
+  async function adminSedeForm(clienteId, sedeId = null, usuarioId = null){
+    if(!clienteId){showToast("Seleccioná primero una empresa cliente.","error");return;}
+    let current=null;
+    if(sedeId){
+      const response=await api(`/api/clientes/${clienteId}/sedes`);
+      current=(response.items||[]).find(x=>String(x.id)===String(sedeId));
+      if(!current){showToast("No se encontró la sede en esta empresa.","error");return;}
+    }
+    const editing=!!current;
+    openModal(editing?"Editar sucursal":"Agregar sucursal a la empresa",`<form id="coordSiteForm" class="form-grid se-sede-form" autocomplete="off">
+      <div class="se-sede-form-heading full"><i data-lucide="store"></i><div><strong>Datos de la sucursal</strong><p>${usuarioId?"La nueva sede quedará asignada a la cuenta seleccionada.":"Registrala en esta empresa y administrá sus accesos posteriormente."}</p></div></div>
+      <div class="field full"><label>Nombre de la sede / tienda <span class="se-required">*</span></label><input name="nombre" maxlength="180" required placeholder="Ej. Restaurante Zona 10" value="${esc(current?.nombre||"")}"></div>
+      <div class="field"><label>Código interno</label><input name="codigo" maxlength="30" placeholder="Ej. Z10-01" value="${esc(current?.codigo||"")}"></div>
+      <div class="field"><label>Teléfono</label><input name="telefono" maxlength="20" inputmode="tel" placeholder="Ej. 2424-0000" value="${esc(current?.telefono||"")}"></div>
+      <div class="se-sede-form-section full"><i data-lucide="map-pin"></i><strong>Ubicación</strong></div>
+      <div class="field"><label>Municipio <span class="se-required">*</span></label><input name="municipio" maxlength="100" required placeholder="Ej. Guatemala" value="${esc(current?.municipio||"")}"></div>
+      <div class="field"><label>Departamento <span class="se-required">*</span></label><input name="departamento" maxlength="100" required value="${esc(current?.departamento||"Guatemala")}"></div>
+      <div class="field full"><label>Dirección completa <span class="se-required">*</span></label><textarea name="direccion" maxlength="450" rows="2" required placeholder="Avenida, calle, zona, local o centro comercial">${esc(current?.direccion||"")}</textarea></div>
+      <div class="field full"><label>Referencia para llegar</label><textarea name="referencia_llegada" maxlength="400" rows="2" placeholder="Entrada, nivel, local o punto de referencia">${esc(current?.referencia_llegada||"")}</textarea></div>
+      <div class="field full"><label>Observaciones</label><textarea name="observaciones" maxlength="500" rows="2" placeholder="Indicaciones adicionales (opcional)">${esc(current?.observaciones||"")}</textarea></div>
+      <div class="se-sede-form-footer full"><span>* Campos obligatorios</span><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit">${editing?"Guardar cambios":usuarioId?"Crear y asignar sede":"Crear sucursal"}</button></div></div>
+    </form>`);
+    const form=$("#coordSiteForm");
+    form?.addEventListener("submit",async e=>{
+      e.preventDefault();const submit=form.querySelector('button[type="submit"]');
+      if(submit.disabled)return;submit.disabled=true;
+      try{
+        const body=Object.fromEntries(new FormData(form).entries());
+        const result=await api(editing?`/api/clientes/${clienteId}/sedes/${sedeId}`:`/api/clientes/${clienteId}/sedes`,{method:editing?"PATCH":"POST",body});
+        if(!editing&&usuarioId){
+          try{
+            await api(`/api/usuarios/${usuarioId}/sedes-autorizadas/${result.id}`,{method:"POST",body:{activo:true}});
+          }catch(error){
+            showToast("La sede se creó, pero no pudo asignarse: "+error.message,"error");
+            return manageUserBranches(usuarioId);
+          }
+        }
+        showToast(result.message||(editing?"Sucursal actualizada.":"Sucursal creada."));
+        state.userAdmin.catalogos=null;state.catalogs={};
+        return usuarioId?manageUserBranches(usuarioId):openSedes(clienteId);
+      }catch(error){showToast(error.message,"error");}
+      finally{submit.disabled=false;}
+    });
+    window.lucide?.createIcons();
+  }
+
+  function adminSedeCambiarEstado(clienteId,sedeId,activar){
+    openModal(activar?"Activar sucursal":"Desactivar sucursal",`<div class="confirm-card ${activar?"":"danger"}"><div class="confirm-icon"><i data-lucide="${activar?"circle-check-big":"triangle-alert"}"></i></div><div><h3>¿${activar?"Activar":"Desactivar"} esta sucursal?</h3><p>${activar?"Estará disponible para nuevas asignaciones y solicitudes.":"No podrá utilizarse para nuevas solicitudes; se conservará su historial."}</p></div></div><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn ${activar?"primary":"danger"}" type="button" data-action="confirmar-estado-sede-empresa" data-cliente-id="${esc(clienteId)}" data-id="${esc(sedeId)}" data-active="${activar?"1":"0"}">${activar?"Activar":"Desactivar"}</button></div>`);
     window.lucide?.createIcons();
   }
 
@@ -4181,7 +4631,7 @@
     const d=await api(`/api/clientes/${id}/sedes`);
     const all=d.items||[];
     let q="",status="TODOS",page=1,size=10;
-    openModal("Sedes del cliente",`<div class="modal-list-shell"><div class="modal-list-tools"><div class="field modal-list-search"><label>Buscar</label><div class="input-with-icon"><i data-lucide="search"></i><input id="clientSitesModalSearch" type="search" placeholder="Código, sede, dirección o municipio"></div></div><div class="field"><label>Estado</label><select id="clientSitesModalStatus"><option value="TODOS">Todos</option><option value="ACTIVO">Activas</option><option value="INACTIVO">Inactivas</option></select></div><div class="field"><label>Por página</label><select id="clientSitesModalSize"><option>5</option><option selected>10</option><option>20</option><option>50</option></select></div></div><div id="clientSitesModalHost"></div></div>`);
+    openModal("Sedes del cliente",`<div class="modal-list-shell"><div class="form-actions" style="margin:0 0 14px;justify-content:flex-end"><button class="btn" type="button" data-action="importar-sedes-empresa" data-id="${esc(id)}"><i data-lucide="file-up"></i> Importar Excel / CSV / XML</button><button class="btn primary" type="button" data-action="nueva-sede-empresa" data-id="${esc(id)}"><i data-lucide="plus"></i> Agregar sucursal</button></div><div class="modal-list-tools"><div class="field modal-list-search"><label>Buscar</label><div class="input-with-icon"><i data-lucide="search"></i><input id="clientSitesModalSearch" type="search" placeholder="Código, sede, dirección o municipio"></div></div><div class="field"><label>Estado</label><select id="clientSitesModalStatus"><option value="TODOS">Todos</option><option value="ACTIVO">Activas</option><option value="INACTIVO">Inactivas</option></select></div><div class="field"><label>Por página</label><select id="clientSitesModalSize"><option>5</option><option selected>10</option><option>20</option><option>50</option></select></div></div><div id="clientSitesModalHost"></div></div>`);
     const paint=()=>{
       const host=$("#clientSitesModalHost");if(!host)return;
       let items=all.filter(x=>{
@@ -4192,8 +4642,8 @@
       });
       items.sort((a,b)=>String(a.Nombre||a.nombre||"").localeCompare(String(b.Nombre||b.nombre||""),"es",{sensitivity:"base",numeric:true}));
       const total=items.length,pages=Math.max(1,Math.ceil(total/size));page=Math.min(page,pages);const shown=items.slice((page-1)*size,page*size);
-      const rows=shown.map(x=>`<tr><td>${esc(x.codigo||x.CodigoSucursal||"—")}</td><td>${esc(x.Nombre||x.nombre||"—")}</td><td>${esc(x.Telefono||x.telefono||"—")}</td><td>${esc(x.Direccion||x.direccion||"—")}</td><td>${esc(x.Municipio||x.municipio||"—")}</td><td>${badge((x.Activo??x.activo)?"ACTIVA":"INACTIVA")}</td></tr>`);
-      host.innerHTML=`${table(["Código","Sede","Teléfono","Dirección","Municipio","Estado"],rows,"Este cliente no tiene sedes que coincidan con los filtros.")}${smartPager("modal-sedes",{pagina:page,paginas:pages,total,tamano:size})}`;
+      const rows=shown.map(x=>`<tr><td>${esc(x.codigo||x.CodigoSucursal||"—")}</td><td>${esc(x.Nombre||x.nombre||"—")}</td><td>${esc(x.Telefono||x.telefono||"—")}</td><td>${esc(x.Direccion||x.direccion||"—")}</td><td>${esc(x.Municipio||x.municipio||"—")}</td><td>${badge((x.Activo??x.activo)?"ACTIVA":"INACTIVA")}</td><td><div class="inline-actions"><button class="btn small" type="button" data-action="editar-sede-empresa" data-cliente-id="${esc(id)}" data-id="${esc(x.id)}">Editar</button><button class="btn small" type="button" data-action="estado-sede-empresa" data-cliente-id="${esc(id)}" data-id="${esc(x.id)}" data-active="${(x.Activo??x.activo)?"0":"1"}">${(x.Activo??x.activo)?"Desactivar":"Activar"}</button></div></td></tr>`);
+      host.innerHTML=`${table(["Código","Sede","Teléfono","Dirección","Municipio","Estado","Acciones"],rows,"Este cliente no tiene sedes que coincidan con los filtros.")}${smartPager("modal-sedes",{pagina:page,paginas:pages,total,tamano:size})}`;
       $$("[data-list-key='modal-sedes']",host).forEach(btn=>{btn.removeAttribute("data-action");btn.addEventListener("click",()=>{if(btn.disabled)return;page=Math.max(1,Number(btn.dataset.page||1));paint();});});
       window.lucide?.createIcons();
     };
@@ -4354,11 +4804,11 @@
         <td><div class="people-contact-cell"><strong>${esc(x.correo||"Sin correo registrado")}</strong></div></td>
         <td><div class="people-date-cell">${x.ultimo_acceso?fmt(x.ultimo_acceso):`<span class="people-muted">Sin acceso reciente</span>`}</div></td>
         <td>${userStatusView(x)}</td>
-        <td><div class="people-row-actions"><button class="people-outline-action" type="button" data-action="ver-usuario" data-id="${esc(x.id)}"><i data-lucide="settings-2"></i><span>Gestionar</span></button>${menu}</div></td>
+        <td><div class="people-row-actions"><button class="people-outline-action" type="button" data-action="ver-usuario" data-id="${esc(x.id)}"><i data-lucide="eye"></i><span>Ver detalle</span></button>${menu}</div></td>
       </tr>`;
     });
     const quicks=`<div class="people-quick-row"><span>Filtros rápidos:</span><button class="people-quick ${!f.estado?"active":""}" type="button" data-action="usuario-filtro-estado" data-status=""><span>Todos</span><b>${normalizeNumber(s.total)}</b></button><button class="people-quick ${f.estado==="ACTIVO"?"active":""}" type="button" data-action="usuario-filtro-estado" data-status="ACTIVO"><span>Activos</span><b>${normalizeNumber(s.activos)}</b></button><button class="people-quick ${f.estado==="INACTIVO"?"active":""}" type="button" data-action="usuario-filtro-estado" data-status="INACTIVO"><span>Inactivos</span><b>${normalizeNumber(s.inactivos)}</b></button><button class="people-quick ${f.estado==="BLOQUEADO"?"active":""}" type="button" data-action="usuario-filtro-estado" data-status="BLOQUEADO"><span>Bloqueados</span><b>${normalizeNumber(s.bloqueados)}</b></button></div>`;
-    const filters=`<section class="people-filter-section"><form id="userReportFilters" class="people-filter-grid people-filter-grid-users">
+    const filters=`<section class="people-filter-section users-filter-section"><form id="userReportFilters" class="people-filter-grid people-filter-grid-users">
       <label class="people-field people-search"><span>Buscar</span><div><i data-lucide="search"></i><input type="search" name="q" value="${esc(f.q)}" placeholder="Buscar usuario, correo o rol..." autocomplete="off"></div></label>
       <label class="people-field"><span>Estado</span><select name="estado"><option value="">Todos</option><option value="ACTIVO" ${f.estado==="ACTIVO"?"selected":""}>Activos</option><option value="INACTIVO" ${f.estado==="INACTIVO"?"selected":""}>Inactivos</option><option value="BLOQUEADO" ${f.estado==="BLOQUEADO"?"selected":""}>Bloqueados</option></select></label>
       <label class="people-field"><span>Rol</span><select name="rol_id"><option value="">Todos los roles</option>${roles}</select></label>
@@ -4380,7 +4830,28 @@
     </div>`;
     window.lucide?.createIcons();
     const form=$("#userReportFilters");
-    form?.addEventListener("submit",e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries());Object.assign(f,{q:String(data.q||"").trim(),rol_id:String(data.rol_id||""),estado:String(data.estado||""),fecha_desde:String(data.fecha_desde||""),fecha_hasta:String(data.fecha_hasta||""),tamano:Number(data.tamano||10),orden:String(data.orden||f.orden||"FECHA"),direccion:String(data.direccion||f.direccion||"DESC"),pagina:1});withContextualLoader(()=>renderUsuarios(),"Actualizando usuarios...","Usuarios actualizados").catch(err=>showToast(err.message,"error"));});
+    const applyUserFilters=async (live=false) => {
+      const search=form.elements.namedItem("q");
+      const caret=live ? search?.selectionStart : null;
+      const data=Object.fromEntries(new FormData(form).entries());
+      Object.assign(f,{q:String(data.q||""),rol_id:String(data.rol_id||""),estado:String(data.estado||""),fecha_desde:String(data.fecha_desde||""),fecha_hasta:String(data.fecha_hasta||""),tamano:Number(data.tamano||10),orden:String(data.orden||f.orden||"FECHA"),direccion:String(data.direccion||f.direccion||"DESC"),pagina:1});
+      if(live) await renderUsuarios();
+      else await withContextualLoader(()=>renderUsuarios(),"Actualizando usuarios...","Usuarios actualizados");
+      if(live && state.current==="usuarios") {
+        const next=$("#userReportFilters [name=q]");
+        if(next){next.focus();if(caret!==null)next.setSelectionRange(caret,caret);}
+      }
+    };
+    form?.addEventListener("submit",e=>{e.preventDefault();clearTimeout(userSearchTimer);applyUserFilters().catch(err=>showToast(err.message,"error"));});
+    form?.querySelector('[name="q"]')?.addEventListener("input",()=>{
+      clearTimeout(userSearchTimer);
+      userSearchTimer=window.setTimeout(()=>applyUserFilters(true).catch(err=>showToast(err.message,"error")),220);
+    });
+    form?.addEventListener("change",e=>{
+      if(e.target.name==="q")return;
+      clearTimeout(userSearchTimer);
+      applyUserFilters().catch(err=>showToast(err.message,"error"));
+    });
   }
 
   function userRolePortalById(id){
@@ -4391,15 +4862,30 @@
   function syncUserOwnerFields(form,currentId=""){
     if(!form)return;
     const role=userRolePortalById(form.rol_id?.value);
-    const emp=form.querySelector('[data-owner="empleado"]'),client=form.querySelector('[data-owner="cliente"]');
+    const emp=form.querySelector('[data-owner="empleado"]');
     if(emp)emp.hidden=!(["COORDINADOR","TECNICO"].includes(role));
-    if(client)client.hidden=role!=="CLIENTE";
-    if(["COORDINADOR","TECNICO"].includes(role)&&form.contacto_cliente_id)form.contacto_cliente_id.value="";
+    form.querySelectorAll('[data-owner="cliente"]').forEach(el=>{el.hidden=role!=="CLIENTE";});
+    const empresa=form.elements.namedItem("cliente_id");
+    const nombre=form.elements.namedItem("nombre_completo");
+    if(empresa)empresa.required=role==="CLIENTE";
+    if(nombre)nombre.required=role==="CLIENTE";
     if(role==="CLIENTE"&&form.empleado_id)form.empleado_id.value="";
   }
 
   function userOwnerOptions(items,currentId,selected,type){
     return (items||[]).map(x=>{const used=x.usuario_id&&String(x.usuario_id)!==String(currentId);const label=type==="empleado"?`${x.codigo||""} · ${x.nombre}${x.puesto?` · ${x.puesto}`:""}`:`${x.cliente} · ${x.nombre}${x.cargo?` · ${x.cargo}`:""}`;return `<option value="${esc(x.id)}" ${String(x.id)===String(selected)?"selected":""} ${used?"disabled":""}>${esc(label)}${used?` · ya vinculado a ${esc(x.usuario||"otro usuario")}`:""}</option>`;}).join("");
+  }
+
+  function generateTemporaryPassword(){
+    if(!window.crypto?.getRandomValues){showToast("Este navegador no permite generar contraseñas seguras.","error");return null;}
+    const chars="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#%";
+    const numbers=new Uint32Array(24);window.crypto.getRandomValues(numbers);
+    // La cuenta exige mayúscula, minúscula y número; el resto sale de un generador criptográfico.
+    return "Se"+String(numbers[0]%10)+Array.from(numbers.slice(1,15),x=>chars[x%chars.length]).join("");
+  }
+  function wireTemporaryPassword(form){
+    const btn=form?.querySelector('[data-generate-password]');if(!btn)return;
+    btn.onclick=()=>{const pw=generateTemporaryPassword();if(!pw)return;form.elements.contrasena.value=pw;form.elements.confirmacion.value=pw;form.elements.contrasena.type="text";showToast("Contraseña generada. Guardala de forma segura y compartila por un canal privado.");};
   }
 
   async function userForm(usuarioId=null){
@@ -4408,20 +4894,57 @@
     if(usuarioId){const d=await api(`/api/usuarios/${usuarioId}`);current=d.item;}
     const roleId=current?.rol_id||(catalogs.roles||[])[0]?.id||"";
     const roles=(catalogs.roles||[]).map(x=>`<option value="${esc(x.id)}" ${String(x.id)===String(roleId)?"selected":""}>${esc(x.nombre)}</option>`).join("");
+    const empresas=(catalogs.clientes||[]).filter(x=>x.activo||String(x.id)===String(current?.cliente_id)).map(x=>`<option value="${esc(x.id)}" ${String(x.id)===String(current?.cliente_id)?"selected":""}>${esc(x.nombre)}${!x.activo?" (inactiva)":""}</option>`).join("");
     openModal(current?"Editar usuario":"Registrar usuario",`<form id="userAdminForm" class="form-grid user-admin-form" autocomplete="off">
       <div class="user-form-intro full"><span><i data-lucide="${current?"user-round-cog":"user-round-plus"}"></i></span><div><strong>${current?`Editar ${esc(current.usuario)}`:"Nueva cuenta del portal privado"}</strong><p>${current?"Actualiza el rol, vínculo y datos de acceso. La contraseña se administra por separado.":"La cuenta será creada por Coordinación y quedará obligada a cambiar la contraseña temporal al ingresar."}</p></div></div>
       <div class="field"><label>Rol</label><select name="rol_id" required>${roles}</select></div>
       <div class="field"><label>Nombre de usuario</label><input name="usuario" maxlength="60" value="${esc(current?.usuario||"")}" placeholder="ej. jperez" required><small>Letras, números, punto, guion o guion bajo.</small></div>
       <div class="field full"><label>Correo de acceso</label><input type="email" name="correo" maxlength="160" value="${esc(current?.correo||"")}" placeholder="usuario@empresa.com"><small>Opcional, pero debe ser único si se registra.</small></div>
       <div class="field full" data-owner="empleado"><label>Empleado vinculado</label><select name="empleado_id"><option value="">Seleccionar empleado</option>${userOwnerOptions(catalogs.empleados,current?.id,current?.empleado_id,"empleado")}</select><small>Obligatorio para Coordinador y Técnico.</small></div>
-      <div class="field full" data-owner="cliente"><label>Contacto de cliente vinculado</label><select name="contacto_cliente_id"><option value="">Seleccionar contacto</option>${userOwnerOptions(catalogs.contactos,current?.id,current?.contacto_cliente_id,"cliente")}</select><small>Obligatorio para cuentas con rol Cliente.</small></div>
-      ${current?`<div class="field full"><label class="switch-row"><input type="checkbox" name="activo" ${current.activo?"checked":""}><span>Cuenta activa</span></label><small>Desactivar una cuenta cierra sus sesiones activas.</small></div>`:`<div class="field"><label>Contraseña temporal</label><div class="password-control"><input type="password" name="contrasena" minlength="8" autocomplete="new-password" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div><small>Mayúscula, minúscula y número.</small></div><div class="field"><label>Confirmar contraseña</label><div class="password-control"><input type="password" name="confirmacion" minlength="8" autocomplete="new-password" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div></div>`}
+      <div class="field full" data-owner="cliente"><label>Empresa a la que pertenece *</label><select name="cliente_id"><option value="">Seleccionar empresa cliente</option>${empresas}</select><small>Elegí la empresa una sola vez. Cada cuenta se vincula internamente a su propio contacto, nunca al contacto principal empresarial.</small></div>
+      <div class="field full" data-owner="cliente"><label>Nombre completo de la persona *</label><input name="nombre_completo" maxlength="180" placeholder="Ej. Juan Pérez" value="${esc(current?.nombre_contacto||(userRolePortalById(roleId)==='CLIENTE'?current?.nombre:"")||"")}"></div>
+      <div class="field" data-owner="cliente"><label>Cargo de la persona</label><input name="cargo_contacto" maxlength="120" value="${esc(current?.cargo_contacto||"")}" placeholder="Ej. Encargado de mantenimiento"></div>
+      <div class="field" data-owner="cliente"><label>Teléfono de la persona</label><input name="telefono_contacto" maxlength="20" value="${esc(current?.telefono_contacto||"")}" placeholder="Ej. +502 5555 5555"></div>
+      <div class="field full" data-owner="cliente"><div class="notice-card"><strong>Accesos por sucursal</strong><p>Después de crear esta cuenta, abrí Gestionar → Sucursales autorizadas para elegir las sedes que tendrá a cargo.</p></div></div>
+      ${current?`<div class="field full"><label class="switch-row"><input type="checkbox" name="activo" ${current.activo?"checked":""}><span>Cuenta activa</span></label><small>Desactivar una cuenta cierra sus sesiones activas.</small></div>`:`<div class="field"><label>Contraseña temporal</label><div class="password-control"><input type="password" name="contrasena" minlength="8" autocomplete="new-password" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div><small>Mayúscula, minúscula y número.</small><button class="btn small" type="button" data-generate-password><i data-lucide="wand-sparkles"></i> Generar contraseña segura</button></div><div class="field"><label>Confirmar contraseña</label><div class="password-control"><input type="password" name="confirmacion" minlength="8" autocomplete="new-password" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div></div>`}
       <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit"><i data-lucide="save"></i> ${current?"Guardar cambios":"Crear usuario"}</button></div></div>
     </form>`);
-    const form=$("#userAdminForm");syncUserOwnerFields(form,current?.id||"");
+    const form=$("#userAdminForm");wireTemporaryPassword(form);syncUserOwnerFields(form,current?.id||"");
     form?.rol_id?.addEventListener("change",()=>syncUserOwnerFields(form,current?.id||""));
     form?.addEventListener("submit",async e=>{e.preventDefault();const submit=form.querySelector('button[type="submit"]');submit.disabled=true;try{const raw=Object.fromEntries(new FormData(form).entries());raw.activo=current?!!form.activo?.checked:true;const result=await api(current?`/api/usuarios/${current.id}`:"/api/usuarios",{method:current?"PATCH":"POST",body:raw});showToast(result.message||"Usuario guardado.");closeModal();state.userAdmin.catalogos=null;state.userAdmin.pagina=1;await renderUsuarios();}catch(err){showToast(err.message,"error");}finally{submit.disabled=false;}});
     window.lucide?.createIcons();
+  }
+
+  async function manageUserBranches(usuarioId){
+    const [userResponse, branchResponse]=await Promise.all([
+      api(`/api/usuarios/${usuarioId}`),api(`/api/usuarios/${usuarioId}/sedes-autorizadas`)
+    ]);
+    const u=userResponse.item||{},branches=branchResponse.items||[];
+    const rows=branches.map(x=>`<label class="switch-row" style="padding:10px 0;border-bottom:1px solid var(--border,#dde4ef);display:flex;gap:10px;align-items:center">
+      <input type="checkbox" data-sede-id="${esc(x.sucursal_id)}" ${x.asignada?"checked":""} ${!x.sucursal_activa?"disabled":""}>
+      <span><strong>${esc(x.sucursal||"Sede")}</strong><small style="display:block">${esc(x.codigo||"")}${!x.sucursal_activa?" · Sede inactiva":""}</small></span>
+    </label>`).join("")||'<p class="muted">Esta empresa todavía no tiene sucursales registradas.</p>';
+    openModal(`Sucursales · ${u.usuario||"Usuario"}`,`<form id="clientBranchAssignments" class="form-grid" autocomplete="off">
+      <div class="field full"><div class="user-form-intro"><span><i data-lucide="map-pinned"></i></span><div><strong>${esc(u.nombre_contacto||u.nombre||u.usuario||"Cuenta de cliente")}</strong><p>${esc(u.cliente||"Empresa cliente")} · Marcá las sucursales que administra esta persona.</p></div></div></div>
+      <div class="field full"><div class="notice-card"><strong>Configuración de permisos</strong><p>Estas asignaciones se guardan en SQL Server. El aislamiento de información por sucursal requiere completar la actualización de todas las consultas del portal cliente antes de publicar el sistema.</p></div></div>
+      <div class="field full"><div class="form-actions" style="margin:0;justify-content:flex-start"><button class="btn primary" type="button" data-action="nueva-sede-usuario" data-id="${esc(usuarioId)}" data-cliente-id="${esc(u.cliente_id||branches[0]?.cliente_id||"")}"><i data-lucide="plus"></i> ${branches.length?"Agregar otra sucursal":"Crear primera sucursal"}</button></div></div>
+      <div class="field full"><div style="max-height:350px;overflow-y:auto;padding:0 6px">${rows}</div></div>
+      <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit" ${!branches.length?"disabled":""}>Guardar asignaciones</button></div></div>
+    </form>`);
+    const form=$("#clientBranchAssignments");
+    form?.addEventListener("submit",async e=>{
+      e.preventDefault();const submit=form.querySelector('button[type="submit"]');submit.disabled=true;
+      const cambios=branches.filter(x=>!!form.querySelector(`[data-sede-id="${x.sucursal_id}"]`)?.checked!==!!x.asignada);
+      try{
+        for(const x of cambios){
+          const activo=!!form.querySelector(`[data-sede-id="${x.sucursal_id}"]`)?.checked;
+          await api(`/api/usuarios/${usuarioId}/sedes-autorizadas/${x.sucursal_id}`,{method:"POST",body:{activo}});
+        }
+        showToast(`${cambios.length} asignaciones actualizadas.`);
+        closeModal();
+      }catch(err){showToast(err.message,"error");await manageUserBranches(usuarioId);}
+      finally{submit.disabled=false;}
+    });window.lucide?.createIcons();
   }
 
   async function openUserDetail(id){
@@ -4434,15 +4957,15 @@
         <div class="info-item"><span>Fecha de registro</span><strong>${fmt(u.creado_en)}</strong></div><div class="info-item"><span>Último acceso</span><strong>${fmt(u.ultimo_acceso)}</strong></div>
         <div class="info-item"><span>Intentos fallidos</span><strong>${normalizeNumber(u.intentos_fallidos)}</strong></div><div class="info-item"><span>Cambio de contraseña</span><strong>${u.requiere_cambio_contrasena?"Pendiente":"Al día"}</strong></div>
       </div>
-      <div class="user-detail-actions"><button class="btn" data-action="editar-usuario" data-id="${esc(u.id)}"><i data-lucide="pencil"></i> Editar</button><button class="btn" data-action="restablecer-usuario" data-id="${esc(u.id)}"><i data-lucide="key-round"></i> Restablecer contraseña</button>${u.bloqueado?`<button class="btn" data-action="desbloquear-usuario" data-id="${esc(u.id)}"><i data-lucide="unlock-keyhole"></i> Desbloquear</button>`:""}<button class="btn ${u.activo?"danger":"primary"}" data-action="cambiar-estado-usuario" data-id="${esc(u.id)}" data-active="${u.activo?"0":"1"}" data-name="${esc(u.usuario)}"><i data-lucide="${u.activo?"user-round-x":"user-round-check"}"></i> ${u.activo?"Desactivar":"Activar"}</button></div>
+      <div class="user-detail-actions"><a class="btn" href="/api/usuarios/${encodeURIComponent(u.id)}/reporte.pdf" download><i data-lucide="file-down"></i> Descargar PDF</a>${u.cliente_id?`<button class="btn" data-action="sucursales-usuario" data-id="${esc(u.id)}"><i data-lucide="map-pinned"></i> Sucursales autorizadas</button>`:""}<button class="btn" data-action="editar-usuario" data-id="${esc(u.id)}"><i data-lucide="pencil"></i> Editar</button><button class="btn" data-action="restablecer-usuario" data-id="${esc(u.id)}"><i data-lucide="key-round"></i> Restablecer contraseña</button>${u.bloqueado?`<button class="btn" data-action="desbloquear-usuario" data-id="${esc(u.id)}"><i data-lucide="unlock-keyhole"></i> Desbloquear</button>`:""}<button class="btn ${u.activo?"danger":"primary"}" data-action="cambiar-estado-usuario" data-id="${esc(u.id)}" data-active="${u.activo?"0":"1"}" data-name="${esc(u.usuario)}"><i data-lucide="${u.activo?"user-round-x":"user-round-check"}"></i> ${u.activo?"Desactivar":"Activar"}</button></div>
       <div class="user-detail-columns"><section><h3 class="section-title">Sesiones recientes</h3><div class="admin-session-list">${sessions}</div></section><section><h3 class="section-title">Actividad de auditoría</h3><ul class="admin-audit-list">${events}</ul></section></div>`);
     window.lucide?.createIcons();
   }
 
   async function resetUserPassword(id){
     const d=await api(`/api/usuarios/${id}`),u=d.item||{};
-    openModal("Restablecer contraseña",`<form id="adminResetPassword" class="form-grid"><div class="security-warning full"><i data-lucide="key-round"></i><div><strong>${esc(u.nombre||u.usuario)}</strong><p>Se cerrarán sus otras sesiones y deberá cambiar la contraseña temporal al volver a ingresar.</p></div></div><div class="field"><label>Contraseña temporal</label><div class="password-control"><input type="password" name="contrasena" minlength="8" autocomplete="new-password" required><button type="button" class="password-toggle" data-toggle-password><i data-lucide="eye"></i></button></div></div><div class="field"><label>Confirmar contraseña</label><div class="password-control"><input type="password" name="confirmacion" minlength="8" autocomplete="new-password" required><button type="button" class="password-toggle" data-toggle-password><i data-lucide="eye"></i></button></div></div><div class="field full"><small>Debe incluir mayúscula, minúscula y número.</small><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit">Restablecer contraseña</button></div></div></form>`);
-    const form=$("#adminResetPassword");form?.addEventListener("submit",async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(form).entries());if(body.contrasena!==body.confirmacion)return showToast("Las contraseñas no coinciden.","error");const submit=form.querySelector('button[type="submit"]');submit.disabled=true;try{const r=await api(`/api/usuarios/${id}/restablecer-contrasena`,{method:"POST",body});showToast(r.message);closeModal();await renderUsuarios();}catch(err){showToast(err.message,"error");}finally{submit.disabled=false;}});window.lucide?.createIcons();
+    openModal("Restablecer contraseña",`<form id="adminResetPassword" class="form-grid"><div class="security-warning full"><i data-lucide="key-round"></i><div><strong>${esc(u.nombre||u.usuario)}</strong><p>Se cerrarán sus otras sesiones y deberá cambiar la contraseña temporal al volver a ingresar.</p></div></div><div class="field"><label>Contraseña temporal</label><div class="password-control"><input type="password" name="contrasena" minlength="8" autocomplete="new-password" required><button type="button" class="password-toggle" data-toggle-password><i data-lucide="eye"></i></button></div></div><div class="field"><label>Confirmar contraseña</label><div class="password-control"><input type="password" name="confirmacion" minlength="8" autocomplete="new-password" required><button type="button" class="password-toggle" data-toggle-password><i data-lucide="eye"></i></button></div></div><div class="field full"><button class="btn small" type="button" data-generate-password><i data-lucide="wand-sparkles"></i> Generar contraseña segura</button><small>Debe incluir mayúscula, minúscula y número.</small><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit">Restablecer contraseña</button></div></div></form>`);
+    const form=$("#adminResetPassword");wireTemporaryPassword(form);form?.addEventListener("submit",async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(form).entries());if(body.contrasena!==body.confirmacion)return showToast("Las contraseñas no coinciden.","error");const submit=form.querySelector('button[type="submit"]');submit.disabled=true;try{const r=await api(`/api/usuarios/${id}/restablecer-contrasena`,{method:"POST",body});showToast(r.message);closeModal();await renderUsuarios();}catch(err){showToast(err.message,"error");}finally{submit.disabled=false;}});window.lucide?.createIcons();
   }
 
   function confirmUserState(id,activate,name){
@@ -4453,7 +4976,7 @@
   function equipmentForm(){
     openModal("Registrar equipo",`<form id="equipmentForm" class="form-grid" autocomplete="off">
       <div class="field"><label>Código del equipo</label><input name="codigo" maxlength="50" placeholder="Ej. EQ-001" required></div>
-      <div class="field"><label>Estado inicial</label><select name="estado"><option value="DISPONIBLE">DISPONIBLE</option><option value="EN_MANTENIMIENTO">EN MANTENIMIENTO</option><option value="FUERA_DE_USO">FUERA DE USO</option><option value="RETIRADO">RETIRADO</option></select></div>
+      <div class="field"><label>Estado inicial</label><select name="estado"><option value="DISPONIBLE">DISPONIBLE</option><option value="FUERA_DE_USO">FUERA DE USO</option><option value="RETIRADO">RETIRADO</option></select></div>
       <div class="field full"><label>Nombre del equipo</label><input name="nombre" maxlength="160" placeholder="Ej. Hidrolavadora industrial" required></div>
       <div class="field"><label>Categoría</label><input name="categoria" maxlength="100" placeholder="Herramienta, bomba, cámara..."></div>
       <div class="field"><label>Marca</label><input name="marca" maxlength="100"></div>
@@ -4465,7 +4988,24 @@
       <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit"><i data-lucide="plus"></i> Registrar equipo</button></div></div>
     </form>`);
     const form=$("#equipmentForm");
-    form?.addEventListener("submit",async e=>{e.preventDefault();const submit=form.querySelector('button[type="submit"]');submit.disabled=true;try{const result=await api("/api/equipos",{method:"POST",body:Object.fromEntries(new FormData(form).entries())});showToast(result.message||"Equipo registrado.");closeModal();await renderEquipos();state.catalogs=await api("/api/catalogos");}catch(err){showToast(err.message,"error");}finally{submit.disabled=false;}});
+    form?.addEventListener("submit",async e=>{
+      e.preventDefault();if(form.dataset.sending)return;
+      form.dataset.sending="1";
+      const submit=form.querySelector('button[type="submit"]');submit.disabled=true;
+      const body=Object.fromEntries(new FormData(form).entries());
+      try{
+        const result=await api("/api/equipos",{method:"POST",body});
+        const prefs=smartPrefs("equipos",{orden:"nombre",direccion:"ASC"});
+        prefs.q=String(body.codigo||body.nombre||"").trim();
+        prefs.pagina=1;
+        prefs.filtros={};
+        closeModal();showToast(result.message||"Equipo registrado.");
+        invalidateListCache("equipos");
+        invalidateApiCache(["/api/equipos","/api/catalogos"]);
+        await navigate("equipos",{force:true});
+      }catch(err){showToast(err.message,"error");}
+      finally{delete form.dataset.sending;if(submit.isConnected)submit.disabled=false;}
+    });
     window.lucide?.createIcons();
   }
 
@@ -4609,7 +5149,7 @@
 
   async function renderCotizaciones(){
     setHeading("Cotizaciones", state.role === "CLIENTE" ? "Consulta el expediente completo: solicitud → orden con evidencias → cotización descargable." : "Gestiona propuestas, versiones y aprobaciones de clientes.");
-    const all=(await loadAllPaged("cotizaciones","/api/cotizaciones")).items;
+    const all=filterSelectedDate("cotizaciones",(await loadAllPaged("cotizaciones","/api/cotizaciones")).items);
 
     if (state.role !== "COORDINADOR") {
       const states=listFacet(state.current,"estado",smartUnique(all,x=>String(x.Estado||x.estado||"").toUpperCase()));
@@ -4663,7 +5203,7 @@
     const rows=result.items.map(x=>{
       const st=quoteStateKey(x.Estado||x.estado);
       const sendable=["BORRADOR","OBSERVADA","CONFIRMADA"].includes(st);
-      const actions=[];
+      const actions=[`<button class="quote-action-button" type="button" data-action="ver-expediente-cotizacion" data-id="${esc(x.id)}"><i data-lucide="eye"></i><span>Ver detalle</span></button>`];
       if(sendable) actions.push(`<button class="quote-action-button quote-action-primary" type="button" data-action="enviar-cotizacion" data-id="${esc(x.id)}"><i data-lucide="send"></i><span>Enviar</span></button>`);
       if(x.orden_id) actions.push(`<button class="quote-action-button" type="button" data-action="ver-orden" data-id="${esc(x.orden_id)}"><i data-lucide="eye"></i><span>Ver OT</span></button>`);
       actions.push(`<a class="quote-action-button quote-action-pdf" href="/api/cotizaciones/${esc(x.id)}/pdf" download><i data-lucide="file-down"></i><span>Descargar PDF</span></a>`);
@@ -4795,44 +5335,165 @@
   async function quoteForm(preselectedOrderId=""){return portalUI.quoteForm(preselectedOrderId);}
 
   async function quoteAction(action,id){
-    if(action==="enviar-cotizacion"){try{await api(`/api/cotizaciones/${id}/enviar`,{method:"POST",body:{}});showToast("Cotización enviada.");navigate("cotizaciones");}catch(err){showToast(err.message,"error");}return;}
+    if(action==="enviar-cotizacion"){
+      let sent=false;
+      try{
+        await api(`/api/cotizaciones/${id}/enviar`,{method:"POST",body:{}});sent=true;
+        closeModal();await navigate("cotizaciones",{force:true});
+        await portalUI.handle("detalle-cotizacion",id);
+        showToast("Cotización enviada.");
+      }catch(err){showToast(sent?"Cotización enviada, pero no se pudo abrir su detalle: "+err.message:err.message,"error");}
+      return;
+    }
     if(action==="responder-cotizacion"){
-      openModal("Responder cotización",`<form id="quoteResponse" class="form-grid"><div class="field"><label>Respuesta</label><select name="respuesta"><option>ACEPTADA</option><option>CAMBIOS</option><option>RECHAZADA</option></select></div><div class="field full"><label>Observaciones</label><textarea name="observaciones" placeholder="Describe cambios o motivo de rechazo cuando aplique"></textarea></div><div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary">Enviar respuesta</button></div></div></form>`);
-      $("#quoteResponse").addEventListener("submit",async e=>{e.preventDefault();try{await api(`/api/cotizaciones/${id}/responder`,{method:"POST",body:Object.fromEntries(new FormData(e.currentTarget).entries())});showToast("Respuesta registrada.");closeModal();navigate("cotizaciones");}catch(err){showToast(err.message,"error");}});return;
+      openModal("Responder cotización",`<form id="quoteResponse" class="form-grid"><div class="field"><label>Respuesta</label><select name="respuesta"><option value="">Seleccionar respuesta...</option><option value="ACEPTADA">Aceptar sin cambios</option><option value="CAMBIOS">Solicitar revisión / cambio de precio</option><option value="RECHAZADA">Rechazar</option></select></div><div class="field full"><label>Observaciones</label><textarea name="observaciones" placeholder="Describe cambios o motivo de rechazo cuando aplique"></textarea></div><div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary">Enviar respuesta</button></div></div></form>`);
+      $("#quoteResponse").addEventListener("submit",async e=>{e.preventDefault();const f=e.currentTarget,btn=f.querySelector('button[type="submit"],button.btn.primary');if(f.dataset.sending)return;const body=Object.fromEntries(new FormData(f).entries());if(!body.respuesta)return showToast("Seleccioná una respuesta.","error");if(body.respuesta==="ACEPTADA"&&String(body.observaciones||"").trim())return showToast("Si solicitás cambios elegí 'Solicitar revisión', no 'Aceptar'.","error");if(["CAMBIOS","RECHAZADA"].includes(body.respuesta)&&!String(body.observaciones||"").trim())return showToast("Describí los cambios o el motivo.","error");f.dataset.sending="1";if(btn)btn.disabled=true;try{const result=await api(`/api/cotizaciones/${id}/responder`,{method:"POST",body});showToast(result.message||"Respuesta registrada.");closeModal();navigate("cotizaciones",{force:true});}catch(err){showToast(err.message,"error");}finally{delete f.dataset.sending;if(btn?.isConnected)btn.disabled=false;}});return;
     }
   }
 
   function documentHubHeader(tab) {
-    if (state.role === "CLIENTE") {
-      return `<section class="document-hub client-document-hub"><div class="document-hub-copy"><span class="document-hub-icon"><i data-lucide="folder-open"></i></span><div><span class="document-hub-kicker">ARCHIVO DIGITAL</span><h2>Mis documentos</h2><p>Consulta los archivos que enviaste y los documentos que SEPRIGUA compartió contigo.</p></div></div></section>`;
-    }
-    const serviceTab = state.role === "COORDINADOR" ? `<button class="document-hub-tab ${tab==="servicio"?"active":""}" type="button" data-action="documentos-tab" data-tab="servicio"><i data-lucide="file-check-2"></i><span><strong>Documentos del servicio</strong><small>OT, reportes y entregables</small></span></button>` : "";
-    const laborTab = `<button class="document-hub-tab ${tab==="laboral"?"active":""}" type="button" data-action="documentos-tab" data-tab="laboral"><i data-lucide="folder-user"></i><span><strong>${state.role==="TECNICO"?"Mi expediente":"Expedientes de personal"}</strong><small>${state.role==="TECNICO"?"Mis documentos laborales":"CV, DPI, permisos y constancias"}</small></span></button>`;
-    return `<section class="document-hub"><div class="document-hub-copy"><span class="document-hub-icon"><i data-lucide="folders"></i></span><div><span class="document-hub-kicker">ARCHIVO DIGITAL</span><h2>Centro de documentos</h2><p>${state.role==="COORDINADOR"?"Consulta los documentos de los servicios y mantén organizado el expediente de cada empleado.":"Consulta y agrega documentos de tu expediente laboral."}</p></div></div><div class="document-hub-tabs">${serviceTab}${laborTab}</div></section>`;
+    // Un solo expediente personal: archivos privados sin OT y documentos laborales.
+    // Se mantiene la vista de documentos del servicio completamente separada.
+    const serviceTab = state.role !== "TECNICO"
+      ? `<button class="document-hub-tab ${tab==="servicio"?"active":""}" type="button" data-action="documentos-tab" data-tab="servicio"><i data-lucide="file-check-2"></i><span><strong>Documentos del servicio</strong><small>OT, reportes y entregables</small></span></button>`
+      : "";
+    const laborTitle = "Expediente personal";
+    const laborDetail = "Documentos privados, sin OT";
+    const laborTab = `<button class="document-hub-tab ${tab==="laboral"?"active":""}" type="button" data-action="documentos-tab" data-tab="laboral"><i data-lucide="folder-user"></i><span><strong>${laborTitle}</strong><small>${laborDetail}</small></span></button>`;
+    const heading = state.role === "COORDINADOR" ? "Centro de documentos" : "Mis documentos";
+    const note = state.role === "COORDINADOR"
+      ? "Consulta los documentos del servicio y los expedientes personales en un solo lugar."
+      : "Consulta tu expediente personal y los documentos asociados a servicios.";
+    return `<section class="document-hub ${state.role==="CLIENTE"?"client-document-hub":""}"><div class="document-hub-copy"><span class="document-hub-icon"><i data-lucide="folders"></i></span><div><span class="document-hub-kicker">ARCHIVO DIGITAL</span><h2>${heading}</h2><p>${note}</p></div></div><div class="document-hub-tabs">${serviceTab}${laborTab}</div></section>`;
   }
 
+  // Expediente único. Las cuentas cargan sus propios archivos y el backend
+  // garantiza: usuario propietario o cualquier cuenta COORDINADOR.
+  // Los documentos laborales antiguos se consultan aquí, sin pestaña ni
+  // formulario adicional. No se migra ni elimina el historial existente.
+  async function genericDocumentUploadForm(){
+    const coordinador=state.role==="COORDINADOR";
+    openModal("Subir documento",`<form id="genericDocumentUploadForm" class="form-grid" enctype="multipart/form-data">
+      <div class="field full"><div class="document-upload-note"><i data-lucide="shield-check"></i><div><strong>Tu expediente personal, sin vincular a una OT.</strong><span>${coordinador?"Este archivo podrá ser consultado por los coordinadores.":"Este archivo solo podrá ser consultado por tu cuenta y los coordinadores."} Se aceptan PDF, imágenes, Word, Excel, CSV, XML o TXT (máximo 12 MB).</span></div></div></div>
+      <div class="field full"><label>Archivo<input type="file" name="archivo" accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx,.csv,.xml,.txt" required></label></div>
+      <div class="field full"><label>Descripción (opcional)<textarea name="descripcion" maxlength="500" placeholder="Descripción del documento"></textarea></label></div>
+      <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit">Guardar documento</button></div></div>
+    </form>`);
+    const form=$("#genericDocumentUploadForm");
+    form?.addEventListener("submit",async e=>{
+      e.preventDefault();if(form.dataset.sending)return;form.dataset.sending="1";
+      const btn=form.querySelector('[type="submit"]');btn.disabled=true;
+      try{
+        const result=await api("/api/archivos-usuario",{method:"POST",body:new FormData(form)});
+        closeModal();showToast(result.message||"Documento guardado.");await renderDocumentos();
+      }catch(err){showToast(err.message,"error");}
+      finally{delete form.dataset.sending;if(btn.isConnected)btn.disabled=false;}
+    });
+    window.lucide?.createIcons();
+  }
 
-  async function renderLaborDocuments() {
-    const suffix=state.role==="COORDINADOR"&&state.documentos.empleadoId?`?empleado_id=${encodeURIComponent(state.documentos.empleadoId)}`:"";
-    const payload=await api(`/api/documentos-laborales${suffix}`);
-    const all=payload.items||[];
-    const types=smartUnique(all,x=>String(x.tipo_documento||"").toUpperCase());
-    const employees=smartUnique(all,x=>x.empleado||"");
-    const result=smartListData("documentos-laborales",all,{
+  function refreshDocumentLists(){
+    invalidateApiCache(["/api/archivos-usuario","/api/documentos-laborales","/api/documentos"]);
+    invalidateListCache("documentos");
+    invalidateViewCache("documentos");
+    return renderDocumentos();
+  }
+
+  function documentEditForm(trigger){
+    const id=Number(trigger.dataset.id);
+    const origin=trigger.dataset.origin;
+    const name=trigger.dataset.name||"Documento";
+    const description=trigger.dataset.description||"";
+    if(!id)return showToast("Documento inválido.","error");
+    const labor=origin==="laboral",personal=origin==="usuario",client=origin==="CLIENTE";
+    const url=labor?`/api/documentos-laborales/${id}`:personal?`/api/archivos-usuario/${id}`:client?`/api/documentos-cliente/${id}`:`/api/documentos-servicio/${id}`;
+    const fileField=(personal||client)?`<div class="field full"><label>Reemplazar archivo (opcional)</label><input type="file" name="archivo" accept="${personal?".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx,.csv,.xml,.txt":"application/pdf,image/jpeg,image/png,image/webp"}"><small>Si no elegís un archivo, se conserva el actual.</small></div>`:"";
+    const fields=labor?`<div class="field full"><label>Tipo de documento</label><input name="tipo_documento" maxlength="100" value="${esc(name)}" required></div>
+      <div class="field"><label>Número</label><input name="numero_documento" maxlength="80" value="${esc(trigger.dataset.number||"")}"></div>
+      <div class="field"><label>Fecha de emisión</label><input type="date" name="fecha_emision" value="${esc(trigger.dataset.issued||"")}"></div>
+      <div class="field"><label>Fecha de vencimiento</label><input type="date" name="fecha_vencimiento" value="${esc(trigger.dataset.expires||"")}"></div>
+      <div class="field full"><label>Observaciones</label><textarea name="observaciones" maxlength="500">${esc(trigger.dataset.notes||"")}</textarea></div>`:
+      `<div class="field full"><label>${personal||client?"Descripción":"Observaciones"}</label><textarea name="${personal||client?"descripcion":"observaciones"}" maxlength="${personal?500:client?600:1200}">${esc(description)}</textarea></div>${fileField}`;
+    openModal(`Editar ${name}`,`<form id="documentEditForm" class="form-grid" enctype="multipart/form-data">
+      <div class="field full"><p class="muted">${labor?"Editá los datos del expediente; el archivo se conserva.":client||personal?"Podés cambiar la descripción y, si hace falta, reemplazar el archivo.":"El documento generado conserva su contenido y número; aquí se actualizan sus observaciones."}</p></div>
+      ${fields}<div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit">Guardar cambios</button></div></div>
+    </form>`);
+    const form=$("#documentEditForm");
+    form?.addEventListener("submit",async event=>{
+      event.preventDefault();if(form.dataset.sending)return;form.dataset.sending="1";
+      const submit=form.querySelector('[type="submit"]');submit.disabled=true;
+      try{
+        const body=(labor||(!personal&&!client))?Object.fromEntries(new FormData(form).entries()):new FormData(form);
+        const response=await api(url,{method:"PATCH",body});
+        closeModal();showToast(response.message||"Documento actualizado.");await refreshDocumentLists();
+      }catch(error){showToast(error.message,"error");}
+      finally{delete form.dataset.sending;if(submit.isConnected)submit.disabled=false;}
+    });
+  }
+
+  async function deleteDocumentFromView(trigger){
+    const id=Number(trigger.dataset.id),origin=trigger.dataset.origin;
+    if(!id)return showToast("Documento inválido.","error");
+    const official=origin==="SEPRIGUA";
+    const question=official?"¿Eliminar este documento de la vista? Se conservará el historial de anulación.":"¿Eliminar este documento y su archivo? Esta acción no se puede deshacer.";
+    if(!confirm(question))return;
+    const url=origin==="usuario"?`/api/archivos-usuario/${id}/permanente`:
+      origin==="laboral"?`/api/documentos-laborales/${id}`:
+      origin==="CLIENTE"?`/api/documentos-cliente/${id}`:`/api/documentos-servicio/${id}`;
+    try{
+      trigger.disabled=true;
+      const response=await api(url,{method:"DELETE"});
+      showToast(response.message||"Documento eliminado.");await refreshDocumentLists();
+    }catch(error){showToast(error.message,"error");if(trigger.isConnected)trigger.disabled=false;}
+  }
+
+  async function renderPersonalDocuments(){
+    const focused=state.role==="COORDINADOR"?String(state.documentos.empleadoId||""):"";
+    const personal=await api("/api/archivos-usuario");
+    const all=[];
+    if(!focused){
+      for(const x of (personal.items||[]).filter(x=>x.activo)){
+        all.push({origen:"usuario",id:x.id,nombre:x.nombre||"Documento",descripcion:x.descripcion||"",
+          titular:x.usuario||"Mi cuenta",rol:x.rol||state.role,tipo:"Archivo",creado:x.creado,
+          activo:true,search:[x.usuario,x.rol,x.nombre,x.descripcion].join(" ")});
+      }
+    }
+    let legacyWarning="";
+    if(state.role!=="CLIENTE"){
+      const suffix=focused?`?empleado_id=${encodeURIComponent(focused)}`:"";
+      try{
+        const legacy=await api(`/api/documentos-laborales${suffix}`);
+        for(const x of legacy.items||[]){
+          all.push({origen:"laboral",id:x.id,nombre:x.tipo_documento||"Documento",descripcion:x.numero_documento||x.observaciones||"",
+            titular:x.empleado||"Empleado",rol:"TECNICO",tipo:x.tipo_documento||"Documento",
+            creado:x.creado,activo:!!x.activo,verificado:!!x.verificado,archivo_url:x.archivo_url||"",
+            numero_documento:x.numero_documento||"",observaciones:x.observaciones||"",
+            fecha_emision:String(x.fecha_emision||"").slice(0,10),fecha_vencimiento:String(x.fecha_vencimiento||"").slice(0,10),
+            empleado_id:x.empleado_id,search:[x.empleado,x.codigo_empleado,x.tipo_documento,x.numero_documento,x.observaciones].join(" ")});
+        }
+      }catch(err){legacyWarning=`<p class="muted" role="status">Algunos documentos existentes no se pudieron consultar: ${esc(err.message||"Error de lectura")}</p>`;}
+    }
+    const result=smartListData("expediente-unico",all,{
       defaults:{orden:"creado",direccion:"DESC"},
-      search:x=>[x.codigo_empleado,x.empleado,x.puesto,x.tipo_documento,x.numero_documento,x.observaciones],
-      filters:{tipo:x=>String(x.tipo_documento||"").toUpperCase(),empleado:x=>x.empleado||"",vigencia:x=>x.activo?"ACTIVO":"ARCHIVADO",verificado:x=>x.verificado?"VERIFICADO":"PENDIENTE"},
-      sort:{creado:x=>smartDateValue(x.creado),empleado:x=>x.empleado||"",tipo:x=>x.tipo_documento||"",vencimiento:x=>smartDateValue(x.fecha_vencimiento)}
+      search:x=>[x.nombre,x.descripcion,x.titular,x.tipo,x.search],
+      filters:{vigencia:x=>x.activo?"ACTIVO":"ARCHIVADO"},
+      sort:{creado:x=>smartDateValue(x.creado),nombre:x=>x.nombre||"",titular:x=>x.titular||""}
     });
-    const filters=[{name:"tipo",label:"Tipo",options:types},{name:"vigencia",label:"Vigencia",options:[["ACTIVO","Activo"],["ARCHIVADO","Archivado"]]},{name:"verificado",label:"Revisión",options:[["VERIFICADO","Verificado"],["PENDIENTE","Pendiente"]]}];
-    if(state.role==="COORDINADOR"&&!state.documentos.empleadoId)filters.unshift({name:"empleado",label:"Empleado",options:employees});
     const rows=result.items.map(x=>{
-      const verify=state.role==="COORDINADOR"&&!x.verificado?button("Verificar","verificar-documento-laboral",x.id):"";
-      const active=state.role==="COORDINADOR"?button(x.activo?"Archivar":"Reactivar","estado-documento-laboral",x.id,x.activo?"":"primary"):"";
-      return `<tr><td><strong>${esc(x.empleado||"—")}</strong><br><small class="muted">${esc(x.codigo_empleado||"")} · ${esc(x.puesto||"—")}</small></td><td>${esc(x.tipo_documento||"—")}</td><td>${esc(x.numero_documento||"—")}</td><td>${x.fecha_vencimiento?fmt(x.fecha_vencimiento):"—"}</td><td>${x.verificado?`<span class="badge green">VERIFICADO</span>`:`<span class="badge orange">PENDIENTE</span>`}</td><td>${x.activo?`<span class="badge green">ACTIVO</span>`:`<span class="badge">ARCHIVADO</span>`}</td><td><div class="actions compact"><a class="btn small" href="${esc(x.archivo_url)}" target="_blank" rel="noopener">Abrir</a><a class="btn small" href="${esc(x.archivo_url)}?download=1">Descargar</a>${verify}${active}</div></td></tr>`;
+      const personalFile=x.origen==="usuario";
+      const target=personalFile?`/api/archivos-usuario/${Number(x.id)}/archivo`:x.archivo_url;
+      const download=target?`<a class="btn small" href="${esc(target)}${personalFile?'':'?download=1'}" download><i data-lucide="download"></i> Descargar</a>`:"";
+      const verify=!personalFile&&state.role==="COORDINADOR"&&x.activo&&!x.verificado?button("Verificar","verificar-documento-laboral",x.id):"";
+      const archive=personalFile?`<button class="btn small" type="button" data-action="archivar-archivo-usuario" data-id="${Number(x.id)}"><i data-lucide="archive"></i> Archivar</button>`:
+        state.role==="COORDINADOR"?button(x.activo?"Archivar":"Reactivar","estado-documento-laboral",x.id):"";
+      const canEdit=personalFile || (x.activo && (state.role==="COORDINADOR" || !x.verificado));
+      const edit=canEdit?`<button class="btn small" type="button" data-action="editar-documento-personal" data-id="${Number(x.id)}" data-origin="${esc(x.origen)}" data-name="${esc(x.nombre)}" data-description="${esc(x.descripcion)}" data-number="${esc(x.numero_documento||"")}" data-notes="${esc(x.observaciones||"")}" data-issued="${esc(x.fecha_emision||"")}" data-expires="${esc(x.fecha_vencimiento||"")}"><i data-lucide="pencil"></i> Editar</button>`:"";
+      const remove=(personalFile || state.role==="COORDINADOR" || !x.verificado)?`<button class="btn small danger" type="button" data-action="eliminar-documento-personal" data-id="${Number(x.id)}" data-origin="${esc(x.origen)}" data-name="${esc(x.nombre)}"><i data-lucide="trash-2"></i> Eliminar</button>`:"";
+      return `<tr><td><strong>${esc(x.nombre)}</strong>${x.descripcion?`<small class="table-subline">${esc(x.descripcion)}</small>`:""}</td>${state.role==="COORDINADOR"?`<td><strong>${esc(x.titular)}</strong><small class="table-subline">${esc(x.rol)}</small></td>`:""}<td>${fmt(x.creado)}</td><td>${x.activo?`<span class="badge green">ACTIVO</span>`:`<span class="badge">ARCHIVADO</span>`}</td><td><div class="actions compact">${download}${edit}${verify}${archive}${remove}</div></td></tr>`;
     });
-    const selectedNote=state.role==="COORDINADOR"&&state.documentos.empleadoId?`<button class="btn small" type="button" data-action="limpiar-expediente-personal"><i data-lucide="users"></i> Ver todos los empleados</button>`:"";
-    return `<section class="panel smart-list-panel labor-documents-panel"><div class="panel-header"><div><h2>${state.role==="TECNICO"?"Mis documentos laborales":"Expedientes de personal"}</h2><p class="muted">Currículum, DPI, antecedentes, permisos, constancias y otros documentos del expediente.</p></div><div class="actions">${selectedNote}<button class="btn primary" type="button" data-action="subir-documento-laboral"><i data-lucide="file-up"></i> Subir documento</button></div></div><div class="panel-body">${smartControls("documentos-laborales",{placeholder:"Empleado, documento, puesto o referencia",filters,sorts:[["creado","Fecha de carga"],["empleado","Empleado"],["tipo","Tipo"],["vencimiento","Vencimiento"]]})}${smartResultsMeta(result,"documentos")}</div>${table(["Empleado","Documento","Número / referencia","Vencimiento","Revisión","Vigencia","Acciones"],rows,"No hay documentos laborales que coincidan con los filtros.")}${smartPager("documentos-laborales",result)}</section>`;
+    const columns=state.role==="COORDINADOR"?["Documento","Titular","Fecha","Estado","Acciones"]:["Documento","Fecha","Estado","Acciones"];
+    const focusedNote=focused?`<div class="document-upload-note"><i data-lucide="user-round"></i><div><strong>Expediente de empleado seleccionado</strong><span>Los documentos existentes del colaborador se consultan aquí. Para volver a tu expediente y al listado general, presioná «Ver todos».</span></div></div>`:"";
+    return `<section class="panel smart-list-panel personal-documents-panel"><div class="panel-header"><div><h2>Expediente personal</h2><p class="muted">Un solo expediente para tus documentos, sin necesidad de una orden de trabajo. Los archivos se comparten únicamente según los permisos de cada cuenta.</p></div><div class="actions">${focused?`<button class="btn" type="button" data-action="limpiar-expediente-personal">Ver todos</button>`:`<button class="btn primary" type="button" data-action="subir-archivo-general"><i data-lucide="file-up"></i> Subir documento</button>`}</div></div>${focusedNote}${legacyWarning}<div class="panel-body">${smartControls("expediente-unico",{placeholder:"Buscar por documento o titular",filters:[{name:"vigencia",label:"Estado",options:[["ACTIVO","Activo"],["ARCHIVADO","Archivado"]]}],sorts:[["creado","Fecha"],["nombre","Documento"],["titular","Titular"]]})}${smartResultsMeta(result,"documentos")}</div>${table(columns,rows,"Todavía no hay documentos en este expediente.")}${smartPager("expediente-unico",result)}</section>`;
   }
 
   async function clientDocumentUploadForm(){
@@ -4878,8 +5539,15 @@
     return `<a class="document-download-button" href="${esc(item.ruta)}${suffix}" download><i data-lucide="download"></i><span>Descargar</span></a>`;
   }
 
+  function documentServiceActions(item){
+    const clientUpload=String(item.origen||"").toUpperCase()==="CLIENTE";
+    if(state.role!=="COORDINADOR" && !(state.role==="CLIENTE" && clientUpload))return "";
+    const attrs=`data-id="${Number(item.id)}" data-origin="${clientUpload?"CLIENTE":"SEPRIGUA"}" data-name="${esc(item.numero||"Documento")}" data-description="${esc(item.descripcion||"")}"`;
+    return `<button class="btn small" type="button" data-action="editar-documento-servicio" ${attrs}><i data-lucide="pencil"></i> Editar</button><button class="btn small danger" type="button" data-action="eliminar-documento-servicio" ${attrs}><i data-lucide="trash-2"></i> Eliminar</button>`;
+  }
+
   async function renderServiceDocuments() {
-    const all=(await loadAllPaged("documentos","/api/documentos")).items;
+    const all=filterSelectedDate("documentos",(await loadAllPaged("documentos","/api/documentos")).items);
     const states=smartUnique(all,x=>String(x.Estado||x.estado||"").toUpperCase());
     const categories=smartUnique(all,x=>String(x.categoria||"").toUpperCase());
     const origins=smartUnique(all,x=>String(x.origen||"").toUpperCase());
@@ -4893,33 +5561,30 @@
     if(state.role==="CLIENTE"){
       const rows=result.items.map(x=>{
         const own=String(x.origen||"").toUpperCase()==="CLIENTE";
-        return `<tr><td><div class="document-name-cell"><strong>${esc(x.numero||`Documento #${x.id}`)}</strong><small>${esc(x.formato||x.categoria||"Documento")}</small></div></td><td><span class="document-origin-badge ${own?"client":"seprigua"}"><i data-lucide="${own?"user-round":"building-2"}"></i>${own?"Enviado por ti":"Compartido por SEPRIGUA"}</span></td><td>${esc(x.orden||"—")}</td><td>${badge(x.Estado||x.estado)}</td><td>${fmt(x.generado||x.entregado)}</td><td>${documentDownloadLink(x)}</td></tr>`;
+        return `<tr><td><div class="document-name-cell"><strong>${esc(x.numero||`Documento #${x.id}`)}</strong><small>${esc(x.descripcion||x.formato||x.categoria||"Documento")}</small></div></td><td><span class="document-origin-badge ${own?"client":"seprigua"}"><i data-lucide="${own?"user-round":"building-2"}"></i>${own?"Enviado por ti":"Compartido por SEPRIGUA"}</span></td><td>${esc(x.orden||"—")}</td><td>${badge(x.Estado||x.estado)}</td><td>${fmt(x.generado||x.entregado)}</td><td><div class="actions compact">${documentDownloadLink(x)}${documentServiceActions(x)}</div></td></tr>`;
       });
-      return `<section class="panel smart-list-panel client-documents-panel"><div class="panel-header"><div><h2>Archivos disponibles</h2><p class="muted">Aquí solo aparecen tus archivos y los documentos de SEPRIGUA habilitados para tu empresa.</p></div><button class="btn primary document-upload-action" type="button" data-action="subir-documento-cliente"><i data-lucide="file-up"></i><span>Subir documento</span></button></div><div class="panel-body">${smartControls("documentos",{placeholder:"Documento, servicio o formato",filters:[{name:"origen",label:"Origen",options:origins},{name:"estado",label:"Estado",options:states}],sorts:[["generado","Fecha"],["documento","Documento"],["formato","Formato"],["estado","Estado"]]})}${smartResultsMeta(result,"documentos")}</div>${table(["Documento","Origen","Servicio","Estado","Fecha","Descarga"],rows,"No hay documentos que coincidan con los filtros.")}${smartPager("documentos",result)}</section>`;
+      return `<section class="panel smart-list-panel client-documents-panel"><div class="panel-header"><div><h2>Archivos disponibles</h2><p class="muted">Aquí solo aparecen tus archivos y los documentos de SEPRIGUA habilitados para tu empresa.</p></div></div><div class="panel-body">${smartControls("documentos",{placeholder:"Documento, servicio o formato",filters:[{name:"origen",label:"Origen",options:origins},{name:"estado",label:"Estado",options:states}],sorts:[["generado","Fecha"],["documento","Documento"],["formato","Formato"],["estado","Estado"]]})}${smartResultsMeta(result,"documentos")}</div>${table(["Documento","Origen","Servicio","Estado","Fecha","Acciones"],rows,"No hay documentos que coincidan con los filtros.")}${smartPager("documentos",result)}</section>`;
     }
 
-    const rows=result.items.map(x=>`<tr><td><div class="document-name-cell"><strong>${esc(x.numero||`#${x.id}`)}</strong><small>${esc(x.formato||"Documento")}</small></div></td><td><span class="document-origin-badge ${String(x.origen||"").toUpperCase()==="CLIENTE"?"client":"seprigua"}">${esc(String(x.origen||"SEPRIGUA").replaceAll("_"," "))}</span></td><td>${esc(x.orden)}</td><td>${esc(x.cliente)}</td><td>${badge(x.Estado||x.estado)}</td><td>${fmt(x.generado)}</td><td>${documentDownloadLink(x)}</td></tr>`);
-    return `<section class="panel smart-list-panel"><div class="panel-header"><div><h2>Documentos del servicio</h2><p class="muted">Documentos emitidos por SEPRIGUA y archivos enviados por clientes.</p></div></div><div class="panel-body">${smartControls("documentos",{placeholder:"Documento, formato, OT o cliente",filters:[{name:"origen",label:"Origen",options:origins},{name:"estado",label:"Estado",options:states},{name:"categoria",label:"Categoría",options:categories}],sorts:[["generado","Fecha"],["documento","Documento"],["cliente","Cliente"],["formato","Formato"],["estado","Estado"]]})}${smartResultsMeta(result,"documentos")}</div>${table(["Documento","Origen","Orden","Cliente","Estado","Generado","Descarga"],rows,"No hay documentos que coincidan con los filtros.")}${smartPager("documentos",result)}</section>`;
+    const rows=result.items.map(x=>`<tr><td><div class="document-name-cell"><strong>${esc(x.numero||`#${x.id}`)}</strong><small>${esc(x.descripcion||x.formato||"Documento")}</small></div></td><td><span class="document-origin-badge ${String(x.origen||"").toUpperCase()==="CLIENTE"?"client":"seprigua"}">${esc(String(x.origen||"SEPRIGUA").replaceAll("_"," "))}</span></td><td>${esc(x.orden)}</td><td>${esc(x.cliente)}</td><td>${badge(x.Estado||x.estado)}</td><td>${fmt(x.generado)}</td><td><div class="actions compact">${documentDownloadLink(x)}${documentServiceActions(x)}</div></td></tr>`);
+    return `<section class="panel smart-list-panel"><div class="panel-header"><div><h2>Documentos del servicio</h2><p class="muted">Documentos emitidos por SEPRIGUA y archivos enviados por clientes.</p></div></div><div class="panel-body">${smartControls("documentos",{placeholder:"Documento, formato, OT o cliente",filters:[{name:"origen",label:"Origen",options:origins},{name:"estado",label:"Estado",options:states},{name:"categoria",label:"Categoría",options:categories}],sorts:[["generado","Fecha"],["documento","Documento"],["cliente","Cliente"],["formato","Formato"],["estado","Estado"]]})}${smartResultsMeta(result,"documentos")}</div>${table(["Documento","Origen","Orden","Cliente","Estado","Generado","Acciones"],rows,"No hay documentos que coincidan con los filtros.")}${smartPager("documentos",result)}</section>`;
   }
 
 
   async function renderDocumentos(){
-    const defaultTab=state.role==="TECNICO"?"laboral":"servicio";
-    if(state.role==="CLIENTE")state.documentos.tab="servicio";
-    else if(state.role==="TECNICO")state.documentos.tab="laboral";
-    else if(!["servicio","laboral"].includes(state.documentos.tab))state.documentos.tab=defaultTab;
-    setHeading(state.role==="TECNICO"?"Mis documentos":state.role==="CLIENTE"?"Mis documentos":"Documentos",state.role==="TECNICO"?"Expediente laboral y archivos personales autorizados.":state.role==="CLIENTE"?"Tus archivos y documentos compartidos por SEPRIGUA.":"Archivo digital de servicios y expedientes de personal.");
+    if(!["servicio","laboral"].includes(state.documentos.tab))state.documentos.tab="laboral";
+    if(state.role==="TECNICO" && state.documentos.tab==="servicio")state.documentos.tab="laboral";
+    setHeading(state.role==="COORDINADOR"?"Documentos":"Mis documentos","Documentos del servicio y expediente personal, cada uno con sus permisos.");
     const hub=documentHubHeader(state.documentos.tab);
-    const body=state.documentos.tab==="laboral"?await renderLaborDocuments():await renderServiceDocuments();
+    const body=state.documentos.tab==="servicio"?await renderServiceDocuments():await renderPersonalDocuments();
     content.innerHTML=hub+body;
     window.lucide?.createIcons();
   }
 
-
   function paintNotificationList() {
     const host = $("#notificationList");
     if (!host) return;
-    const source = state.notifications || [];
+    const source = (state.notifications || []).filter(x=>!state.hideReadNotifications||!x.leida);
     const result=smartListData("notificaciones",source,{
       defaults:{orden:"fecha",direccion:"DESC"},
       search:x=>[x.titulo,x.mensaje,x.tipo,x.canal,x.entidad],
@@ -4930,7 +5595,7 @@
       host.innerHTML = `<div class="notification-empty"><span><i data-lucide="bell-off"></i></span><h3>No hay notificaciones</h3><p>No hay avisos que coincidan con los filtros actuales.</p></div>${smartPager("notificaciones",result)}`;
       window.lucide?.createIcons(); return;
     }
-    host.innerHTML = result.items.map(x => `<article class="notification-card ${x.leida ? "is-read" : "is-unread"}"><div class="notification-card-icon"><i data-lucide="${notificationIcon(x.tipo)}"></i></div><div class="notification-card-copy"><div class="notification-card-title"><strong>${esc(x.titulo)}</strong>${x.leida ? `<span class="read-label">Leída</span>` : `<span class="unread-label">Nueva</span>`}</div><p>${esc(x.mensaje)}</p><div class="notification-card-meta"><span>${esc(String(x.tipo || "AVISO").replaceAll("_", " "))}</span><span>•</span><time>${fmt(x.creada)}</time>${x.canal ? `<span>•</span><span>${esc(x.canal)}</span>` : ""}</div></div><div class="notification-card-actions">${notificationTargetButton(x)}${!x.leida ? button("Marcar leída", "leer-notificacion", x.id) : ""}</div></article>`).join("") + smartPager("notificaciones",result);
+    host.innerHTML = result.items.map(x => `<article class="notification-card ${x.leida ? "is-read" : "is-unread"}"><div class="notification-card-icon"><i data-lucide="${notificationIcon(x.tipo)}"></i></div><div class="notification-card-copy"><div class="notification-card-title"><strong>${esc(notificationReadableText(x.titulo))}</strong>${x.leida ? `<span class="read-label">Leída</span>` : `<span class="unread-label">Sin leer</span>`}</div><p>${esc(notificationReadableText(x.mensaje))}</p><div class="notification-card-meta"><span>${esc(notificationReadableText(x.tipo || "Aviso"))}</span><span>•</span><time>${fmt(x.creada)}</time>${x.canal ? `<span>•</span><span>${esc(notificationReadableText(x.canal))}</span>` : ""}</div></div><div class="notification-card-actions">${notificationTargetButton(x)}${!x.leida ? button("Marcar como leída", "leer-notificacion", x.id) : ""}</div></article>`).join("") + smartPager("notificaciones",result);
     window.lucide?.createIcons();
   }
 
@@ -4938,12 +5603,12 @@
   async function renderNotificaciones(){
     setHeading("Notificaciones", "Avisos de solicitudes, asignaciones, órdenes, cambios de alcance y cotizaciones.");
     const loaded=await loadAllPaged("notificaciones","/api/notificaciones?filtro=TODAS");
-    state.notifications=loaded.items||[];
+    state.notifications=filterSelectedDate("notificaciones",loaded.items||[]);
     const unread=state.notifications.filter(x=>!x.leida).length,total=state.notifications.length,read=total-unread;
     state.unreadNotifications=unread;
     const types=smartUnique(state.notifications,x=>String(x.tipo||"").toUpperCase());
     const result=smartListData("notificaciones",state.notifications,{defaults:{orden:"fecha",direccion:"DESC"},search:x=>[x.titulo,x.mensaje,x.tipo,x.canal],filters:{lectura:x=>x.leida?"LEIDAS":"NO_LEIDAS",tipo:x=>String(x.tipo||"").toUpperCase()},sort:{fecha:x=>smartDateValue(x.creada),titulo:x=>x.titulo||"",tipo:x=>x.tipo||"",lectura:x=>x.leida?1:0}});
-    content.innerHTML=`<section class="notification-summary-grid"><article class="notification-summary-card"><span class="summary-icon"><i data-lucide="bell-ring"></i></span><div><small>Total de avisos</small><strong>${total}</strong></div></article><article class="notification-summary-card accent"><span class="summary-icon"><i data-lucide="circle-alert"></i></span><div><small>Pendientes de leer</small><strong>${unread}</strong></div></article><article class="notification-summary-card"><span class="summary-icon"><i data-lucide="circle-check-big"></i></span><div><small>Revisadas</small><strong>${read}</strong></div></article></section><section class="panel notification-center smart-list-panel"><div class="panel-header notification-center-header"><div><h2>Centro de notificaciones</h2><p class="muted">Cada usuario ve únicamente los avisos asociados a su cuenta.</p></div><div class="actions"><button class="btn small" type="button" data-action="refrescar-notificaciones"><i data-lucide="refresh-cw"></i> Actualizar</button><button class="btn small primary" type="button" data-action="leer-todas-notificaciones" ${unread?"":"disabled"}>Marcar todas leídas</button></div></div><div class="panel-body">${smartControls("notificaciones",{placeholder:"Título, mensaje o tipo",filters:[{name:"lectura",label:"Lectura",options:[["NO_LEIDAS","No leídas"],["LEIDAS","Leídas"]]},{name:"tipo",label:"Tipo",options:types}],sorts:[["fecha","Fecha"],["titulo","Título"],["tipo","Tipo"],["lectura","Lectura"]]})}${smartResultsMeta(result,"avisos")}</div><div class="notification-list" id="notificationList"></div></section>`;
+    content.innerHTML=`<section class="notification-summary-grid"><article class="notification-summary-card"><span class="summary-icon"><i data-lucide="bell-ring"></i></span><div><small>Total de avisos</small><strong>${total}</strong></div></article><article class="notification-summary-card accent"><span class="summary-icon"><i data-lucide="circle-alert"></i></span><div><small>Pendientes de leer</small><strong>${unread}</strong></div></article><article class="notification-summary-card"><span class="summary-icon"><i data-lucide="circle-check-big"></i></span><div><small>Revisadas</small><strong>${read}</strong></div></article></section><section class="panel notification-center smart-list-panel"><div class="panel-header notification-center-header"><div><h2>Centro de notificaciones</h2><p class="muted">Cada usuario ve únicamente los avisos asociados a su cuenta.</p></div><div class="actions"><button class="btn small" type="button" data-action="alternar-leidas"><i data-lucide="${state.hideReadNotifications?"eye":"eye-off"}"></i> ${state.hideReadNotifications?"Mostrar leídas":"Ocultar leídas"}</button><button class="btn small" type="button" data-action="refrescar-notificaciones"><i data-lucide="refresh-cw"></i> Actualizar</button><button class="btn small primary" type="button" data-action="leer-todas-notificaciones" ${unread?"":"disabled"}>Marcar todas leídas</button></div></div><div class="panel-body">${smartControls("notificaciones",{placeholder:"Título, mensaje o tipo",filters:[{name:"lectura",label:"Lectura",options:[["NO_LEIDAS","No leídas"],["LEIDAS","Leídas"]]},{name:"tipo",label:"Tipo",options:types}],sorts:[["fecha","Fecha"],["titulo","Título"],["tipo","Tipo"],["lectura","Lectura"]]})}${smartResultsMeta(result,"avisos")}</div><div class="notification-list" id="notificationList"></div></section>`;
     paintNotificationList();refreshNotificationBadge().catch(()=>{});window.lucide?.createIcons();
   }
 
@@ -5071,7 +5736,6 @@
     openModal("Editar mi información",`<form id="ownProfileForm" class="form-grid own-profile-form">
       <div class="field full"><div class="profile-edit-note"><i data-lucide="user-round-check"></i><div><strong>Esta información sí la puedes actualizar tú.</strong><span>Tu usuario, rol, permisos y estado de acceso siguen protegidos y se administran desde Coordinación.</span></div></div></div>
       ${fields}
-      <div class="field full"><label>Correo de acceso <small>(opcional)</small></label><input type="email" name="correo_acceso" maxlength="160" value="${esc(p.correo_acceso||"")}" autocomplete="email"><small>También puedes usarlo como dato de acceso cuando esté registrado.</small></div>
       <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit"><i data-lucide="save"></i> Guardar cambios</button></div></div>
     </form>`);
     const form=$("#ownProfileForm");
@@ -5097,13 +5761,43 @@
     window.lucide?.createIcons();
   }
 
+  function openAccessEmailEditor(){
+    const current=state.account?.correo_acceso||"";
+    openModal("Editar correo de acceso",`<form id="accessEmailForm" class="form-grid own-profile-form">
+      <div class="field full"><label for="accessEmailInput">Correo de acceso al portal</label><input id="accessEmailInput" type="email" name="correo_acceso" maxlength="160" value="${esc(current)}" autocomplete="email" required><small>Podrás ingresar al portal con este correo. Tu nombre de usuario no cambiará.</small></div>
+      <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit"><i data-lucide="save"></i> Guardar correo</button></div></div>
+    </form>`);
+    const form=$("#accessEmailForm");
+    form?.addEventListener("submit",async e=>{
+      e.preventDefault();
+      const submit=form.querySelector('button[type="submit"]');
+      submit.disabled=true;
+      try{
+        const correo_acceso=form.elements.correo_acceso.value.trim();
+        const result=await api("/api/cuenta/correo-acceso",{method:"PATCH",body:{correo_acceso}});
+        state.account=result.item||state.account;
+        closeModal();
+        invalidateViewCache("cuenta");
+        showToast(result.message||"Correo de acceso actualizado.");
+        await renderCuenta();
+      }catch(err){
+        showToast(err.message,"error");
+        submit.disabled=false;
+      }
+    });
+    window.lucide?.createIcons();
+    form?.elements.correo_acceso?.focus();
+  }
+
   async function renderCuenta(){
     setHeading("Mi cuenta", "Actualiza tu información personal, protege tu contraseña y administra tus sesiones.");
-    const [profileData, sessionsData, pushConfig, pushDevices]=await Promise.all([
+    const endpointHash = await currentPushEndpointHash().catch(() => "");
+    const [profileData, sessionsData, pushConfig, pushDevices, recoveryData]=await Promise.all([
       api("/api/cuenta"),
-      api("/api/cuenta/sesiones"),
-      getPushConfig(),
-      api("/api/push/dispositivos").catch(()=>({items:[]}))
+      api("/api/cuenta/sesiones").catch(()=>({items:[]})),
+      getPushConfig().catch(()=>({enabled:false})),
+      api(`/api/push/dispositivos${endpointHash ? `?endpoint_hash=${endpointHash}` : ""}`).catch(()=>({items:[]})),
+      api("/api/cuenta/recuperacion").catch(()=>({configured:false}))
     ]);
     const p=profileData.item||{}; state.account=p;
     const isClient=state.role==="CLIENTE";
@@ -5112,23 +5806,65 @@
       : `${accountValue("Código de empleado",p.empleado_codigo,"badge-check")}${accountValue("Puesto",p.puesto,"briefcase-business")}${accountValue("Disponibilidad",p.disponibilidad,"activity")}${accountValue("Teléfono",p.telefono,"phone")}${accountValue("Teléfono alterno",p.telefono_alterno,"phone-call")}${accountValue("Correo",p.correo_personal,"mail")}`;
     const sessions=(sessionsData.items||[]).map(x=>`<article class="session-card ${x.actual?"current":""}"><span class="session-device"><i data-lucide="monitor-smartphone"></i></span><div class="session-copy"><div><strong>${esc(describeAgent(x.agente))}</strong>${x.actual?`<span class="session-current">Sesión actual</span>`:""}</div><p>${esc(x.ip||"IP no disponible")} · inició ${fmt(x.iniciada)}</p><small>Expira ${fmt(x.expira)}</small></div></article>`).join("")||`<div class="empty-state">No hay sesiones activas para mostrar.</div>`;
     content.innerHTML=`
-      <section class="account-hero-card"><div class="account-avatar"><i data-lucide="user-round"></i></div><div class="account-hero-copy"><span>${esc(state.role.replaceAll("_"," "))}</span><h2>${esc(p.nombre||state.user.nombre||state.user.usuario)}</h2><p>${esc(p.usuario||state.user.usuario)}${p.cliente?` · ${esc(p.cliente)}`:""}</p></div><div class="account-status"><span></span> Cuenta activa</div></section>
+      <section class="account-hero-card"><div class="account-avatar${p.foto_url?" has-profile-photo":""}">${p.foto_url?`<img class="account-profile-photo" src="${esc(p.foto_url)}" alt="Fotografía de perfil">`:`<i data-lucide="user-round"></i>`}</div><div class="account-hero-copy"><span>${esc(state.role.replaceAll("_"," "))}</span><h2>${esc(p.nombre||state.user.nombre||state.user.usuario)}</h2><p>${esc(p.usuario||state.user.usuario)}${p.cliente?` · ${esc(p.cliente)}`:""}</p></div><div class="account-status"><span></span> Cuenta activa</div></section>
       <div class="account-grid">
+        <section class="panel account-panel photo-profile-panel"><div class="panel-header"><div><h2>Fotografía de perfil</h2><p class="muted">La imagen se guarda en el servidor y se comparte en tus avatares.</p></div></div><div class="panel-body profile-photo-controls"><div class="profile-photo-preview-frame"><img class="account-profile-photo profile-photo-preview" src="${esc(p.foto_url||"")}" alt="Vista previa de tu fotografía" ${p.foto_url?"":"hidden"}><div class="profile-photo-placeholder" ${p.foto_url?"hidden":""}><i data-lucide="camera"></i><strong>Mi perfil</strong></div></div><div class="profile-photo-form"><label for="profilePhotoInput">Selecciona una imagen JPG, PNG o WEBP</label><input id="profilePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" ${p.foto_cambio_bloqueado?"disabled":""}><small class="profile-photo-help">Recorta y ajusta tu imagen antes de guardarla. Primera carga libre; después, un cambio cada 30 días. Máximo 5 MB.</small>${p.foto_cambio_bloqueado?`<small class="profile-photo-cooldown">Podrás cambiarla nuevamente el ${esc(new Date(p.foto_cambio_disponible_en).toLocaleDateString("es-GT"))}.</small>`:""}<button class="btn primary small" type="button" data-action="subir-foto-perfil" ${p.foto_cambio_bloqueado?"disabled":""}>Guardar fotografía</button></div></div></section>
         <section class="panel account-panel"><div class="panel-header account-profile-header"><div><h2>Información del perfil</h2><p class="muted">Tus datos personales y de contacto.</p></div><button class="btn small account-edit-button" type="button" data-action="editar-mi-perfil"><i data-lucide="pencil"></i><span>Editar mi información</span></button></div><div class="panel-body"><div class="account-data-grid">${accountValue("Nombre",p.nombre,"user-round")}${accountValue("Usuario",p.usuario,"at-sign")}${accountValue("Rol",state.role.replaceAll("_"," "),"shield-check")}${accountValue("Último acceso",fmt(p.ultimo_acceso),"clock-3")}${roleDetails}</div></div></section>
-        <section class="panel account-panel"><div class="panel-header"><div><h2>Acceso al portal</h2><p class="muted">Credenciales y permisos protegidos.</p></div></div><div class="panel-body"><div class="account-data-grid">${accountValue("Correo de acceso",p.correo_acceso,"mail")}${accountValue("Usuario",p.usuario,"at-sign")}</div><div class="private-account-note"><i data-lucide="shield-check"></i><span>Puedes editar tu información personal, correo de acceso y contraseña. El nombre de usuario, rol, permisos y estado de la cuenta continúan bajo administración de Coordinación.</span></div></div></section>
+        <section class="panel account-panel"><div class="panel-header account-profile-header"><div><h2>Acceso al portal</h2><p class="muted">Tu correo de acceso se puede actualizar aquí.</p></div><button class="btn small account-edit-button" type="button" data-action="editar-correo-acceso"><i data-lucide="pencil"></i><span>Editar correo</span></button></div><div class="panel-body"><div class="account-data-grid">${accountValue("Correo de acceso",p.correo_acceso,"mail")}${accountValue("Usuario",p.usuario,"at-sign")}</div><div class="private-account-note"><i data-lucide="shield-check"></i><span>Solo el correo de acceso es editable en esta sección. El nombre de usuario, rol, permisos y estado de la cuenta continúan bajo administración de Coordinación.</span></div></div></section>
         <section class="panel account-panel password-panel"><div class="panel-header"><div><h2>Seguridad y contraseña</h2><p class="muted">Para cambiarla debes confirmar primero tu contraseña actual.</p></div></div><div class="panel-body"><form id="passwordForm" class="account-form"><div class="field"><label>Contraseña actual</label><div class="password-control"><input type="password" name="actual" autocomplete="current-password" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div></div><div class="field"><label>Nueva contraseña</label><div class="password-control"><input type="password" name="nueva" autocomplete="new-password" minlength="8" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div><small>Mínimo 8 caracteres, con mayúscula, minúscula y número.</small></div><div class="field"><label>Confirmar nueva contraseña</label><div class="password-control"><input type="password" name="confirmacion" autocomplete="new-password" minlength="8" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div></div><div class="form-actions"><button class="btn primary" type="submit">Cambiar contraseña</button></div></form></div></section>
+        <section class="panel account-panel"><div class="panel-header"><div><h2>Recuperación personal</h2><p class="muted">${recoveryData.configured?"Tu código de seguridad está configurado.":"Configura un código para restablecer tu contraseña sin ayuda del Coordinador."}</p></div></div><div class="panel-body"><form id="recoverySetupForm" class="account-form"><div class="field"><label>Confirma tu contraseña actual</label><div class="password-control"><input type="password" name="password" autocomplete="current-password" required></div></div><div class="form-actions"><button class="btn primary" type="submit">${recoveryData.configured?"Reemplazar código":"Generar código de seguridad"}</button></div></form><div id="recoveryCodeResult" hidden role="status" aria-live="polite" class="private-account-note" style="margin-top:16px;overflow-wrap:anywhere;flex-direction:column;align-items:flex-start"><strong>Guarda este código en un lugar privado. Solo se muestra ahora y se usa una vez.</strong><p id="recoveryCodeValue" style="font-family:monospace;font-size:1.2rem;letter-spacing:.08em;margin:4px 0"></p><button type="button" class="btn small" id="copyRecoveryCode">Copiar código</button></div></div></section>
         ${pushStatusMarkup(pushDevices.items||[], pushConfig||{})}
         <section class="panel account-panel sessions-panel"><div class="panel-header"><div><h2>Sesiones activas</h2><p class="muted">Revisa desde dónde está abierta tu cuenta.</p></div><button class="btn small danger" type="button" data-action="cerrar-otras-sesiones" ${(sessionsData.items||[]).filter(x=>!x.actual).length?"":"disabled"}>Cerrar otras sesiones</button></div><div class="panel-body"><div class="session-list">${sessions}</div></div></section>
       </div>`;
     window.lucide?.createIcons();
 
+    const photoInput = $("#profilePhotoInput");
+    let pendingPhotoFile = null;
+    photoInput?.addEventListener("change", async () => {
+      const file = photoInput.files?.[0];
+      const preview = $(".profile-photo-preview");
+      if (!file || !preview) return;
+      try {
+        const cropped = window.SEPRIGUAProfileCrop ? await window.SEPRIGUAProfileCrop.open(file) : file;
+        if (!cropped) { photoInput.value = ""; return; }
+        pendingPhotoFile = cropped;
+        if (preview.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
+        const objectUrl = URL.createObjectURL(cropped);
+        preview.dataset.objectUrl = objectUrl;
+        preview.src = objectUrl;
+        preview.hidden = false;
+        const placeholder = $(".profile-photo-placeholder");
+        if (placeholder) placeholder.hidden = true;
+      } catch (err) { photoInput.value = ""; showToast(err.message || "No se pudo ajustar la fotografía.", "error"); }
+    });
+    $("[data-action=\"subir-foto-perfil\"]")?.addEventListener("click", async event => {
+      const button = event.currentTarget;
+      const file = pendingPhotoFile;
+      if (!file) return showToast("Selecciona una fotografía primero.", "error");
+      const form = new FormData(); form.append("foto", file, file.name || "perfil.webp");
+      button.disabled = true;
+      try {
+        await api("/api/cuenta/foto", {method:"POST", body:form});
+        const me = await api("/api/auth/me", {seCache:"reload"});
+        if (me?.user) state.user = me.user;
+        syncPrototypeChrome();
+        invalidateViewCache("cuenta");
+        showToast("Fotografía guardada. Podrás cambiarla nuevamente en 30 días.");
+        const preview = $(".profile-photo-preview");
+        if (preview?.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
+        await renderCuenta();
+      } catch (err) { showToast(err.message, "error"); button.disabled = false; }
+    });
+
     $("#passwordForm")?.addEventListener("submit",async e=>{e.preventDefault();const form=e.currentTarget;const data=Object.fromEntries(new FormData(form).entries());if(data.nueva!==data.confirmacion)return showToast("La confirmación de la nueva contraseña no coincide.","error");const submit=form.querySelector('button[type="submit"]');submit.disabled=true;try{await api("/api/cuenta/contrasena",{method:"POST",body:data});form.reset();showToast("Contraseña actualizada correctamente.");refreshNotificationBadge().catch(()=>{});}catch(err){showToast(err.message,"error");}finally{submit.disabled=false;}});
+    $("#recoverySetupForm")?.addEventListener("submit",async e=>{e.preventDefault();const form=e.currentTarget;const submit=form.querySelector('button[type="submit"]');submit.disabled=true;try{const result=await api("/api/cuenta/recuperacion",{method:"POST",body:{password:form.elements.password.value}});form.reset();const box=$("#recoveryCodeResult");$("#recoveryCodeValue").textContent=result.code;box.hidden=false;showToast("Código generado. Guárdalo ahora; no volverá a mostrarse.");}catch(err){showToast(err.message,"error");}finally{submit.disabled=false;}});
+    $("#copyRecoveryCode")?.addEventListener("click",async()=>{try{await navigator.clipboard.writeText($("#recoveryCodeValue").textContent);showToast("Código copiado. Guárdalo en un lugar privado.");}catch(_err){showToast("Selecciona el código y cópialo manualmente.","error");}});
   }
 
 
   async function renderAuditoria(){
     setHeading("Auditoría", "Registro de altas, cambios y bajas realizados dentro del sistema.");
-    const all=(await loadAllPaged("auditoria","/api/auditoria")).items;
+    const all=filterSelectedDate("auditoria",(await loadAllPaged("auditoria","/api/auditoria")).items);
     const operations=smartUnique(all,x=>String(x.Operacion||x.operacion||"").toUpperCase());
     const tables=smartUnique(all,x=>`${x.Esquema||x.esquema||""}.${x.Tabla||x.tabla||""}`);
     const result=smartListData("auditoria",all,{
@@ -5465,15 +6201,18 @@
       if(a==="request-remove-filter") { const key=b.dataset.listKey||"solicitudes"; const prefs=smartPrefs(key); const name=b.dataset.filterName; prefs.filtros=Object.assign({},prefs.filtros||{}); if(name){ if(name==="rapido"||name==="rapidos"){ prefs.filtros.rapidos=["TODAS"]; prefs.filtros.rapido="TODAS"; } else { prefs.filtros[name]="TODOS"; } } prefs.pagina=1; return rerenderSmartList(key); }
       if(a==="request-remove-quick-filter") { const key=b.dataset.listKey||"solicitudes"; const prefs=smartPrefs(key); const quickKey=String(b.dataset.quickKey||"").toUpperCase(); prefs.filtros=Object.assign({},prefs.filtros||{}); let selected=normalizeQuickFilters(prefs.filtros.rapidos||prefs.filtros.rapido||"TODAS").filter(v=>v!==quickKey&&v!=="TODAS"); if(!selected.length) selected=["TODAS"]; prefs.filtros.rapidos=selected; prefs.filtros.rapido=selected[0]||"TODAS"; prefs.pagina=1; return rerenderSmartList(key); }
       if(a==="reintentar-modulo") return navigate(b.dataset.module || state.current, { force: true });
+      if(a==="descargar-reporte-semanal") return downloadWeeklyReport(b);
       if(a==="dashboard-ver-emergencias"||a==="dashboard-ver-solicitudes") return navigate("solicitudes");
       if(a==="dashboard-ver-cotizaciones") return navigate("cotizaciones");
       if(a==="dashboard-ver-garantias") return navigate("garantia");
       if(a==="dashboard-ver-capacidad") return navigate("equipo_mantenimiento");
       if(a==="dashboard-ver-resumen") return navigate("personas");
-      if(a==="dashboard-ver-ordenes"||a==="volver-ordenes") return navigate("ordenes");
+      if(a==="dashboard-ver-ordenes"||a==="volver-ordenes") return navigate("ordenes",{force:true});
       if(a==="dashboard-recent-page") { state.dashboardRecentPage=Math.max(1, Number(b.dataset.page||1)); return renderDashboard(); }
       if(a==="smart-page") { const key=b.dataset.listKey; const prefs=smartPrefs(key); prefs.pagina=Math.max(1,Number(b.dataset.page||1)); return rerenderSmartList(key); }
       if(a==="smart-reset") { const key=b.dataset.listKey; resetSmartPrefs(key); return rerenderSmartList(key); }
+      if(a==="importar-mis-sedes") return importarSucursales();
+      if(a==="importar-sedes-empresa") return importarSucursales(id);
       if(a==="nueva-sede") return sedeForm();
       if(a==="editar-sede") return sedeForm(id);
       if(a==="toggle-sede") return confirmSedeState(id);
@@ -5483,6 +6222,18 @@
         showToast(result.message||"Estado de sede actualizado.");closeModal();return renderMisSedes();
       }
       if(a==="ir-mis-sedes") {closeModal();return navigate("sedes");}
+      if(a==="nueva-sede-empresa") return adminSedeForm(id);
+      if(a==="editar-sede-empresa") return adminSedeForm(b.dataset.clienteId,id);
+      if(a==="estado-sede-empresa") return adminSedeCambiarEstado(b.dataset.clienteId,id,b.dataset.active==="1");
+      if(a==="confirmar-estado-sede-empresa") {
+        const clienteId=b.dataset.clienteId;
+        try{
+          const result=await api(`/api/clientes/${clienteId}/sedes/${id}/estado`,{method:"POST",body:{activo:b.dataset.active==="1"}});
+          showToast(result.message||"Estado actualizado.");
+          return openSedes(clienteId);
+        }catch(error){showToast(error.message,"error");return;}
+      }
+      if(a==="nueva-sede-usuario") return adminSedeForm(b.dataset.clienteId,null,id);
       if(a==="nuevo-cliente") return clientForm();
       if(a==="ver-cliente") return openClientDetail(id);
       if(a==="editar-cliente") return clientForm(id);
@@ -5493,8 +6244,20 @@
         showToast(result.message||"Estado del cliente actualizado.");closeModal();state.userAdmin.catalogos=null;state.catalogs={};return renderClientes();
       }
       if(a==="documentos-tab") { state.documentos.tab=b.dataset.tab||"servicio"; if(state.documentos.tab!=="laboral")state.documentos.empleadoId=""; return renderDocumentos(); }
-      if(a==="subir-documento-laboral") return documentLaborUploadForm(state.documentos.empleadoId||"");
+      if(a==="editar-documento-personal"||a==="editar-documento-servicio") return documentEditForm(b);
+      if(a==="eliminar-documento-personal"||a==="eliminar-documento-servicio") return deleteDocumentFromView(b);
+      if(a==="subir-archivo-general") return genericDocumentUploadForm();
+      if(a==="archivar-archivo-usuario"){
+        if(!confirm("¿Archivar este documento? No se borrará el historial."))return;
+        try{await api(`/api/archivos-usuario/${Number(id)}`,{method:"DELETE"});showToast("Documento archivado.");return renderDocumentos();}
+        catch(err){showToast(err.message,"error");}return;
+      }
       if(a==="subir-documento-cliente") return clientDocumentUploadForm();
+      if(a==="retirar-documento-cliente"){
+        if(!confirm("¿Retirar este documento de tus archivos? Esta acción no se puede deshacer."))return;
+        try{await api(`/api/documentos-cliente/${Number(id)}`,{method:"DELETE"});showToast("Documento retirado.");invalidateListCache("documentos");invalidateViewCache("documentos");await renderDocumentos();}
+        catch(err){showToast(err.message,"error");}return;
+      }
       if(a==="ver-expediente-personal") { state.documentos.tab="laboral";state.documentos.empleadoId=String(id||"");return navigate("documentos"); }
       if(a==="limpiar-expediente-personal") { state.documentos.empleadoId="";return renderDocumentos(); }
       if(a==="verificar-documento-laboral") { const r=await api(`/api/documentos-laborales/${id}/verificar`,{method:"POST",body:{}});showToast(r.message||"Documento verificado.");return renderDocumentos(); }
@@ -5507,6 +6270,7 @@
       if(a==="nuevo-usuario") return userForm();
       if(a==="ver-usuario") return openUserDetail(id);
       if(a==="editar-usuario") return userForm(id);
+      if(a==="sucursales-usuario") return manageUserBranches(id);
       if(a==="restablecer-usuario") return resetUserPassword(id);
       if(a==="cambiar-estado-usuario") return confirmUserState(id,b.dataset.active==="1",b.dataset.name||"");
       if(a==="confirmar-estado-usuario") {
@@ -5533,29 +6297,36 @@
       if(state.current==="agenda"&&state.agenda?.dirty&&["ver-orden","asignar-tecnico","cotizar-orden"].includes(a)){showToast("Guardá o restablecé la planificación antes de abrir otra acción.","error");return;}
       if(a==="ver-orden") return openOrder(id,"resumen",true);
       if(a==="volver-agenda") return renderAgendaOperativa();
-      if(a==="volver-ordenes") return navigate("ordenes");
+      if(a==="volver-ordenes") return navigate("ordenes",{force:true});
       if(a==="orden-paso") return openOrder(id,b.dataset.step||"resumen",false);
+      if(a==="suspender-orden") return suspendOrderForm(id);
+      if(a==="decidir-reprogramacion") return decideRescheduleForm(id);
       if(["cambiar-estado","iniciar-orden","finalizar-tecnico","asignar-tecnico","asignar-equipo","actividad","incidencia","resolver-incidencia","cambio-alcance","enviar-cambio","responder-cambio","editar-orden","evidencia","evidencia-solicitud"].includes(a)) return quickAction(a,id);
       if(a==="cotizar-orden") return quoteForm(id);
       if(a==="ir-cotizaciones"){closeModal();return navigate("cotizaciones");}
-      if(a==="ver-sedes") return openSedes(id); if(a==="nuevo-mantenimiento") return maintenanceForm(); if(a==="nueva-cotizacion") return quoteForm(); if(a==="ver-expediente-cotizacion") return openClientQuoteFlow(id); if(a==="volver-cotizaciones") return navigate("cotizaciones"); if(["enviar-cotizacion","responder-cotizacion"].includes(a)) return quoteAction(a,id);
+      if(a==="ver-sedes") return openSedes(id); if(a==="nuevo-mantenimiento") return maintenanceForm(); if(a==="nueva-cotizacion") return quoteForm(); if(a==="ver-expediente-cotizacion") return openClientQuoteFlow(id); if(a==="volver-cotizaciones") return navigate("cotizaciones",{force:true}); if(["enviar-cotizacion","responder-cotizacion"].includes(a)) return quoteAction(a,id);
       if(a==="guardar-disponibilidad"){const sel=$(`.availability[data-id="${CSS.escape(id)}"]`);await api(`/api/personal/${id}/disponibilidad`,{method:"PATCH",body:{disponibilidad:sel.value}});showToast("Disponibilidad actualizada.");return renderPersonal();}
       if(a==="guardar-equipo"){const sel=$(`.equipment-state[data-id="${CSS.escape(id)}"]`);await api(`/api/equipos/${id}/estado`,{method:"PATCH",body:{estado:sel.value}});showToast("Estado actualizado.");return renderEquipos();}
       if(a==="leer-notificacion"){
         await api(`/api/notificaciones/${id}/leer`,{method:"POST",body:{}});showToast("Notificación leída.");
+        resetNotificationViews();
         if(state.current==="notificaciones") return renderNotificaciones();
         return refreshNotificationBadge(true);
       }
       if(a==="leer-todas-notificaciones"){
         const result=await api("/api/notificaciones/leer-todas",{method:"POST",body:{}});showToast(result.message||"Notificaciones actualizadas.");
+        resetNotificationViews();
         if(state.current==="notificaciones") return renderNotificaciones();
         return refreshNotificationBadge(true);
       }
-      if(a==="refrescar-notificaciones"){invalidateListCache("notificaciones");return renderNotificaciones();}
+      if(a==="alternar-leidas"){state.hideReadNotifications=!state.hideReadNotifications;return renderNotificaciones();}
+      if(a==="refrescar-notificaciones"){resetNotificationViews();return renderNotificaciones();}
+      if(a==="refrescar-preview-notificaciones"){resetNotificationViews();return refreshNotificationBadge(true);}
       if(a==="ver-todas-notificaciones"){closeTopPopovers();return navigate("notificaciones");}
       if(a==="abrir-notificacion") return openNotificationTarget(b.dataset.entity,b.dataset.entityId,id);
       if(a==="abrir-cuenta"){closeTopPopovers();return navigate("cuenta");}
       if(a==="editar-mi-perfil") return openOwnProfileEditor();
+      if(a==="editar-correo-acceso") return openAccessEmailEditor();
       if(a==="activar-push"){try{await syncPushSubscription({prompt:true});showToast("Notificaciones activadas en este dispositivo.");pushClient.config=null;return renderCuenta();}catch(err){showToast(err.message,"error");}return;}
       if(a==="desactivar-push"){try{await disablePushOnThisDevice();showToast("Notificaciones desactivadas en este dispositivo.");return renderCuenta();}catch(err){showToast(err.message,"error");}return;}
       if(a==="probar-push"){try{const d=await api("/api/push/probar",{method:"POST",body:{}});showToast(d.message||"Prueba enviada.");}catch(err){showToast(err.message,"error");}return;}
@@ -5568,6 +6339,30 @@
     } catch(err){showToast(err.message,"error");}
   });
 
+  document.addEventListener("click", event => {
+    const clear = event.target.closest('[data-action="se-clear-date"]');
+    if (!clear) return;
+    event.preventDefault();
+    if (state.agenda?.dirty) { showToast("Guarda o descarta los cambios de agenda antes de cambiar fecha.","error"); return; }
+    try { sessionStorage.removeItem("seprigua_fecha_consulta"); } catch (_) {}
+    window.SEPRIGUASelectedDate = "";
+    document.dispatchEvent(new CustomEvent("seprigua:calendar-date",{detail:{date:""}}));
+  });
+
+  document.addEventListener("seprigua:calendar-date", event => {
+    if (!state.role) return;
+    if (state.agenda?.dirty) {
+      showToast("Guarda o descarta los cambios pendientes de agenda antes de cambiar fecha.","error");
+      event.preventDefault();
+      return;
+    }
+    state.dashboardRecentPage = 1;
+    if (event.detail?.date && state.current === "agenda") state.agenda.fecha = event.detail.date;
+    state.viewCache.clear();
+    // Reutiliza las consultas originales: la selección de fecha solo filtra registros visibles.
+    navigate(state.current,{force:true,loaderDelay:0}).catch(err=>showToast(err.message,"error"));
+  });
+
   notificationButton?.addEventListener("click",async e=>{
     e.stopPropagation();
     syncPopoverPortal();
@@ -5575,6 +6370,7 @@
     closeTopPopovers(opening?notificationPopover:null);
     notificationPopover.hidden=!opening;
     notificationButton.setAttribute("aria-expanded",String(opening));
+    if(opening) acknowledgeNotificationsView();
     if(opening){notificationPreview.innerHTML=`<div class="popover-loading">Cargando avisos...</div>`;try{await refreshNotificationBadge(true);}catch(err){notificationPreview.innerHTML=`<div class="popover-empty"><strong>No se pudieron cargar</strong><span>${esc(err.message)}</span></div>`;}window.lucide?.createIcons();}
   });
 
@@ -5604,7 +6400,7 @@
   menuButton?.addEventListener("click",()=>setSidebarOpen(!sidebar?.classList.contains("open")));
   sidebarScrim?.addEventListener("click",()=>setSidebarOpen(false));
   sidebarCollapseButton?.addEventListener("click",toggleDesktopSidebar);
-  window.addEventListener("resize",()=>{syncPopoverPortal();applySidebarPreference();closeTopPopovers();});
+  window.addEventListener("resize",()=>{syncPopoverPortal();applySidebarPreference();closeTopPopovers();requestAnimationFrame(keepActiveSidebarEntryVisible);});
   $("#logoutButton").addEventListener("click",confirmLogout);
   document.addEventListener("keydown", e => {
     if (e.key !== "Escape") return;
@@ -5613,8 +6409,31 @@
       else closeModal();
     }
     closeTopPopovers();
+    if (sidebar?.classList.contains("open")) {
+      setSidebarOpen(false);
+      menuButton?.focus?.({preventScroll:true});
+    }
   });
   const uiContext={api,state,esc,fmt,money,badge,button,table,openModal,closeModal,showToast,setHeading,content,navigate,openClientQuoteFlow,openOrder};
   const portalUI=window.SepriguaUI(uiContext),operationsUI=window.SepriguaOperations(uiContext);
+  // Otros formularios y acciones también reconstruyen #appContent directamente.
+  // Observamos sólo sus hijos inmediatos para recuperar el banner sin interferir
+  // con las filas, modales ni los cambios parciales dentro de cada módulo.
+  let moduleChromeQueued = false;
+  const moduleChromeObserver = new MutationObserver(records => {
+    if (!records.some(record => record.target === content && [...record.addedNodes].some(node => node.nodeType === 1))) return;
+    if (moduleChromeQueued) return;
+    moduleChromeQueued = true;
+    queueMicrotask(() => {
+      moduleChromeQueued = false;
+      if (!content.firstElementChild || content.classList.contains("se-module-switching") ||
+          content.dataset.renderedModule !== state.current) return;
+      renderRoleModuleHero();
+      decorateModuleHeader();
+      enhanceRenderedContent();
+      saveViewSnapshot(state.current);
+    });
+  });
+  moduleChromeObserver.observe(content, { childList: true });
   window.lucide?.createIcons(); init();
 })();

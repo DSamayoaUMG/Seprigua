@@ -6,6 +6,20 @@ def notify_users(b,cur,user_ids,event,title,message,entity,entity_id):
           WHERE UsuarioId=? AND Tipo=? AND Entidad=? AND EntidadId=? AND Mensaje=? AND CreadaEn>=DATEADD(SECOND,-30,SYSUTCDATETIME()))""",
           uid,event,title,message[:1000],entity,str(entity_id),uid,event,entity,str(entity_id),message[:1000])
 
+
+def resolve_order_notifications(cur, order_id, entity="OrdenTrabajo"):
+    """Cierra avisos operativos pendientes al resolver una OT o solicitud.
+
+    El historial del aviso se conserva y la notificación del cambio final se crea
+    después de esta actualización para que el usuario también vea el resultado.
+    """
+    if entity not in {"OrdenTrabajo", "SolicitudServicio"}:
+        raise ValueError("Entidad de notificación no admitida.")
+    cur.execute("""UPDATE com.Notificacion
+       SET Estado='LEIDA', LeidaEn=COALESCE(LeidaEn,SYSUTCDATETIME())
+       WHERE Entidad=? AND TRY_CONVERT(bigint,EntidadId)=?
+         AND Estado IN ('PENDIENTE','ENVIADA') AND LeidaEn IS NULL""", entity, int(order_id))
+
 def employee_users(b,cur,employee_id):
     return [r['id'] for r in b.exec_proc_rows(cur,'SELECT UsuarioId AS id FROM seg.Usuario WHERE EmpleadoId=? AND Activo=1',(employee_id,))]
 
