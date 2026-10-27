@@ -386,10 +386,19 @@
     document.getElementById(
       "swgDetailResult"
     );
+  const detailInfo = lightbox?.querySelector(".swg-detail-info");
+
+  // Keep the fixed dialog outside the gallery's transformed stacking context.
+  // Otherwise the sticky navbar can cover the close button on some screens.
+  if (lightbox && lightbox.parentElement !== document.body) {
+    document.body.appendChild(lightbox);
+  }
 
   let lbScale = 1;
   let lbX = 0;
   let lbY = 0;
+  let lightboxOpener = null;
+  let previousPageOverflow = "";
 
   const activePointers =
     new Map();
@@ -416,7 +425,14 @@
     if (lbScale <= 1) {
       lbX = 0;
       lbY = 0;
+    } else if (lightboxWrap) {
+      const maxX = Math.max(0, (lightboxImage.offsetWidth * lbScale - lightboxWrap.clientWidth) / 2);
+      const maxY = Math.max(0, (lightboxImage.offsetHeight * lbScale - lightboxWrap.clientHeight) / 2);
+      lbX = Math.max(-maxX, Math.min(maxX, lbX));
+      lbY = Math.max(-maxY, Math.min(maxY, lbY));
     }
+
+    lightboxWrap?.classList.toggle("is-zoomed", lbScale > 1);
 
     lightboxImage.style.transform =
       `translate3d(${lbX}px, ${lbY}px, 0) scale(${lbScale})`;
@@ -506,6 +522,8 @@
   function openLightbox() {
     if (!lightbox) return;
 
+    lightboxOpener = document.activeElement;
+    previousPageOverflow = document.documentElement.style.overflow;
     syncLightbox();
 
     lightbox.classList.add(
@@ -519,6 +537,9 @@
 
     document.documentElement.style.overflow =
       "hidden";
+
+    lightbox.scrollTop = 0;
+    lightbox.querySelector(".swg-lightbox-close")?.focus({ preventScroll: true });
 
     pauseAutoplay();
 
@@ -540,9 +561,10 @@
     );
 
     document.documentElement.style.overflow =
-      "";
+      previousPageOverflow;
 
     resetLightboxView();
+    lightboxOpener?.focus?.({ preventScroll: true });
   }
 
   /*
@@ -579,16 +601,35 @@
   lightboxWrap?.addEventListener(
     "wheel",
     (event) => {
-      event.preventDefault();
+      if (event.ctrlKey) {
+        event.preventDefault();
+        adjustZoom(event.deltaY < 0 ? .15 : -.15);
+        return;
+      }
 
-      adjustZoom(
-        event.deltaY < 0
-          ? .15
-          : -.15
-      );
+      const maxX = Math.max(0, (lightboxImage.offsetWidth * lbScale - lightboxWrap.clientWidth) / 2);
+      const maxY = Math.max(0, (lightboxImage.offsetHeight * lbScale - lightboxWrap.clientHeight) / 2);
+      if (lbScale <= 1 || (!maxX && !maxY)) {
+        if (detailInfo && detailInfo.scrollHeight > detailInfo.clientHeight) {
+          event.preventDefault();
+          detailInfo.scrollTop += event.deltaY * (event.deltaMode === 1 ? 16 : 1);
+        }
+        return;
+      }
+
+      event.preventDefault();
+      const step = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? lightboxWrap.clientHeight : 1;
+      lbX -= (event.shiftKey ? event.deltaY : event.deltaX) * step;
+      lbY -= (event.shiftKey ? 0 : event.deltaY) * step;
+      applyLightboxTransform();
     },
     { passive: false }
   );
+
+  lightboxImage?.addEventListener("load", applyLightboxTransform);
+  window.addEventListener("resize", () => {
+    if (lightbox?.classList.contains("is-open")) applyLightboxTransform();
+  }, { passive: true });
 
   function pointerDistance() {
     const pts =
@@ -631,7 +672,8 @@
           pointerX: event.clientX,
           pointerY: event.clientY,
           imageX: lbX,
-          imageY: lbY
+          imageY: lbY,
+          detailScrollY: detailInfo?.scrollTop || 0
         };
       }
 
@@ -717,6 +759,8 @@
           );
 
         applyLightboxTransform();
+      } else if (activePointers.size === 1 && dragOrigin && event.pointerType === "touch" && detailInfo) {
+        detailInfo.scrollTop = dragOrigin.detailScrollY + dragOrigin.pointerY - event.clientY;
       }
     }
   );
@@ -749,7 +793,8 @@
         pointerX: remaining.x,
         pointerY: remaining.y,
         imageX: lbX,
-        imageY: lbY
+        imageY: lbY,
+        detailScrollY: detailInfo?.scrollTop || 0
       };
 
       pinchStartDistance = null;

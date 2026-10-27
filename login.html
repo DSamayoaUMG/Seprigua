@@ -10,9 +10,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet">
-  <script src="/java/vendor/lucide.min.js?v=1"></script>
+  
 
-  <link rel="stylesheet" href="css/login.css?v=20260915-recovery1">
+  <link rel="stylesheet" href="css/login.css?v=20261019-recovery">
+  <script src="/java/compat-performance.js?v=1"></script>
 </head>
 
 <body>
@@ -23,7 +24,7 @@
       muted
       loop
       playsinline
-      preload="auto"
+      preload="none"
       poster="assets/img/login-background-hd.jpg"
       aria-hidden="true"
     >
@@ -63,7 +64,7 @@
               name="identity"
               type="text"
               autocomplete="username"
-              placeholder="Ej. daniel.tuc"
+              placeholder="Ingresa tu usuario"
               required
             >
           </div>
@@ -137,6 +138,20 @@
     </section>
   </main>
 
+  <div class="recovery-modal" id="companyDisabledModal" hidden>
+    <div class="recovery-backdrop" data-company-close></div>
+    <section class="recovery-dialog" role="alertdialog" aria-modal="true" aria-labelledby="companyDisabledTitle" aria-describedby="companyDisabledMessage">
+      <button class="recovery-close" type="button" data-company-close aria-label="Cerrar aviso"><i data-lucide="x"></i></button>
+      <div class="recovery-icon"><i data-lucide="building-2"></i></div>
+      <div>
+        <span class="recovery-kicker">ACCESO SUSPENDIDO</span>
+        <h2 id="companyDisabledTitle">Empresa desactivada</h2>
+        <p id="companyDisabledMessage">La empresa vinculada a tu cuenta está desactivada. Comunícate con Coordinación para solicitar la reactivación de la empresa y de tu usuario.</p>
+      </div>
+      <button class="recovery-primary" type="button" data-company-close>Entendido</button>
+    </section>
+  </div>
+
 
   <div class="recovery-modal" id="recoveryModal" hidden>
     <div class="recovery-backdrop" data-recovery-close></div>
@@ -150,19 +165,38 @@
       <div id="recoveryRequestView">
         <span class="recovery-kicker">RECUPERACIÓN SEGURA</span>
         <h2 id="recoveryTitle">Restablecer contraseña</h2>
-        <p>Ingresa tu usuario o correo. Si la cuenta tiene un correo registrado, recibirás un enlace temporal para crear una nueva contraseña.</p>
+        <p>Usa tu código de seguridad personal para crear una nueva contraseña. Puedes generarlo previamente en Mi cuenta.</p>
 
-        <form id="recoveryRequestForm" class="recovery-form" novalidate>
+        <div class="recovery-tabs" role="tablist" aria-label="Método de recuperación">
+          <button type="button" class="recovery-tab active" id="recoveryCodeTab" aria-selected="true">Código de seguridad</button>
+          <button type="button" class="recovery-tab" id="recoveryEmailTab" aria-selected="false">Enlace por correo</button>
+        </div>
+
+        <form id="recoveryCodeForm" class="recovery-form" novalidate>
+          <label for="recoveryCodeIdentity">USUARIO O CORREO</label>
+          <div class="recovery-control"><i data-lucide="user-round"></i><input id="recoveryCodeIdentity" autocomplete="username" placeholder="Ingresa tu usuario" required></div>
+          <label for="recoveryCode">CÓDIGO DE SEGURIDAD</label>
+          <div class="recovery-control"><i data-lucide="key-round"></i><input id="recoveryCode" autocomplete="off" placeholder="Código guardado en Mi cuenta" required></div>
+          <label for="recoveryCodePassword">NUEVA CONTRASEÑA</label>
+          <div class="recovery-control"><i data-lucide="lock-keyhole"></i><input id="recoveryCodePassword" type="password" autocomplete="new-password" placeholder="Nueva contraseña" required></div>
+          <label for="recoveryCodeConfirm">CONFIRMAR CONTRASEÑA</label>
+          <div class="recovery-control"><i data-lucide="shield-check"></i><input id="recoveryCodeConfirm" type="password" autocomplete="new-password" placeholder="Repite la contraseña" required></div>
+          <div class="recovery-rules">8+ caracteres · mayúscula · minúscula · número</div>
+          <button class="recovery-primary" type="submit"><i data-lucide="check-circle-2"></i><span>Restablecer contraseña</span></button>
+        </form>
+        <p class="recovery-status" id="recoveryCodeStatus" aria-live="polite"></p>
+
+        <form id="recoveryRequestForm" class="recovery-form" novalidate hidden>
           <label for="recoveryIdentity">USUARIO O CORREO</label>
           <div class="recovery-control">
             <i data-lucide="mail"></i>
-            <input id="recoveryIdentity" autocomplete="username" placeholder="Ej. daniel.tuc" required>
+            <input id="recoveryIdentity" autocomplete="username" placeholder="Ingresa tu usuario" required>
           </div>
           <button class="recovery-primary" type="submit">
             <i data-lucide="send"></i><span>Enviar enlace de recuperación</span>
           </button>
         </form>
-        <p class="recovery-status" id="recoveryRequestStatus" aria-live="polite"></p>
+        <p class="recovery-status" id="recoveryRequestStatus" aria-live="polite" hidden></p>
         <a class="recovery-whatsapp" href="https://wa.me/50254108947?text=Hola%20SEPRIGUA%2C%20necesito%20ayuda%20para%20recuperar%20mi%20acceso%20al%20sistema." target="_blank" rel="noopener noreferrer">
           <i data-lucide="message-circle"></i> ¿Necesitas ayuda? Escríbenos por WhatsApp
         </a>
@@ -194,6 +228,7 @@
     </section>
   </div>
 
-  <script src="java/login.js?v=20260916-recovery2"></script>
+  <script src="/java/vendor/lucide.min.js?v=1"></script>
+  <script src="java/login.js?v=20261020-empresa"></script>
 </body>
 </html>

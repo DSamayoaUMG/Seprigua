@@ -35,7 +35,7 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
                         'vc.CotizacionId=cq.CotizacionId AND vc.EsActual=1\n'
                         "                 WHERE cq.OrdenTrabajoId=ot.OrdenTrabajoId AND (@Rol=N'COORDINADOR' "
                         "OR cq.Estado NOT IN ('BORRADOR','ANULADA')) ORDER BY cq.CotizacionId DESC) q\n"
-                        "    WHERE @Rol=N'COORDINADOR' OR s.ClienteId=@ClienteId",
+                        "    WHERE @Rol=N'COORDINADOR' OR s.ClienteId=@ClienteId AND EXISTS(SELECT 1 FROM crm.UbicacionServicio ua JOIN seg.ufn_SucursalesPermitidas(@UsuarioId) pa ON pa.SucursalClienteId=ua.SucursalClienteId WHERE ua.UbicacionServicioId=s.UbicacionServicioId)",
                  'columns': ['id',
                              'cliente',
                              'sede',
@@ -52,7 +52,8 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
                     '           eo.Codigo AS estado_codigo,eo.Nombre AS estado,o.Prioridad,s.Clasificacion AS clasificacion,o.ProgramadaPara '
                     'AS programada,\n'
                     '           o.IniciadaEn AS iniciada,o.FinalizadaEn AS finalizada,o.CreadoEn AS creada,\n'
-                    "           (SELECT TOP(1) tx.AsignadoEn FROM srv.TecnicoOrden tx WHERE tx.OrdenTrabajoId=o.OrdenTrabajoId AND tx.EmpleadoId=@EmpleadoId AND tx.Estado IN ('ASIGNADO','CONFIRMADO','FINALIZADO') ORDER BY tx.AsignadoEn) AS asignado_en\n"
+                     "           (SELECT TOP(1) tx.AsignadoEn FROM srv.TecnicoOrden tx WHERE tx.OrdenTrabajoId=o.OrdenTrabajoId AND tx.EmpleadoId=@EmpleadoId AND tx.Estado IN ('ASIGNADO','CONFIRMADO','FINALIZADO') ORDER BY tx.AsignadoEn) AS asignado_en,\n"
+                     "           CASE WHEN EXISTS(SELECT 1 FROM srv.IncidenciaOrden ri WHERE ri.OrdenTrabajoId=o.OrdenTrabajoId AND ri.Estado='PENDIENTE' AND JSON_VALUE(CASE WHEN ISJSON(ri.AccionTomada)=1 THEN ri.AccionTomada ELSE '{}' END,'$.portal_tipo')='REPROGRAMACION_OT') THEN 1 ELSE 0 END AS suspendida\n"
                     '    FROM srv.OrdenTrabajo o\n'
                     '    INNER JOIN srv.EstadoOrdenTrabajo eo ON '
                     'eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId\n'
@@ -62,26 +63,36 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
                     '    LEFT JOIN crm.SucursalCliente sc ON sc.SucursalClienteId=ub.SucursalClienteId\n'
                     '    INNER JOIN srv.TipoServicio ts ON ts.TipoServicioId=s.TipoServicioId\n'
                     "    WHERE @Rol=N'COORDINADOR'\n"
-                    "       OR (@Rol=N'CLIENTE' AND s.ClienteId=@ClienteId)\n"
+                    "       OR (@Rol=N'CLIENTE' AND s.ClienteId=@ClienteId AND EXISTS(SELECT 1 FROM crm.UbicacionServicio ua JOIN seg.ufn_SucursalesPermitidas(@UsuarioId) pa ON pa.SucursalClienteId=ua.SucursalClienteId WHERE ua.UbicacionServicioId=s.UbicacionServicioId))\n"
                     "       OR (@Rol=N'TECNICO' AND EXISTS(SELECT 1 FROM srv.TecnicoOrden t WHERE "
                     't.OrdenTrabajoId=o.OrdenTrabajoId AND t.EmpleadoId=@EmpleadoId AND t.Estado '
                     "IN('ASIGNADO','CONFIRMADO','FINALIZADO')))",
              'columns': ['id', 'numero', 'cliente', 'sede', 'tipo', 'estado', 'prioridad', 'clasificacion'],
              'date': 'creada',
              'status': 'estado_codigo'},
- 'clientes': {'sql': 'SELECT c.ClienteId AS id,c.CodigoCliente AS codigo,c.NombreComercial AS nombre,c.Nit '
-                     'AS nit,\n'
-                     '           c.TelefonoPrincipal AS telefono,c.CorreoPrincipal AS correo,c.Activo AS '
-                     'activo,\n'
-                     '           (SELECT COUNT_BIG(*) FROM crm.SucursalCliente s WHERE '
-                     's.ClienteId=c.ClienteId) AS sedes,\n'
-                     '           (SELECT COUNT_BIG(*) FROM crm.ContactoCliente cc WHERE '
-                     'cc.ClienteId=c.ClienteId) AS contactos,\n'
-                     '           (SELECT COUNT_BIG(*) FROM srv.SolicitudServicio ss WHERE '
-                     'ss.ClienteId=c.ClienteId) AS solicitudes\n'
-                     '    FROM crm.Cliente c',
-              'columns': ['id', 'codigo', 'nombre', 'nit', 'telefono', 'correo'],
-              'date': '',
+ 'clientes': {'sql': """SELECT c.ClienteId AS id, c.CodigoCliente AS codigo,
+                              c.NombreComercial AS nombre, c.Nit AS nit,
+                              c.TelefonoPrincipal AS telefono, c.CorreoPrincipal AS correo,
+                              c.Activo AS activo, c.CreadoEn AS creado_en,
+                              principal.NombreCompleto AS contacto_principal_nombre,
+                              principal.Correo AS contacto_principal_correo,
+                              principal.Telefono AS contacto_principal_telefono,
+                              (SELECT COUNT_BIG(*) FROM crm.SucursalCliente s WHERE s.ClienteId=c.ClienteId) AS sedes,
+                              (SELECT COUNT_BIG(*) FROM crm.ContactoCliente cc WHERE cc.ClienteId=c.ClienteId) AS contactos,
+                              (SELECT COUNT_BIG(*) FROM srv.SolicitudServicio ss WHERE ss.ClienteId=c.ClienteId) AS solicitudes
+                       FROM crm.Cliente c
+                       OUTER APPLY (
+                         SELECT TOP (1) cc.NombreCompleto, cc.Correo, cc.Telefono
+                         FROM crm.ContactoCliente cc
+                         WHERE cc.ClienteId=c.ClienteId AND cc.Activo=1
+                         ORDER BY CASE WHEN EXISTS (
+                              SELECT 1 FROM seg.Usuario u WHERE u.ContactoClienteId=cc.ContactoClienteId
+                           ) THEN 1 ELSE 0 END,
+                           CASE WHEN cc.PuedeSolicitar=0 AND cc.PuedeAutorizar=0 AND cc.PuedeRecibir=0 THEN 0 ELSE 1 END,
+                           cc.ContactoClienteId
+                       ) principal""",
+              'columns': ['id', 'codigo', 'nombre', 'nit', 'telefono', 'correo', 'creado_en'],
+              'date': 'creado_en',
               'status': ''},
  'personal': {'sql': "SELECT e.EmpleadoId AS id,e.CodigoEmpleado AS codigo,LTRIM(RTRIM(CONCAT(p.Nombres,N' "
                      "',p.Apellidos))) AS nombre,\n"
@@ -162,7 +173,7 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
                          "        @Rol = N'COORDINADOR'\n"
                          '        OR (\n'
                          "            @Rol = N'CLIENTE'\n"
-                         '            AND ss.ClienteId = @ClienteId\n'
+                         '            AND ss.ClienteId = @ClienteId AND EXISTS(SELECT 1 FROM crm.UbicacionServicio ua JOIN seg.ufn_SucursalesPermitidas(@UsuarioId) pa ON pa.SucursalClienteId=ua.SucursalClienteId WHERE ua.UbicacionServicioId=ss.UbicacionServicioId)\n'
                          "            AND c.Estado IN (N'ENVIADA', N'OBSERVADA', N'ACEPTADA', N'RECHAZADA', "
                          "N'ANULADA')\n"
                          '        )',
@@ -176,6 +187,7 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
         d.NumeroVersion AS version,
         f.Nombre AS formato,
         f.Categoria AS categoria,
+        d.Observaciones AS descripcion,
         o.NumeroOrden AS orden,
         c.NombreComercial AS cliente,
         d.Estado AS estado,
@@ -189,10 +201,10 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
     INNER JOIN srv.OrdenTrabajo o ON o.OrdenTrabajoId=d.OrdenTrabajoId
     INNER JOIN srv.SolicitudServicio ss ON ss.SolicitudServicioId=o.SolicitudServicioId
     INNER JOIN crm.Cliente c ON c.ClienteId=ss.ClienteId
-    WHERE @Rol=N'COORDINADOR'
-       OR (@Rol=N'CLIENTE' AND ss.ClienteId=@ClienteId
+    WHERE d.Estado<>'ANULADO' AND (@Rol=N'COORDINADOR'
+       OR (@Rol=N'CLIENTE' AND ss.ClienteId=@ClienteId AND EXISTS(SELECT 1 FROM crm.UbicacionServicio ua JOIN seg.ufn_SucursalesPermitidas(@UsuarioId) pa ON pa.SucursalClienteId=ua.SucursalClienteId WHERE ua.UbicacionServicioId=ss.UbicacionServicioId)
            AND d.EsSeguimientoInterno=0
-           AND d.Estado IN ('GENERADO','ENTREGADO','ACEPTADO','OBSERVADO'))
+           AND d.Estado IN ('GENERADO','ENTREGADO','ACEPTADO','OBSERVADO')))
 
     UNION ALL
 
@@ -202,6 +214,7 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
         CAST(1 AS smallint) AS version,
         CAST(N'Documento enviado por cliente' AS nvarchar(180)) AS formato,
         e.Categoria AS categoria,
+        e.Descripcion AS descripcion,
         o.NumeroOrden AS orden,
         c.NombreComercial AS cliente,
         CAST(N'RECIBIDO' AS varchar(20)) AS estado,
@@ -216,9 +229,9 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
     INNER JOIN crm.Cliente c ON c.ClienteId=ss.ClienteId
     WHERE e.Categoria='DOCUMENTO_CLIENTE'
       AND e.Origen='CLIENTE'
-      AND (@Rol=N'COORDINADOR' OR (@Rol=N'CLIENTE' AND ss.ClienteId=@ClienteId))
+      AND (@Rol=N'COORDINADOR' OR (@Rol=N'CLIENTE' AND e.SubidaPorUsuarioId=@UsuarioId AND ss.ClienteId=@ClienteId AND EXISTS(SELECT 1 FROM crm.UbicacionServicio ua JOIN seg.ufn_SucursalesPermitidas(@UsuarioId) pa ON pa.SucursalClienteId=ua.SucursalClienteId WHERE ua.UbicacionServicioId=ss.UbicacionServicioId)))
     """,
-                'columns': ['id', 'numero', 'formato', 'categoria', 'orden', 'cliente', 'estado', 'origen', 'tipo_registro'],
+                'columns': ['id', 'numero', 'formato', 'categoria', 'descripcion', 'orden', 'cliente', 'estado', 'origen', 'tipo_registro'],
                 'date': 'generado',
                 'status': 'estado'},
  'auditoria': {'sql': 'SELECT a.EventoAuditoriaId AS id,a.FechaEvento AS '
@@ -283,9 +296,9 @@ def listing(b,session,module):
     if sort not in set(spec['columns']+[spec['date'],'id']):sort='id'
     direction='ASC' if request.args.get('direccion')=='ASC' else 'DESC'
     conditions=' WHERE '+' AND '.join(where) if where else ''
-    prefix='DECLARE @Rol nvarchar(60)=?,@ClienteId bigint=?,@EmpleadoId bigint=?,@Hoy date=?;'
+    prefix='DECLARE @Rol nvarchar(60)=?,@ClienteId bigint=?,@EmpleadoId bigint=?,@Hoy date=?,@UsuarioId bigint=?;'
     base=prefix+' WITH datos AS ('+spec['sql']+') '
-    context=[session['rol'],session.get('cliente_id'),session.get('empleado_id'),b.planning.local_day()]
+    context=[session['rol'],session.get('cliente_id'),session.get('empleado_id'),b.planning.local_day(),session['usuario_id']]
     with b.get_db_connection() as conn:
         cur=conn.cursor();cur.execute(base+'SELECT COUNT_BIG(*) FROM datos'+conditions,*(context+params))
         total=int(cur.fetchone()[0]);pages=max(1,(total+size-1)//size);page=min(page,pages)

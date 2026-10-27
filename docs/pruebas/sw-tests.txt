@@ -1,0 +1,1 @@
+Service Worker: same-origin navigation/assets, no private cache, visible-window deduplication passed.

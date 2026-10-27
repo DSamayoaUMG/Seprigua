@@ -1,0 +1,151 @@
+/* Filtros del portal: texto completo, controles alineados y adaptación fluida. */
+.app-content :is(.smart-list-tools,.solicitudes-filter-grid,.orders-filter-grid,.people-filter-grid,.quotes-filters,.operations-filters) {
+  align-items: end;
+}
+
+.app-content .smart-list-tools {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 10px 12px !important;
+  align-items: flex-end !important;
+}
+.app-content .smart-list-tools > .field {
+  flex: 1 1 155px !important;
+  min-width: min(100%,155px) !important;
+  width: auto !important;
+  margin: 0;
+}
+.app-content .smart-list-tools > .smart-list-search {
+  flex: 2 1 300px !important;
+  min-width: min(100%,260px) !important;
+}
+.app-content .smart-list-tools > .smart-list-size {
+  flex: 0 1 115px !important;
+  margin-left: auto;
+}
+.app-content .smart-list-tools > .smart-list-clear {
+  flex: 0 0 auto !important;
+  margin-left: 0;
+  align-self: flex-end;
+}
+.app-content .smart-list-tools > .smart-list-clear .btn {
+  width: auto !important;
+  min-height: 42px;
+  padding-inline: 16px;
+}
+
+.app-content :is(.smart-list-tools,.solicitudes-filter-panel,.orders-filters,.people-filter-section,.quotes-filters,.warranty-filter-panel) :is(input,select),
+.app-content .se-enterprise-select-button {
+  box-sizing: border-box;
+  min-height: 42px;
+}
+.app-content .se-enterprise-select-button {
+  height: auto;
+  padding: 8px 11px;
+  border-radius: 10px;
+  background: var(--se-input);
+  box-shadow: 0 2px 5px rgba(13,54,98,.035);
+}
+.app-content .se-enterprise-select-button:hover {
+  border-color: var(--se-brand-3);
+  box-shadow: 0 4px 12px rgba(20,95,160,.10);
+}
+.app-content .se-enterprise-select-label {
+  min-width: 0;
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+.app-content .se-enterprise-select-arrow { flex: none; }
+
+.app-content .clients-filter-modern .clients-filter-main {
+  grid-template-columns: minmax(260px,1fr) minmax(0,2fr);
+  gap: 14px;
+}
+.app-content .clients-filter-modern .clients-filter-controls {
+  grid-template-columns: repeat(4,minmax(155px,1fr)) minmax(112px,auto);
+  gap: 8px;
+  align-items: stretch;
+}
+.app-content .clients-filter-modern .clients-filter-select {
+  min-width: 0;
+  min-height: 52px;
+  overflow: visible;
+  border-radius: 11px;
+}
+.app-content .clients-filter-modern .clients-filter-copy {
+  padding: 5px 8px;
+  gap: 3px;
+}
+.app-content .clients-filter-modern .clients-filter-copy small {
+  line-height: 1.15;
+}
+.app-content .clients-filter-modern .clients-filter-copy .se-enterprise-select-button {
+  min-height: 24px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 13px;
+}
+.app-content .clients-filter-modern .clients-filter-copy .se-enterprise-select-label {
+  white-space: nowrap;
+  overflow: visible;
+  overflow-wrap: normal;
+}
+.app-content .clients-filter-modern .clients-clear-button {
+  min-height: 52px;
+  align-self: stretch;
+  padding-inline: 14px;
+  justify-content: center;
+}
+
+.app-content :is(.request-quick-pill,.order-quick-pill,.people-quick,.smart-quick-pill) {
+  min-height: 42px !important;
+  height: auto !important;
+  padding-block: 7px !important;
+  border-radius: 10px !important;
+}
+.app-content :is(.request-quick-pill,.order-quick-pill,.people-quick,.smart-quick-pill) > span {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  overflow-wrap: anywhere;
+}
+.app-content :is(.people-clear,.people-apply,.clients-clear-button) {
+  border-radius: 10px;
+  transition: border-color .15s,box-shadow .15s,transform .15s;
+}
+.app-content :is(.people-clear,.people-apply,.clients-clear-button):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(16,65,110,.12);
+}
+
+@media (max-width: 1450px) {
+  .app-content .clients-filter-modern .clients-filter-main { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .app-content .clients-filter-modern .clients-filter-controls {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+  .app-content .clients-filter-modern .clients-clear-button { grid-column: 1/-1; }
+}
+@media (max-width: 600px) {
+  .app-content .smart-list-tools > .field,
+  .app-content .smart-list-tools > .smart-list-search {
+    flex: 1 1 100% !important;
+    min-width: 100% !important;
+  }
+  .app-content .smart-list-tools > .smart-list-clear {
+    flex: 1 1 100% !important;
+    margin-left: 0;
+  }
+  .app-content .smart-list-tools > .smart-list-size { margin-left: 0; }
+  .app-content .smart-list-tools > .smart-list-clear .btn { width: 100% !important; }
+}
+@media (max-width: 460px) {
+  .app-content .clients-filter-modern .clients-filter-controls { grid-template-columns: 1fr; }
+  .app-content .clients-filter-modern .clients-clear-button { grid-column: auto; }
+}

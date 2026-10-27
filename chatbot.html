@@ -429,6 +429,11 @@ body{min-height:100vh}
 }
 @media(prefers-reduced-motion:reduce){.chat-header .status .dot{animation:none!important}}
 
+.suggested-topics,.chat-followups{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}
+.suggested-topics button,.chat-followups button{min-height:34px;border:1px solid #cbd9ea;border-radius:999px;padding:6px 10px;background:#f5f9ff;color:#123c72;font:700 10px Manrope,Inter,sans-serif;cursor:pointer;text-align:left}
+.suggested-topics button:hover,.chat-followups button:hover,.suggested-topics button:focus-visible,.chat-followups button:focus-visible{border-color:#3976b7;background:#eaf3ff;outline:2px solid transparent}
+.chat-followups{margin-left:38px}.chat-followups-label{width:100%;font-size:9px;color:#6b7f99;font-weight:800}
+@media(max-width:360px){.suggested-topics button,.chat-followups button{font-size:9px;padding:5px 8px}}
 </style>
 <meta name="description" content="SEPRIGUA — Tuky, asistente virtual para servicios, cobertura, cotizaciones y atención.">
 
@@ -675,7 +680,8 @@ function bindNavFooter(root, buttons){
 /* ---------- Pantallas estilo FRAMESCHATBOT ---------- */
 let historyStack=[]; let currentRender=renderRoot; let currentBack=renderRoot;
 function botMsg(t){return `<div class="bot-row"><div class="bot-avatar"><img src="${LOGO_DATA}"></div><div><div class="bot-bubble">${t}</div><div class="time">10:24 a. m.</div></div></div>`}
-function userMsg(t){return `<div class="user-row"><div><div class="user-bubble">${t}</div><div class="time">10:24 a. m. ✓✓</div></div></div>`}
+function escapeChatText(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function userMsg(t){return `<div class="user-row"><div><div class="user-bubble">${escapeChatText(t)}</div><div class="time">10:24 a. m. ✓✓</div></div></div>`}
 function footer(bs){return `<div class="footer-actions">${bs.map((b,i)=>`<button class="action-btn ${b.primary?'primary':''}" data-f="${i}">${svgIcon(b.icon)} ${b.label}</button>`).join('')}</div>`}
 function showScreen(html,bind,fn){
   chatBody.innerHTML=html;
@@ -702,9 +708,10 @@ function renderRoot(){
   historyStack=[];
   currentBack=renderRoot;
   document.getElementById('backHeader').style.visibility='hidden';
-  showScreen(`<div class="root-title">¡Hola! 👋 Soy Tuky</div><p class="root-text">Soy <b>Tuky</b>, asistente virtual de <b>SEPRIGUA</b>. Puedo orientarte sobre servicios, emergencias, cotizaciones, garantía, cobertura y cómo coordinar una atención.</p><p class="root-text" style="margin-top:5px;margin-bottom:7px">¿Qué necesitas consultar?</p><div class="options-list"><button type="button" class="option-card" onclick="this.classList.add('is-selected');window.sepriguaNav('services');return false;" aria-label="Nuestros servicios">${iconBadge('tools')}<div class="texts"><div class="title">Nuestros servicios</div><div class="subtitle">Drenajes, cisternas, lodos, plantas, plomería y más</div></div><div class="chev">${svgIcon('chevronRight')}</div></button><button type="button" class="option-card" onclick="this.classList.add('is-selected');window.sepriguaNav('coverage');return false;" aria-label="Cobertura">${iconBadge('map')}<div class="texts"><div class="title">Cobertura</div><div class="subtitle">Consulta las zonas donde podemos atenderte</div></div><div class="chev">${svgIcon('chevronRight')}</div></button></div><div class="quick-actions"><button type="button" onclick="window.sepriguaNav('emergency')">Emergencias</button><button type="button" onclick="window.sepriguaNav('quote')">Cotizar</button><button type="button" onclick="window.sepriguaNav('guarantee')">Garantía</button></div><div class="promo-card"><div class="promo-head">${svgIcon('whatsapp').replace(/currentColor/g,'#18bd4b')}<span>Atención con nuestro equipo</span></div><p>Si necesitas coordinar un servicio o explicar tu caso, puedes continuar directamente por WhatsApp.</p><button type="button" class="btn-whatsapp" id="promoWa">${svgIcon('whatsapp')} Hablar por WhatsApp</button><div class="promo-caption">Tuky te orienta y nuestro equipo continúa la atención</div></div>`,r=>{
+  showScreen(`<div class="root-title">¡Hola! 👋 Soy Tuky</div><p class="root-text">Soy <b>Tuky</b>, asistente virtual de <b>SEPRIGUA</b>. Puedo orientarte sobre servicios, emergencias, cotizaciones, garantía, cobertura y cómo coordinar una atención.</p><p class="root-text" style="margin-top:5px;margin-bottom:7px">¿Qué necesitas consultar?</p><div class="options-list"><button type="button" class="option-card" onclick="this.classList.add('is-selected');window.sepriguaNav('services');return false;" aria-label="Nuestros servicios">${iconBadge('tools')}<div class="texts"><div class="title">Nuestros servicios</div><div class="subtitle">Drenajes, cisternas, lodos, plantas, plomería y más</div></div><div class="chev">${svgIcon('chevronRight')}</div></button><button type="button" class="option-card" onclick="this.classList.add('is-selected');window.sepriguaNav('coverage');return false;" aria-label="Cobertura">${iconBadge('map')}<div class="texts"><div class="title">Cobertura</div><div class="subtitle">Consulta las zonas donde podemos atenderte</div></div><div class="chev">${svgIcon('chevronRight')}</div></button></div><div class="quick-actions"><button type="button" onclick="window.sepriguaNav('emergency')">Emergencias</button><button type="button" onclick="window.sepriguaNav('quote')">Cotizar</button><button type="button" onclick="window.sepriguaNav('guarantee')">Garantía</button></div><div class="suggested-topics" aria-label="Preguntas frecuentes"><button type="button" data-ask="¿Cómo solicito un servicio?">Solicitar servicio</button><button type="button" data-ask="¿Cómo veo el estado de mi solicitud?">Seguir solicitud</button><button type="button" data-ask="¿Cómo recupero mi contraseña?">Recuperar acceso</button><button type="button" data-ask="¿Cómo reprogramo una visita?">Reprogramar</button></div><div class="promo-card"><div class="promo-head">${svgIcon('whatsapp').replace(/currentColor/g,'#18bd4b')}<span>Atención con nuestro equipo</span></div><p>Si necesitas coordinar un servicio o explicar tu caso, puedes continuar directamente por WhatsApp.</p><button type="button" class="btn-whatsapp" id="promoWa">${svgIcon('whatsapp')} Hablar por WhatsApp</button><div class="promo-caption">Tuky te orienta y nuestro equipo continúa la atención</div></div>`,r=>{
     const wa=r.querySelector('#promoWa');
     if(wa) wa.onclick=function(ev){ev.preventDefault();ev.stopPropagation();go(renderWhatsAppFlow,'WhatsApp');};
+    r.querySelectorAll('[data-ask]').forEach(button=>button.addEventListener('click',()=>askTuky(button.dataset.ask)));
   },renderRoot);
 }
 function renderServiciosList(label='Nuestros servicios'){
@@ -847,6 +854,33 @@ function appendChatUser(text){chatBody.insertAdjacentHTML('beforeend',userMsg(te
 function appendChatBot(text){chatBody.insertAdjacentHTML('beforeend',botMsg(text));chatBody.scrollTop=chatBody.scrollHeight}
 function responderLibre(texto){
   const t=normaliza(texto);
+  if(/como.*gener.*codigo|donde.*gener.*codigo|como.*obtengo.*codigo/.test(t)) return ['Inicia sesión y abre <b>Mi cuenta → Recuperación personal</b>. Confirma tu contraseña actual, pulsa <b>Generar código de seguridad</b> y guárdalo en un lugar privado. Al usarlo para recuperar el acceso, deberás generar otro.', 'general'];
+  if(/no tengo.*codigo|perdi.*codigo|perdi.*seguridad|sin.*codigo/.test(t)) return ['Si no guardaste un código de seguridad, puedes usar el enlace por correo cuando el envío esté habilitado. Si tampoco tienes acceso a ese correo, solicita ayuda al equipo para verificar tu identidad antes de recuperar la cuenta.', 'wa'];
+  if(/como.*(solicito|pido|solicitar).*servicio/.test(t)) return ['Para solicitar un servicio, describe el problema, indica la sede o dirección, fecha deseada y un contacto. Si ya tienes cuenta, registra la solicitud en el portal; también puedes escribir al equipo para coordinarla.', 'wa'];
+  if(/como.*aprueb.*cotizacion/.test(t)) return ['Revisa el alcance, condiciones y vigencia de la cotización. Si tu cuenta tiene permiso para aprobarla, encontrarás esa acción en <b>Cotizaciones</b>; de lo contrario, solicita apoyo al equipo.', 'quote'];
+  if(/olvid.*contrasena|recuper.*contrasena|restablec.*contrasena|codigo de seguridad|no puedo entrar|no puedo ingresar/.test(t)) return ['En el acceso al sistema pulsa <b>¿Olvidaste tu contraseña?</b>. Si ya guardaste tu código de seguridad personal, ingrésalo con tu usuario y crea una contraseña nueva. El código se genera en <b>Mi cuenta</b> mientras tienes acceso y se usa una vez. También puedes elegir el enlace por correo si está habilitado.', 'general'];
+  if(/cambiar.*contrasena|actualizar.*contrasena|seguridad de.*cuenta/.test(t)) return ['Dentro del portal abre <b>Mi cuenta → Seguridad y contraseña</b>. Para cambiarla necesitas tu contraseña actual. En la misma página puedes generar o reemplazar tu código de recuperación personal.', 'general'];
+  if(/registrar.*cuenta|crear.*usuario|darme de alta|acceso al portal/.test(t)) return ['El acceso al portal se asigna a usuarios autorizados de SEPRIGUA. Si necesitas una cuenta para consultar tus servicios, contacta al equipo para que revisen tu solicitud.', 'wa'];
+  if(/estado.*solicitud|seguir.*solicitud|seguimiento.*solicitud|mi solicitud/.test(t)) return ['Si ya tienes acceso al portal, entra a <b>Solicitudes</b> para ver el estado y el historial de tu solicitud. Ten a mano el número de referencia si consultas al equipo por WhatsApp.', 'general'];
+  if(/crear.*solicitud|nueva solicitud|pedir.*trabajo|solicitar.*trabajo/.test(t)) return ['En el portal de cliente puedes registrar una <b>solicitud de servicio</b> con sede, descripción, fecha deseada y evidencia cuando aplique. Nuestro equipo revisa la información y coordina el siguiente paso.', 'general'];
+  if(/orden de trabajo|numero de orden|mi orden|estado.*orden/.test(t)) return ['La <b>orden de trabajo</b> concentra la programación, el servicio y su seguimiento. Si tienes acceso al portal, revisa la sección de órdenes; para una consulta directa comparte su número de referencia con el equipo.', 'general'];
+  if(/reprogram|cambiar.*fecha|posponer|mover.*cita/.test(t)) return ['Para <b>reprogramar</b>, indica el número de solicitud u orden, la sede y la nueva fecha que prefieres. La confirmación depende de la agenda y disponibilidad operativa; puedes coordinarlo con el equipo.', 'wa'];
+  if(/cancelar|cancelacion|anular.*servicio|ya no necesito/.test(t)) return ['Si necesitas <b>cancelar</b> una visita o trabajo, informa cuanto antes el número de solicitud u orden y el motivo. El equipo revisará el estado y te confirmará la cancelación.', 'wa'];
+  if(/tecnico asignado|quien.*atendera|quien.*visita|nombre.*tecnico/.test(t)) return ['La asignación del técnico se consulta en el seguimiento de la orden cuando está disponible. También puedes confirmar con el equipo el número de orden, sede y fecha programada.', 'wa'];
+  if(/evidencia|fotografias|fotos.*trabajo|video.*trabajo/.test(t)) return ['Las fotografías y otras evidencias ayudan a explicar el problema y documentar el trabajo. Si usas el portal, adjúntalas a la solicitud u orden correspondiente; evita capturar información privada innecesaria.', 'general'];
+  if(/informe|reporte|acta.*servicio|documento.*trabajo|pdf/.test(t)) return ['Los <b>documentos del servicio</b> se consultan desde el portal cuando están disponibles para tu cuenta. Abre Documentos o la orden correspondiente para revisar y descargar archivos autorizados.', 'general'];
+  if(/factura|pago|forma de pago|credito|transferencia/.test(t)) return ['Para información de <b>facturación o pagos</b>, comparte el número de cotización u orden con el equipo. Ellos confirmarán las condiciones aplicables a tu servicio.', 'wa'];
+  if(/aceptar.*cotizacion|aprobar.*cotizacion|vigencia.*cotizacion/.test(t)) return ['Revisa el alcance y las condiciones de tu cotización antes de aprobarla. Si tienes acceso al portal, consulta su estado en <b>Cotizaciones</b>; el equipo puede confirmar vigencia y próximos pasos.', 'quote'];
+  if(/cuanto.*tardan|tiempo.*respuesta|tiempo.*visita|cuando.*vienen/.test(t)) return ['El tiempo de respuesta depende de la ubicación, el tipo de trabajo y la agenda disponible. Comparte la sede, el problema y la urgencia para que el equipo te dé una fecha concreta.', 'wa'];
+  if(/mantenimiento.*bomba|bomba.*falla|presion.*agua/.test(t)) return ['Podemos evaluar <b>bombas de agua y sistemas asociados</b>. Indica si la bomba no enciende, pierde presión, tiene fugas o requiere mantenimiento preventivo; no manipules equipos energizados sin personal calificado.', 'services'];
+  if(/mal olor|olores|olor.*drenaje/.test(t)) return ['Los <b>malos olores</b> pueden relacionarse con acumulación de residuos, obstrucciones o falta de mantenimiento. Indica dónde se perciben y desde cuándo para orientar una revisión.', 'services'];
+  if(/agua.*estancada|se regresa.*agua|agua.*regresa/.test(t)) return ['Si el agua se estanca o regresa por un drenaje, puede haber una obstrucción. Evita usar productos o herramientas que agraven el problema y comparte ubicación, fotos y nivel de urgencia.', 'emergency'];
+  if(/cada cuanto.*limpiar|frecuencia.*limpieza|mantenimiento.*periodico/.test(t)) return ['La frecuencia de limpieza depende del uso, tamaño de la instalación y antecedentes de obstrucciones. Una revisión inicial permite proponer un calendario preventivo apropiado.', 'services'];
+  if(/visita tecnica|diagnostico|inspeccion previa|evaluacion.*sitio/.test(t)) return ['Una <b>visita técnica o evaluación</b> ayuda a definir alcance, acceso al área, equipo necesario y cotización. Comparte la dirección y una descripción del problema para coordinarla.', 'quote'];
+  if(/limpieza.*cisterna.*agua|puedo usar.*agua|desinfeccion.*cisterna/.test(t)) return ['Para limpieza de cisternas, informa capacidad aproximada, acceso y disponibilidad de agua. El procedimiento y el momento de volver a usarla se confirman según las condiciones del sitio.', 'services'];
+  if(/seguridad.*trabajo|equipo.*proteccion|riesgo.*gas|riesgo.*electrico/.test(t)) return ['Antes de intervenir, informa riesgos eléctricos, gas, espacios confinados o accesos difíciles. Si hay peligro inmediato para personas, aléjate del área y contacta los servicios de emergencia correspondientes.', 'emergency'];
+  if(/datos personales|privacidad|quien ve.*documento|permisos/.test(t)) return ['En el portal los documentos y datos se muestran según los permisos de cada cuenta. Si detectas información incorrecta o un acceso que no corresponde, avisa al equipo para revisarlo.', 'general'];
+  if(/manual|tutorial|como usar.*sistema|ayuda.*portal/.test(t)) return ['Dentro del portal encontrarás las secciones según tu rol. Puedes empezar por <b>Centro de control</b> y seguir por Solicitudes, Órdenes o Documentos. Si una acción no aparece, consulta tus permisos con el equipo.', 'general'];
   if(/whatsapp|asesor|humano|persona|contactar|contacto|telefono|numero|llamar/.test(t)) return ['Puedo conectarte directamente con nuestro equipo. Pulsa <b>Hablar por WhatsApp</b> para continuar con una persona y coordinar tu caso.', 'wa'];
   if(/emergencia|urgente|urgencia|ahora|rebalse|desbord|inund|tapado|atascado|no drena/.test(t)) return ['Si se trata de una <b>emergencia</b>, necesito que nos indiques ubicación, qué está ocurriendo y si la operación está detenida. Nuestro equipo revisará disponibilidad y prioridad para coordinar la atención.', 'emergency'];
   if(/precio|cuanto cuesta|costo|cotiza|cotizacion|presupuesto|tarifa/.test(t)) return ['El costo depende del tipo de servicio, ubicación, alcance y condiciones del sitio. Podemos preparar una <b>cotización según evaluación</b>; comparte qué necesitas y dónde se realizará el trabajo.', 'quote'];
@@ -882,8 +916,28 @@ function responderLibre(texto){
 
 
 
-document.getElementById('chatForm').addEventListener('submit', function(ev){
-  ev.preventDefault();const input=document.getElementById('chatInput');const texto=input.value.trim();if(!texto)return;input.value='';
+function followUpSuggestions(texto,tipo){
+  const t=normaliza(texto);
+  if(/contrasena|codigo de seguridad|no puedo (entrar|ingresar)/.test(t)) return ['¿Cómo genero mi código de seguridad?','¿Qué hago si no tengo código?'];
+  if(/solicitud|solicitar|pedir.*trabajo/.test(t)) return ['¿Qué datos necesito para solicitar un servicio?','¿Cómo veo mi orden de trabajo?'];
+  if(/orden|reprogram|cancel/.test(t)) return ['¿Cómo reprogramo una visita?','¿Cómo cancelo un servicio?'];
+  if(/cotiza|precio|costo|presupuesto/.test(t)) return ['¿Qué datos necesito para cotizar?','¿Cómo apruebo una cotización?'];
+  if(/garantia|reclamo/.test(t)) return ['¿Qué información necesito para una garantía?','¿Dónde veo mi orden de trabajo?'];
+  if(tipo==='services') return ['¿Cómo solicito una visita técnica?','¿Cuánto cuesta el servicio?'];
+  if(tipo==='emergency') return ['¿Qué datos debo enviar para una emergencia?','¿Cómo contacto al equipo?'];
+  if(tipo==='coverage') return ['¿Atienden en Quetzaltenango?','¿Cómo solicito un servicio?'];
+  return ['¿Qué servicios ofrecen?','¿Cómo solicito un servicio?','¿Cómo contacto al equipo?'];
+}
+function appendFollowUps(texto,tipo){
+  const suggestions=followUpSuggestions(texto,tipo).filter(q=>normaliza(q)!==normaliza(texto)).slice(0,3);
+  if(!suggestions.length)return;
+  const box=document.createElement('div');box.className='chat-followups';
+  const label=document.createElement('span');label.className='chat-followups-label';label.textContent='Puedes preguntarme también:';box.appendChild(label);
+  suggestions.forEach(question=>{const button=document.createElement('button');button.type='button';button.textContent=question;button.addEventListener('click',()=>askTuky(question));box.appendChild(button);});
+  chatBody.appendChild(box);chatBody.scrollTop=chatBody.scrollHeight;
+}
+function askTuky(texto){
+  const input=document.getElementById('chatInput');texto=String(texto||'').trim();if(!texto)return;input.value='';
   appendChatUser(texto);const [respuesta,tipo]=responderLibre(texto);setTimeout(()=>{
     appendChatBot(respuesta);
     if(tipo==='wa'){const q=document.createElement('div');q.className='quick-actions';q.innerHTML='<button class="btn-whatsapp">'+svgIcon('whatsapp')+' Hablar por WhatsApp</button>';chatBody.appendChild(q);q.querySelector('button').onclick=()=>renderWhatsAppFlow('Hablar por WhatsApp');}
@@ -892,7 +946,11 @@ document.getElementById('chatForm').addEventListener('submit', function(ev){
     if(tipo==='emergency'){const q=document.createElement('div');q.className='quick-actions';q.innerHTML='<button>Ver atención de emergencia</button>';chatBody.appendChild(q);q.querySelector('button').onclick=()=>renderEmergencia('Necesito atención');}
     if(tipo==='quote'){const q=document.createElement('div');q.className='quick-actions';q.innerHTML='<button>Cómo cotizar</button>';chatBody.appendChild(q);q.querySelector('button').onclick=()=>renderCotizacionInfo('Quiero cotizar');}
     if(tipo==='guarantee'){const q=document.createElement('div');q.className='quick-actions';q.innerHTML='<button>Solicitar garantía</button>';chatBody.appendChild(q);q.querySelector('button').onclick=()=>renderGarantiaInfo('Garantía');}
+    appendFollowUps(texto,tipo);
   },180);
+}
+document.getElementById('chatForm').addEventListener('submit', function(ev){
+  ev.preventDefault();askTuky(document.getElementById('chatInput').value);
 });
 
 /* ---------- Abrir / cerrar el widget ---------- */

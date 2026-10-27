@@ -6,7 +6,7 @@ window.SepriguaOperations=function(c){
  const field=(n,t,v='',type='text')=>`<label>${esc(t)}<input name="${n}" type="${type}" value="${esc(v)}"></label>`;
  const options=(items,v)=>items.map(x=>`<option value="${esc(x)}" ${x===v?'selected':''}>${esc(x||'Todos')}</option>`).join('');
  const footer='<div class="form-actions full"><button class="btn" type="button" data-close-modal>Volver</button><button class="btn primary" type="submit">Guardar</button></div>';
- const pf={desde:'',hasta:'',categoria:'',estado:'',cliente:'',servicio:'',q:'',pagina:1,tamano:20};let employeeId=0;
+  const pf={desde:'',hasta:'',categoria:'',estado:'',cliente:'',servicio:'',q:'',pagina:1,tamano:20};let employeeId=0,productionSearchTimer=null;
  function setPeriod(which){const today=day(),d=new Date(today+'T12:00:00Z');if(which==='month'){pf.desde=today.slice(0,7)+'-01';d.setUTCMonth(d.getUTCMonth()+1,0);pf.hasta=d.toISOString().slice(0,10);}else{d.setUTCDate(d.getUTCDate()-(d.getUTCDay()+6)%7);pf.desde=d.toISOString().slice(0,10);d.setUTCDate(d.getUTCDate()+6);pf.hasta=d.toISOString().slice(0,10);}pf.pagina=1;}
  setPeriod('week');
  async function production(){
@@ -14,7 +14,26 @@ window.SepriguaOperations=function(c){
   const d=await api('/api/produccion'+(employeeId?'/'+employeeId:'')+'?'+new URLSearchParams(pf));
   const rows=employeeId?d.items.map(x=>`<tr><td>${esc(x.numero)}</td><td>${fmt(x.fecha)}</td><td>${esc(x.cliente)}<small class="table-subline">${esc(x.sede)}</small></td><td>${esc(x.servicio)}</td><td>${badge(x.estado)}${x.estado_participacion==='CANCELADO'?badge('RETIRADO'):''}</td><td>${esc(x.participacion)}</td><td>${x.minutos_servicio==null?'—':(x.minutos_servicio/60).toFixed(2)}</td><td>${button('Ver OT','ver-orden',x.orden_id)}</td></tr>`):d.items.map(x=>`<tr><td>${esc(x.nombre)}<small class="table-subline">${esc(x.puesto)}</small></td><td>${badge(x.categoria)}</td><td>${x.asignadas}</td><td>${x.completadas}</td><td>${x.pendientes}</td><td>${x.canceladas}</td><td>${x.emergencias}</td><td>${x.minutos_servicio==null?'—':(x.minutos_servicio/60).toFixed(2)}</td><td>${button('Historial','historial-personal',x.id)}</td></tr>`);
   content.innerHTML=`<section class="panel operations-workspace"><div class="panel-header"><div><h2>${esc(d.empleado?.nombre||'Resumen semanal')}</h2><p>${esc(d.desde)} al ${esc(d.hasta)} · ${d.resumen.ordenes_unicas||0} OT únicas · ${d.resumen.participaciones||0} participaciones</p></div><div class="actions">${employeeId?button('Todo el personal','produccion-general')+'<button class="btn" data-production-period="all">Todo el historial</button>':''}<button class="btn" data-production-period="week">Esta semana</button><button class="btn" data-production-period="month">Este mes</button></div></div><div class="panel-body"><form id="productionFilters" class="operations-filters">${field('desde','Desde',pf.desde,'date')}${field('hasta','Hasta',pf.hasta,'date')}${field('q','Empleado',pf.q)}${field('cliente','Cliente',pf.cliente)}${field('servicio','Servicio',pf.servicio)}<label>Categoría<select name="categoria">${options(['','OPERARIO','SUPERVISOR'],pf.categoria)}</select></label><label>Estado<select name="estado">${options(['','PENDIENTE','PROGRAMADA','EN_PROCESO','POR_CONFIRMAR','COMPLETADA','CANCELADA'],pf.estado)}</select></label><button class="btn primary">Aplicar</button></form><p class="muted">${esc(d.nota_horas)} Categoría del puesto actual. ${esc(d.criterio_fecha||'')}</p></div>${table(employeeId?['OT','Fecha','Cliente / sede','Servicio','Estado','Participación','Horas de OT','Acción']:['Empleado','Categoría','Asignadas','Completadas','Pendientes','Canceladas','Emergencias','Horas de OT','Acción'],rows,'No hay trabajos en el período seleccionado.')}<div class="operations-pager"><button class="btn" data-production-page="${d.pagina-1}" ${d.pagina<=1?'disabled':''}>Anterior</button><span>Página ${d.pagina} de ${d.paginas} · ${d.total} registros</span><button class="btn" data-production-page="${d.pagina+1}" ${d.pagina>=d.paginas?'disabled':''}>Siguiente</button></div></section>`;
-  $('#productionFilters').onsubmit=async e=>{e.preventDefault();Object.assign(pf,Object.fromEntries(new FormData(e.currentTarget)),{pagina:1});try{await production();}catch(err){showToast(err.message,'error');}};
+   const filters=$('#productionFilters');
+   const applyFilters=async focusName=>{
+    const current=focusName?filters.elements.namedItem(focusName):null;
+    const caret=current?.selectionStart??null;
+    Object.assign(pf,Object.fromEntries(new FormData(filters)),{pagina:1});
+    await production();
+    if(focusName){const next=$('#productionFilters')?.elements.namedItem(focusName);if(next){next.focus();if(caret!==null)next.setSelectionRange(caret,caret);}}
+   };
+   filters.onsubmit=e=>{e.preventDefault();clearTimeout(productionSearchTimer);applyFilters().catch(err=>showToast(err.message,'error'));};
+   filters.oninput=e=>{
+    if(!e.target.matches('input[type="text"],input[type="search"]'))return;
+    const name=e.target.name;
+    clearTimeout(productionSearchTimer);
+    productionSearchTimer=setTimeout(()=>applyFilters(name).catch(err=>showToast(err.message,'error')),220);
+   };
+   filters.onchange=e=>{
+    if(e.target.matches('input[type="text"],input[type="search"]'))return;
+    clearTimeout(productionSearchTimer);
+    applyFilters().catch(err=>showToast(err.message,'error'));
+   };
   content.querySelectorAll('[data-production-period]').forEach(b=>b.onclick=()=>{if(b.dataset.productionPeriod==='all'){pf.desde='';pf.hasta='';pf.pagina=1;}else setPeriod(b.dataset.productionPeriod);production().catch(e=>showToast(e.message,'error'));});
   content.querySelectorAll('[data-production-page]').forEach(b=>b.onclick=()=>{pf.pagina=Number(b.dataset.productionPage);production().catch(e=>showToast(e.message,'error'));});
  }

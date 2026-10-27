@@ -21,6 +21,25 @@
   let weatherLastFetch = 0;
   const WEATHER_REFRESH_MS = 10 * 60 * 1000;
   let calendarCursor = null;
+  let calendarActivityMonth = "";
+  let calendarActivities = [];
+  // La fecha elegida se comparte entre vistas, sin alterar el servidor.
+  const DATE_STORE_KEY = "seprigua_fecha_consulta";
+  function currentSelectedDate() {
+    try { return sessionStorage.getItem(DATE_STORE_KEY) || ""; } catch (_) { return ""; }
+  }
+  function selectCalendarDate(key) {
+    const valid = /^\d{4}-\d{2}-\d{2}$/.test(key) && !Number.isNaN(Date.parse(key + "T12:00:00Z"));
+    const normalized = valid ? key : "";
+    const event = new CustomEvent("seprigua:calendar-date", {detail:{date:normalized}, cancelable:true});
+    if (!document.dispatchEvent(event)) return;
+    try { if (normalized) sessionStorage.setItem(DATE_STORE_KEY, normalized); else sessionStorage.removeItem(DATE_STORE_KEY); } catch (_) {}
+    window.SEPRIGUASelectedDate = normalized;
+    renderClockAndGreeting();
+    renderCalendar();
+    scheduleCalendarPosition();
+  }
+  window.SEPRIGUASelectedDate = currentSelectedDate();
 
   const $ = (selector) => document.querySelector(selector);
 
@@ -395,10 +414,120 @@
       }
 
       const isToday = cellYear === today.year && cellMonth === today.month && displayDay === today.day;
-      cells.push(`<span class="calendar-day${outside ? " is-outside" : ""}${isToday ? " is-today" : ""}" role="gridcell" aria-current="${isToday ? "date" : "false"}">${displayDay}</span>`);
+      const key = `${cellYear}-${String(cellMonth).padStart(2,"0")}-${String(displayDay).padStart(2,"0")}`;
+      const chosen = currentSelectedDate() === key;
+      const dayActivities = calendarActivities.filter(item => item.fecha === key);
+      const activityCount = dayActivities.length;
+      const tones = [...new Set(dayActivities.map(item => calendarTone(item.estado)))].slice(0, 3);
+      const activityLabel = activityCount ? `, ${activityCount} orden${activityCount === 1 ? "" : "es"} programada${activityCount === 1 ? "" : "s"}` : "";
+      cells.push(`<button type="button" class="calendar-day${outside ? " is-outside" : ""}${isToday ? " is-today" : ""}${chosen ? " is-selected" : ""}${activityCount ? " has-activity" : ""}" role="gridcell" data-calendar-date="${key}" aria-selected="${chosen ? "true" : "false"}" aria-label="Consultar el ${displayDay} de ${monthLabel(cellYear,cellMonth)}${activityLabel}" ${isToday ? 'aria-current="date"' : ''}><span class="se-cal-day-number">${displayDay}</span><span class="se-cal-day-dots" aria-hidden="true">${tones.map(tone => `<i class="se-cal-dot ${tone}"></i>`).join("")}</span></button>`);
     }
 
     grid.innerHTML = cells.join("");
+    const todayKey = dateKeyFromParts(guatemalaDateParts());
+    const todayButton = $("#calendarTodayButton");
+    if (todayButton) {
+      todayButton.hidden = year === today.year && month === today.month && (!currentSelectedDate() || currentSelectedDate() === todayKey);
+      const footer = todayButton.closest(".calendar-popover-foot");
+      if (footer) footer.hidden = todayButton.hidden;
+    }
+    renderCalendarActivityPreview();
+    scheduleCalendarPosition();
+  }
+
+  function dateKeyFromParts(parts) { return `${parts.year}-${String(parts.month).padStart(2,"0")}-${String(parts.day).padStart(2,"0")}`; }
+
+  function calendarTone(status) {
+    const value = String(status || "").toUpperCase();
+    if (/FINALIZ|COMPLET|CERRAD|ATENDID/.test(value)) return "green";
+    if (/CANCEL/.test(value)) return "neutral";
+    if (/EMERGEN|CRITIC/.test(value)) return "red";
+    if (/PENDIENT|ESPERA|REVISI/.test(value)) return "amber";
+    return "blue";
+  }
+
+  function renderCalendarActivityPreview() {
+    const host = $("#calendarActivityPreview");
+    if (!host) return;
+    const selected = currentSelectedDate() || (calendarCursor?.year === guatemalaDateParts().year && calendarCursor?.month === guatemalaDateParts().month ? dateKeyFromParts(guatemalaDateParts()) : "");
+    host.replaceChildren();
+    const heading = document.createElement("strong");
+    heading.textContent = selected ? `Órdenes del ${selected}` : "Actividad del mes";
+    host.append(heading);
+    const items = selected ? calendarActivities.filter(item => item.fecha === selected) : [];
+    if (!selected) {
+      const note = document.createElement("p"); note.textContent = "Selecciona un día con indicador para consultar sus órdenes."; host.append(note); return;
+    }
+    if (!items.length) {
+      const note = document.createElement("p"); note.textContent = "No hay órdenes programadas para esta fecha."; host.append(note); return;
+    }
+    const list = document.createElement("ul");
+    items.slice(0, 4).forEach(item => {
+      const row = document.createElement("li");
+      row.className = `se-cal-preview-row ${calendarTone(item.estado)}`;
+      const title = document.createElement("span"); title.textContent = item.titulo || "Orden de trabajo";
+      const detail = document.createElement("small"); detail.textContent = [item.cliente, item.estado].filter(Boolean).join(" · ");
+      row.append(title, detail); list.append(row);
+    });
+    if (items.length > 4) { const more = document.createElement("li"); more.className="calendar-activity-more"; more.textContent=`y ${items.length - 4} más`; list.append(more); }
+    host.append(list);
+  }
+
+  async function loadCalendarActivities() {
+    const {year,month} = calendarCursor || guatemalaDateParts();
+    const key = `${year}-${String(month).padStart(2,"0")}`;
+    if (calendarActivityMonth === key) return;
+    calendarActivityMonth = key;
+    calendarActivities = [];
+    renderCalendar();
+    const from = `${key}-01`;
+    const next = new Date(Date.UTC(year, month, 1));
+    const until = `${next.getUTCFullYear()}-${String(next.getUTCMonth()+1).padStart(2,"0")}-01`;
+    try {
+      const response = await fetch(`/api/calendario/actividades?desde=${from}&hasta=${until}`, {credentials:"same-origin",cache:"no-store"});
+      if (!response.ok) { if (calendarActivityMonth === key) calendarActivityMonth = ""; return; }
+      const data = await response.json();
+      if (calendarActivityMonth === key && data.ok) { calendarActivities = Array.isArray(data.items) ? data.items : []; renderCalendar(); scheduleCalendarPosition(); }
+    } catch (_) { if (calendarActivityMonth === key) calendarActivityMonth = ""; /* El calendario sigue disponible si no se puede consultar la actividad. */ }
+  }
+
+  function positionCalendar() {
+    const popover = $("#calendarPopover");
+    const button = $("#calendarButton");
+    if (!popover || popover.hidden || !button) return;
+    const viewport = window.visualViewport;
+    const minX = viewport?.offsetLeft ?? 0;
+    const minY = viewport?.offsetTop ?? 0;
+    const viewW = viewport?.width ?? window.innerWidth;
+    const viewH = viewport?.height ?? window.innerHeight;
+    const maxX = minX + viewW;
+    const maxY = minY + viewH;
+    const rect = button.getBoundingClientRect();
+    const margin = 10;
+    const gap = 8;
+    const width = Math.min(390, Math.max(0, viewW - 2 * margin));
+    let left = rect.left;
+    if (left + width > maxX - margin) left = rect.right - width;
+    left = Math.max(minX + margin, Math.min(left, maxX - width - margin));
+    const naturalHeight = Math.min(popover.scrollHeight || 550, 670);
+    const below = Math.max(0, maxY - margin - (rect.bottom + gap));
+    const above = Math.max(0, rect.top - gap - (minY + margin));
+    const openAbove = below < Math.min(naturalHeight, 320) && above > below;
+    const maxHeight = Math.min(670, openAbove ? above : below);
+    const top = openAbove ? Math.max(minY + margin, rect.top - gap - Math.min(naturalHeight, maxHeight)) : rect.bottom + gap;
+    for (const [name, value] of Object.entries({position:"fixed",left:`${Math.round(left)}px`,right:"auto",top:`${Math.round(top)}px`,bottom:"auto",width:`${Math.round(width)}px`,maxHeight:`${Math.round(maxHeight)}px`})) {
+      popover.style.setProperty(name, value, "important");
+    }
+    popover.dataset.placement = openAbove ? "top" : "bottom";
+  }
+
+  let calendarPositionFrame = 0;
+  function scheduleCalendarPosition() {
+    if (calendarPositionFrame || $("#calendarPopover")?.hidden) return;
+    calendarPositionFrame = requestAnimationFrame(() => {
+      calendarPositionFrame = 0;
+      positionCalendar();
+    });
   }
 
   function openCalendar() {
@@ -407,7 +536,9 @@
     if (!popover || !button) return;
     ensureCalendarCursor();
     renderCalendar();
+    loadCalendarActivities();
     popover.hidden = false;
+    positionCalendar();
     button.setAttribute("aria-expanded", "true");
     window.lucide?.createIcons();
   }
@@ -437,16 +568,24 @@
       calendarCursor.month = 1;
       calendarCursor.year += 1;
     }
+    calendarActivityMonth = "";
+    calendarActivities = [];
     renderCalendar();
+    loadCalendarActivities();
   }
 
   function calendarGoToday() {
     const today = guatemalaDateParts();
     calendarCursor = { year: today.year, month: today.month };
+    calendarActivityMonth = "";
+    calendarActivities = [];
     renderCalendar();
+    loadCalendarActivities();
   }
 
   function bindCalendarEvents() {
+    const popover = $("#calendarPopover");
+    if (popover && popover.parentElement !== document.body) document.body.appendChild(popover);
     $("#calendarButton")?.addEventListener("click", (event) => {
       event.stopPropagation();
       toggleCalendar();
@@ -465,12 +604,24 @@
     $("#calendarTodayButton")?.addEventListener("click", (event) => {
       event.stopPropagation();
       calendarGoToday();
+      selectCalendarDate(""); // Regresa a la vista actual (sin filtro histórico).
+    });
+    $("#calendarDaysGrid")?.addEventListener("click", (event) => {
+      const day = event.target.closest("[data-calendar-date]");
+      if (!day) return;
+      event.stopPropagation();
+      selectCalendarDate(day.dataset.calendarDate);
     });
 
     document.addEventListener("click", (event) => {
       const wrap = $("#topCalendarWrap");
-      if (wrap && !wrap.contains(event.target)) closeCalendar();
+      if (!wrap?.contains(event.target) && !popover?.contains(event.target)) closeCalendar();
     });
+
+    window.addEventListener("resize", scheduleCalendarPosition, {passive:true});
+    window.addEventListener("orientationchange", scheduleCalendarPosition, {passive:true});
+    window.visualViewport?.addEventListener("resize", scheduleCalendarPosition, {passive:true});
+    window.visualViewport?.addEventListener("scroll", scheduleCalendarPosition, {passive:true});
 
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") closeCalendar();
@@ -486,8 +637,13 @@
     const isCenterControl = document.body.classList.contains("center-control-mode");
 
     // Navbar global: fecha, día, hora y clima deben ser idénticos en todos los módulos.
-    if (topDate) topDate.textContent = dateFormatter.format(now);
-    if (topDayName) topDayName.textContent = titleCase(dayFormatter.format(now));
+    const chosen = currentSelectedDate();
+    const displayDate = chosen ? new Date(`${chosen}T12:00:00Z`) : now;
+    if (topDate) topDate.textContent = dateFormatter.format(displayDate);
+    if (topDayName) topDayName.textContent = titleCase(dayFormatter.format(displayDate));
+    const calendarButton = $("#calendarButton");
+    calendarButton?.classList.toggle("is-date-selected",Boolean(chosen));
+    if (calendarButton) calendarButton.title = chosen ? `Consultando registros del ${chosen}. Usa «Ir a hoy» para volver a la vista actual.` : "Seleccionar fecha de consulta";
     if (topClock) topClock.textContent = formatTime(now);
     renderWeather();
 
@@ -551,6 +707,10 @@
     renderWeather();
   }
 
+  document.addEventListener("seprigua:calendar-date", () => {
+    requestAnimationFrame(() => { renderClockAndGreeting(); renderCalendar(); });
+  });
+
   document.addEventListener("seprigua:center-data-updated", () => {
     lastUpdate = new Date();
     syncState = "updated";
@@ -588,8 +748,11 @@
   preloadDaypartArt();
   bindCalendarEvents();
   renderCalendar();
-  setInterval(renderClockAndGreeting, 30000);
-  setInterval(() => maybeRefreshWeather(), WEATHER_REFRESH_MS);
+  setInterval(() => { if (!document.hidden) renderClockAndGreeting(); }, 30000);
+  setInterval(() => { if (!document.hidden) maybeRefreshWeather(); }, WEATHER_REFRESH_MS);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) { renderClockAndGreeting(); maybeRefreshWeather(); }
+  });
   renderClockAndGreeting();
   maybeRefreshWeather(true);
 })();

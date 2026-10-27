@@ -5,7 +5,10 @@ Marcar un aviso leído no resuelve una cancelación.
 """
 from flask import request,jsonify
 from werkzeug.exceptions import NotFound,Conflict
-from .notifications import notify_users,coordinator_users
+try:
+    from .notifications import notify_users,coordinator_users,resolve_order_notifications
+except ImportError:
+    from notifications import notify_users,coordinator_users,resolve_order_notifications
 BASE="""SELECT n.NotificacionId AS id,n.UsuarioId AS solicitante_id,n.Entidad AS entidad,TRY_CONVERT(bigint,n.EntidadId) AS entidad_id,
  n.Mensaje AS motivo,n.CreadaEn AS solicitada,COALESCE(o.NumeroOrden,CONCAT('Solicitud #',s.SolicitudServicioId)) AS numero,
  COALESCE(s.ClienteId,so.ClienteId) AS cliente_id,c.NombreComercial AS cliente,
@@ -20,16 +23,34 @@ BASE="""SELECT n.NotificacionId AS id,n.UsuarioId AS solicitante_id,n.Entidad AS
    AND x.Tipo IN ('CANCELACION_APROBADA','CANCELACION_RECHAZADA') ORDER BY x.NotificacionId DESC) r
  WHERE n.Tipo='CANCELACION_SOLICITADA'"""
 
+# Contrato operativo: una OT que inició el trabajo nunca puede cancelarse,
+# aunque una notificación pendiente se haya creado antes de iniciar la atención.
+# Se revisa bajo bloqueo de planificación para evitar aprobaciones simultáneas.
+def _orden_cancelable(b, cur, orden_id):
+    order=b.exec_proc_row(cur, """SELECT eo.Codigo AS estado,o.IniciadaEn AS iniciada,
+       CASE WHEN EXISTS(SELECT 1 FROM srv.ActividadServicio a WHERE a.OrdenTrabajoId=o.OrdenTrabajoId)
+           THEN 1 ELSE 0 END AS actividad
+       FROM srv.OrdenTrabajo o WITH (UPDLOCK,HOLDLOCK)
+       JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
+       WHERE o.OrdenTrabajoId=?""", (orden_id,))
+    if not order:raise NotFound('Orden no encontrada.')
+    if str(order.get('estado') or '').upper() not in {'PENDIENTE','PROGRAMADA'} or order.get('iniciada') or order.get('actividad'):
+        raise Conflict('Esta orden ya comenzó o está cerrada. No puede solicitarse ni aprobarse su cancelación.')
+    return order
+
 def register_cancellations(b):
     @b.app.get('/api/cancelaciones')
     @b.require_session('COORDINADOR','CLIENTE')
     def cancellations_list(session):
         status=str(request.args.get('estado') or '').upper()
         if status not in {'','PENDIENTE','APROBADA','RECHAZADA'}:raise ValueError('Estado inválido.')
-        page,size=b.pagination_args(20,100);params=(session['rol'],session.get('cliente_id'),status,status)
-        query='WITH datos AS ('+BASE+") SELECT * FROM datos WHERE (?='COORDINADOR' OR cliente_id=?) AND (?='' OR estado=?)"
+        page,size=b.pagination_args(20,100)
+        access = "EXISTS (SELECT 1 FROM srv.SolicitudServicio so JOIN crm.UbicacionServicio ux ON ux.UbicacionServicioId=so.UbicacionServicioId JOIN seg.ufn_SucursalesPermitidas(?) ax ON ax.SucursalClienteId=ux.SucursalClienteId WHERE (datos.entidad='SolicitudServicio' AND so.SolicitudServicioId=datos.entidad_id) OR (datos.entidad='OrdenTrabajo' AND EXISTS(SELECT 1 FROM srv.OrdenTrabajo ot WHERE ot.OrdenTrabajoId=datos.entidad_id AND ot.SolicitudServicioId=so.SolicitudServicioId)))"
+        params=(session['rol'],session.get('cliente_id'),session['usuario_id'],status,status)
+        guard="(?='COORDINADOR' OR (cliente_id=? AND "+access+")) AND (?='' OR estado=?)"
+        query='WITH datos AS ('+BASE+') SELECT * FROM datos WHERE '+guard
         with b.get_db_connection() as conn:
-            cur=conn.cursor();total=int(b.exec_proc_row(cur,'SELECT COUNT_BIG(*) AS total FROM ('+BASE+") datos WHERE (?='COORDINADOR' OR cliente_id=?) AND (?='' OR estado=?)",params)['total'])
+            cur=conn.cursor();total=int(b.exec_proc_row(cur,'SELECT COUNT_BIG(*) AS total FROM ('+BASE+') datos WHERE '+guard,params)['total'])
             pages=max(1,(total+size-1)//size);page=min(page,pages)
             items=b.exec_proc_rows(cur,query+' ORDER BY solicitada DESC,id DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY',(*params,(page-1)*size,size))
         return jsonify(ok=True,items=items,total=total,pagina=page,paginas=pages,tamano=size)
@@ -44,10 +65,10 @@ def register_cancellations(b):
             cur=conn.cursor();b.planning.lock_planning(b,cur);b.set_audit_context(cur,session,'Solicitud de cancelación')
             if entity=='OrdenTrabajo':
                 b.assert_order_access(session,entity_id)
-                item=b.exec_proc_row(cur,'SELECT eo.EsFinal AS final FROM srv.OrdenTrabajo o JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId WHERE o.OrdenTrabajoId=?',(entity_id,))
-                if not item or item['final']:raise Conflict('La orden ya está cerrada.')
+                _orden_cancelable(b,cur,entity_id)
             else:
                 item=b.exec_proc_row(cur,'SELECT ClienteId AS cliente_id,Estado AS estado FROM srv.SolicitudServicio WHERE SolicitudServicioId=?',(entity_id,))
+                b.assert_request_access(session,entity_id)
                 if not item or item['cliente_id']!=session['cliente_id']:raise NotFound('Solicitud no encontrada.')
                 if item['estado']=='CANCELADA':raise Conflict('La solicitud ya fue cancelada.')
                 if b.exec_proc_row(cur,'SELECT TOP 1 OrdenTrabajoId FROM srv.OrdenTrabajo WHERE SolicitudServicioId=?',(entity_id,)):raise Conflict('La solicitud ya tiene OT; solicita la cancelación desde su orden.')
@@ -72,14 +93,23 @@ def register_cancellations(b):
             if item['estado']!='PENDIENTE':raise Conflict('La cancelación ya fue resuelta.')
             if target=='APROBADA':
                 if item['entidad']=='OrdenTrabajo':
-                    order=b.exec_proc_row(cur,'SELECT eo.EsFinal AS final FROM srv.OrdenTrabajo o JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId WHERE o.OrdenTrabajoId=?',(item['entidad_id'],))
-                    if not order or order['final']:raise Conflict('La OT ya finalizó. Resuelve la solicitud como rechazada e indica el motivo.')
+                    _orden_cancelable(b,cur,item['entidad_id'])
                     state=b.exec_proc_row(cur,"SELECT EstadoOrdenTrabajoId AS id FROM srv.EstadoOrdenTrabajo WHERE Codigo='CANCELADA' AND Activo=1")
                     if not state:raise Conflict('El catálogo de estados no contiene CANCELADA activa.')
                     b.exec_proc_row(cur,'EXEC srv.usp_AppCambiarEstadoOrden ?,?,?,?',(item['entidad_id'],state['id'],session['usuario_id'],notes))
+                    updated=b.exec_proc_row(cur,'''SELECT eo.Codigo AS estado, o.SolicitudServicioId AS solicitud_id
+                      FROM srv.OrdenTrabajo o JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
+                      WHERE o.OrdenTrabajoId=?''',(item['entidad_id'],))
+                    if not updated or updated['estado']!='CANCELADA':
+                        raise Conflict('No se confirmó el estado CANCELADA en la OT; la operación fue revertida.')
+                    # Mantener el mismo estado en la solicitud de origen. Nunca eliminar la OT: conserva historial.
+                    cur.execute('''UPDATE srv.SolicitudServicio SET Estado='CANCELADA',ActualizadoEn=SYSUTCDATETIME()
+                       WHERE SolicitudServicioId=? AND Estado IN ('CONVERTIDA','REGISTRADA')''',updated['solicitud_id'])
                 else:
                     if b.exec_proc_row(cur,'SELECT TOP 1 OrdenTrabajoId FROM srv.OrdenTrabajo WHERE SolicitudServicioId=?',(item['entidad_id'],)):raise Conflict('La solicitud se convirtió a OT. Resuelve este pedido y gestiona la cancelación de la OT.')
                     cur.execute("UPDATE srv.SolicitudServicio SET Estado='CANCELADA',ActualizadoEn=SYSUTCDATETIME() WHERE SolicitudServicioId=?",item['entidad_id'])
+            if item['entidad'] in {'OrdenTrabajo','SolicitudServicio'}:
+                resolve_order_notifications(cur, item['entidad_id'], item['entidad'])
             notify_users(b,cur,[item['solicitante_id']],'CANCELACION_'+target,'Cancelación '+target.lower(),notes,'Cancelacion',cancellation_id)
         b.queue_web_push([item['solicitante_id']],title='Cancelación '+target.lower(),body=notes,role='CLIENTE',entity='Cancelacion',entity_id=cancellation_id)
         if target=='APROBADA' and item['entidad']=='OrdenTrabajo':b.push_order_state_changed(item['entidad_id'],'CANCELADA',session)

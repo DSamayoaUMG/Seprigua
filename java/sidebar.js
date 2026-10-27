@@ -8,7 +8,7 @@
 
   if (!sidebar || !nav || !notch) return;
 
-  const desktopQuery = window.matchMedia("(min-width: 821px)");
+  const desktopQuery = window.matchMedia("(min-width: 1121px)");
 
   let rafId = 0;
   let initialized = false;
@@ -113,4 +113,85 @@
   }
 
   scheduleSync({ instant: true });
+})();
+
+/* SEPRIGUA · Señal de desplazamiento del menú (solo interfaz)
+   Muestra el indicador cuando el menú realmente tiene opciones más abajo.
+   La barra azul nativa se estiliza por CSS y conserva mouse, touch y teclado. */
+(() => {
+  "use strict";
+  const sidebar = document.getElementById("sidebar");
+  const nav = document.getElementById("systemNav");
+  if (!sidebar || !nav || sidebar.querySelector(".sidebar-scroll-hint")) return;
+
+  const hint = document.createElement("div");
+  hint.className = "sidebar-scroll-hint";
+  hint.setAttribute("aria-hidden", "true");
+  hint.hidden = true;
+  hint.innerHTML = '<span class="sidebar-scroll-hint-icon" aria-hidden="true">↓</span><span class="sidebar-scroll-hint-text">Desliza para ver más</span>';
+  sidebar.appendChild(hint);
+  let pending = 0;
+
+  function update() {
+    pending = 0;
+    // Un rail minimizado no debe mostrar ni flecha ni scrollbar.
+    const compact = document.body.classList.contains("sidebar-collapsed") && !sidebar.classList.contains("open");
+    const drawerOculto = window.matchMedia("(max-width: 650px)").matches && !sidebar.classList.contains("open");
+    if (compact || drawerOculto) {
+      nav.classList.remove("sidebar-scroll-required");
+      hint.hidden = true;
+      return;
+    }
+
+    // La diferencia scrollHeight-clientHeight puede incluir solamente el padding
+    // de la lista (y redondeos del zoom). Contar elementos REALES, no píxeles
+    // de relleno: el último botón define si existe una opción oculta.
+    const buttons = nav.querySelectorAll(".nav-button");
+    const last = buttons[buttons.length - 1];
+    if (!last) {
+      nav.classList.remove("sidebar-scroll-required");
+      hint.hidden = true;
+      return;
+    }
+    const navBounds = nav.getBoundingClientRect();
+    const lastBounds = last.getBoundingClientRect();
+    // Compensar el desplazamiento actual para medir el último botón en top=0.
+    // Tolera 3 px de redondeo subpíxel sin confundirlo con un ítem cortado.
+    const bottomAtTop = lastBounds.bottom - navBounds.bottom + nav.scrollTop;
+    const needsScroll = bottomAtTop > 3;
+    nav.classList.toggle("sidebar-scroll-required", needsScroll);
+    if (!needsScroll) {
+      if (nav.scrollTop) nav.scrollTop = 0;
+      hint.hidden = true;
+      return;
+    }
+
+    // La flecha indica que queda contenido útil por debajo, no solo padding.
+    const moreBelow = lastBounds.bottom - navBounds.bottom > 3;
+    hint.hidden = !moreBelow;
+    if (moreBelow) {
+      const sidebarBounds = sidebar.getBoundingClientRect();
+      hint.style.top = `${Math.round(navBounds.bottom - sidebarBounds.top - 39)}px`;
+    }
+  }
+  function schedule() {
+    if (pending) return;
+    pending = requestAnimationFrame(update);
+  }
+  nav.addEventListener("scroll", schedule, { passive: true });
+  window.addEventListener("resize", schedule, { passive: true });
+  new MutationObserver(schedule).observe(nav, { childList: true, subtree: true });
+  new MutationObserver(schedule).observe(sidebar, { attributes: true, attributeFilter: ["class"] });
+  new MutationObserver(schedule).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  if ("ResizeObserver" in window) {
+    const observer = new ResizeObserver(schedule);
+    observer.observe(nav);
+    // El texto y la altura de las opciones pueden cambiar al aplicar zoom.
+    const attachButtons = () => {
+      nav.querySelectorAll(".nav-button").forEach((button) => observer.observe(button));
+    };
+    attachButtons();
+    new MutationObserver(attachButtons).observe(nav, { childList: true });
+  }
+  schedule();
 })();

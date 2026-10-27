@@ -256,8 +256,10 @@ def register_agenda_operativa(b):
         with b.get_db_connection() as conn:
             cur=conn.cursor();b.planning.lock_planning(b,cur);b.set_audit_context(cur,session,'Planificación de agenda')
             for oid,scheduled,change in normalized:
-                current=b.exec_proc_row(cur,'SELECT o.ProgramadaPara AS programada,eo.Codigo AS estado FROM srv.OrdenTrabajo o JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId WHERE o.OrdenTrabajoId=?',(oid,))
+                current=b.exec_proc_row(cur,'SELECT o.ProgramadaPara AS programada,eo.Codigo AS estado,eo.EstadoOrdenTrabajoId AS estado_id FROM srv.OrdenTrabajo o JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId WHERE o.OrdenTrabajoId=?',(oid,))
                 if not current:raise NotFound('Orden no encontrada.')
+                if b.reprogramming_actions['pending'](b,cur,oid):
+                    raise Conflict('La OT tiene una reprogramación pendiente de aprobación. Revísala en el detalle.')
                 if current['estado'] not in {'PENDIENTE','PROGRAMADA'}:raise Conflict('Una orden ya se inició o está cerrada. Actualiza la agenda.')
                 if 'programada_original' in change:
                     original=b.parse_datetime_local(change['programada_original'],'Fecha original') if change['programada_original'] else None
@@ -275,6 +277,7 @@ def register_agenda_operativa(b):
                     cur.execute("""UPDATE rh.Empleado SET Disponibilidad='DISPONIBLE',ActualizadoEn=SYSUTCDATETIME() WHERE EmpleadoId=? AND Disponibilidad='ASIGNADO' AND EstadoLaboral='ACTIVO'
                       AND NOT EXISTS(SELECT 1 FROM srv.TecnicoOrden t JOIN srv.OrdenTrabajo o ON o.OrdenTrabajoId=t.OrdenTrabajoId JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId WHERE t.EmpleadoId=? AND t.Estado IN ('ASIGNADO','CONFIRMADO') AND eo.EsFinal=0)""",source,source)
                 cur.execute('UPDATE srv.OrdenTrabajo SET ProgramadaPara=?,ActualizadoEn=SYSUTCDATETIME() WHERE OrdenTrabajoId=?',scheduled,oid)
+                b.record_reschedule(cur,oid,current['estado_id'],session['usuario_id'],current['programada'],scheduled)
                 if current['estado']=='PENDIENTE':
                     state=b.exec_proc_row(cur,"SELECT EstadoOrdenTrabajoId AS id FROM srv.EstadoOrdenTrabajo WHERE Codigo='PROGRAMADA' AND Activo=1")
                     if not state:raise Conflict('Falta PROGRAMADA activa en el catálogo de estados.')

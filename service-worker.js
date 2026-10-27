@@ -12,13 +12,8 @@ self.addEventListener("push", event => {
   }
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type:"window", includeUncontrolled:true });
-    const visible = windows.some(client => client.visibilityState === "visible");
-    // Si el usuario está usando el portal, actualizamos el centro de avisos y evitamos
-    // duplicar el mismo evento como notificación del sistema operativo.
-    if (visible && !data.force) {
-      windows.forEach(client => client.postMessage({ type:"SEPRIGUA_PUSH", payload:data }));
-      return;
-    }
+    // El aviso del sistema debe aparecer también con el portal visible.
+    windows.forEach(client => client.postMessage({ type:"SEPRIGUA_PUSH", payload:data }));
     await self.registration.showNotification(data.title || "SEPRIGUA", {
       body: data.body || "Tienes un nuevo aviso.",
       icon: localUrl(data.icon,"/assets/pwa/seprigua-192.png"),

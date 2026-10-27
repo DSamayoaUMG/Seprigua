@@ -120,7 +120,7 @@ def register_extensions(b):
         if coordinators:
             ids=coordinator_users(b,cur,'garantia')
         else:
-            ids=[x['id'] for x in b.exec_proc_rows(cur,"SELECT DISTINCT u.UsuarioId AS id FROM seg.Usuario u JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId JOIN srv.SolicitudServicio ss ON ss.ClienteId=cc.ClienteId JOIN srv.OrdenTrabajo o ON o.SolicitudServicioId=ss.SolicitudServicioId WHERE o.OrdenTrabajoId=? AND u.Activo=1 AND cc.Activo=1",(order_id,))]
+            ids=[x['id'] for x in b.exec_proc_rows(cur,"SELECT DISTINCT u.UsuarioId AS id FROM seg.Usuario u JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId JOIN srv.SolicitudServicio ss ON ss.ClienteId=cc.ClienteId JOIN srv.OrdenTrabajo o ON o.SolicitudServicioId=ss.SolicitudServicioId JOIN crm.UbicacionServicio ux ON ux.UbicacionServicioId=ss.UbicacionServicioId CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) ax WHERE o.OrdenTrabajoId=? AND u.Activo=1 AND cc.Activo=1 AND ax.SucursalClienteId=ux.SucursalClienteId",(order_id,))]
         notify_users(b,cur,ids,'GARANTIA',title,message,'OrdenTrabajo',order_id)
 
     def save_quote(session,quote_id=None):
@@ -137,6 +137,11 @@ def register_extensions(b):
                 if not q:raise NotFound('Cotización no encontrada.')
                 meta=row(cur,'SELECT TOP 1 Moneda,EsExportacion,EsDocumentoTributario FROM cot.VersionCotizacion WHERE CotizacionId=? AND EsActual=1',(quote_id,)) or meta
                 if q['Estado'] in {'ACEPTADA','ANULADA'}:raise Conflict('La cotización ya está cerrada.')
+                check=row(cur,"""SELECT eo.Codigo AS estado FROM srv.OrdenTrabajo o
+                  JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
+                  WHERE o.OrdenTrabajoId=?""",(q['OrdenTrabajoId'],))
+                if not check or check['estado'] in {'CANCELADA','COMPLETADA'}:
+                    raise Conflict('No se pueden modificar cotizaciones de órdenes cerradas.')
                 if not reason:raise ValueError('Indica el motivo de la nueva versión.')
                 version=int(row(cur,'SELECT MAX(NumeroVersion) AS n FROM cot.VersionCotizacion WHERE CotizacionId=?',(quote_id,))['n'] or 0)+1
                 if version>32767:raise Conflict('Se alcanzó el límite de versiones.')
@@ -144,7 +149,13 @@ def register_extensions(b):
                 cur.execute("UPDATE cot.Cotizacion SET Estado='BORRADOR',ActualizadoEn=SYSUTCDATETIME() WHERE CotizacionId=?",quote_id)
             else:
                 order_id=int(d.get('orden_id') or 0);b.assert_order_access(session,order_id)
-                locked=row(cur,'SELECT OrdenTrabajoId FROM srv.OrdenTrabajo WITH (UPDLOCK,HOLDLOCK) WHERE OrdenTrabajoId=?',(order_id,))
+                locked=row(cur,"""SELECT o.OrdenTrabajoId AS id,eo.Codigo AS estado
+                 FROM srv.OrdenTrabajo o WITH (UPDLOCK,HOLDLOCK)
+                 JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
+                 WHERE o.OrdenTrabajoId=?""",(order_id,))
+                if not locked:raise NotFound('Orden de trabajo no encontrada.')
+                if locked['estado'] in {'CANCELADA','COMPLETADA'}:
+                    raise Conflict('No se puede crear una cotización para una OT cancelada o finalizada.')
                 if row(cur,'SELECT CotizacionId FROM cot.Cotizacion WHERE OrdenTrabajoId=?',(order_id,)):raise Conflict('La OT ya tiene cotización. Abre su detalle para registrar otra versión.')
                 number_code='COT-'+today.strftime('%Y%m%d')+'-'+uuid.uuid4().hex[:8].upper()
                 q=row(cur,"""DECLARE @n TABLE(id bigint); INSERT INTO cot.Cotizacion(OrdenTrabajoId,NumeroCotizacion,NombreCotizacion,CreadaPorUsuarioId,Estado)
@@ -457,10 +468,10 @@ def register_extensions(b):
           FROM srv.OrdenTrabajo o JOIN srv.EstadoOrdenTrabajo e ON e.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
           JOIN srv.SolicitudServicio ss ON ss.SolicitudServicioId=o.SolicitudServicioId JOIN crm.Cliente c ON c.ClienteId=ss.ClienteId
           LEFT JOIN crm.UbicacionServicio ub ON ub.UbicacionServicioId=ss.UbicacionServicioId LEFT JOIN crm.SucursalCliente sc ON sc.SucursalClienteId=ub.SucursalClienteId
-          JOIN srv.TipoServicio ts ON ts.TipoServicioId=ss.TipoServicioId WHERE e.Codigo='COMPLETADA' AND (?='COORDINADOR' OR ss.ClienteId=?) ORDER BY o.FinalizadaEn DESC""",(session['rol'],session.get('cliente_id')))
+          JOIN srv.TipoServicio ts ON ts.TipoServicioId=ss.TipoServicioId WHERE e.Codigo='COMPLETADA' AND (?='COORDINADOR' OR (ss.ClienteId=? AND EXISTS (SELECT 1 FROM crm.UbicacionServicio ux JOIN seg.ufn_SucursalesPermitidas(?) ax ON ax.SucursalClienteId=ux.SucursalClienteId WHERE ux.UbicacionServicioId=ss.UbicacionServicioId))) ORDER BY o.FinalizadaEn DESC""",(session['rol'],session.get('cliente_id'),session['usuario_id']))
         raw=b.query_all("""SELECT i.* FROM srv.IncidenciaOrden i JOIN srv.OrdenTrabajo o ON o.OrdenTrabajoId=i.OrdenTrabajoId
           JOIN srv.SolicitudServicio ss ON ss.SolicitudServicioId=o.SolicitudServicioId
-          WHERE ISJSON(i.AccionTomada)=1 AND (?='COORDINADOR' OR ss.ClienteId=?) ORDER BY i.IncidenciaOrdenId""",(session['rol'],session.get('cliente_id')))
+          WHERE ISJSON(i.AccionTomada)=1 AND (?='COORDINADOR' OR (ss.ClienteId=? AND EXISTS (SELECT 1 FROM crm.UbicacionServicio ux JOIN seg.ufn_SucursalesPermitidas(?) ax ON ax.SucursalClienteId=ux.SucursalClienteId WHERE ux.UbicacionServicioId=ss.UbicacionServicioId))) ORDER BY i.IncidenciaOrdenId""",(session['rol'],session.get('cliente_id'),session['usuario_id']))
         configs={};requests=[];mapped={x['orden_id']:x for x in orders}
         linked_ids=set()
         for i in raw:

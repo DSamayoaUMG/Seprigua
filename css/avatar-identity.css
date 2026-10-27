@@ -1,0 +1,24 @@
+/* SEPRIGUA · Avatar de personas en listas, detalles y cuadrillas.
+   Complemento visual: respeta todos los temas. No cambia controles ni acciones. */
+.entity-identity {display:flex;align-items:center;gap:10px;min-width:0;max-width:100%;}
+.entity-avatar-shell {position:relative;flex:0 0 33px;width:33px;height:33px;display:grid;place-items:center;overflow:hidden;border:1px solid color-mix(in srgb,var(--se-brand-3,#1e78c5) 14%,var(--se-border,#d9e5f0));border-radius:50%;background:linear-gradient(145deg,color-mix(in srgb,var(--se-brand-3,#1e78c5) 15%,var(--se-surface,#fff)),color-mix(in srgb,var(--se-brand,#0c3e73) 10%,var(--se-surface,#fff)));color:var(--se-brand,#0c3e73);box-shadow:0 2px 7px rgba(10,50,100,.06);isolation:isolate;}
+.entity-avatar-fallback {display:grid;place-items:center;position:absolute;inset:0;font-size:11px;font-weight:850;line-height:1;letter-spacing:-.02em;font-family:Inter,Arial,sans-serif;text-transform:uppercase;user-select:none;}
+.entity-avatar-image {position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;border-radius:50%;background:var(--se-surface,#fff);}
+.entity-identity-copy {display:flex;flex-direction:column;min-width:0;max-width:100%;gap:2px;line-height:1.3;}
+.entity-identity-copy strong {font-size:inherit;color:var(--se-text-strong,#092e5d);font-weight:750;overflow-wrap:break-word;}
+.entity-identity-copy>span {font-size:12px;color:var(--se-text-2,#69809b);line-height:1.25;overflow-wrap:anywhere;}
+:is(.order-table,.people-table,.data-table) .entity-identity {min-width:130px;}
+:is(.order-tech-identity,.people-employee-identity,.people-user-identity,.people-contact-identity) .entity-avatar-shell {flex-basis:34px;width:34px;height:34px;}
+/* La celda cliente en listados se conserva sobria: iniciales de la empresa, sin atribuirle foto personal */
+.order-client-identity .entity-avatar-shell,.request-client-cell .entity-avatar-shell {background:var(--se-surface-3,#eaf1f7);}
+.crew-avatar.entity-avatar-shell,.warranty-crew-card .crew-avatar.entity-avatar-shell {flex:0 0 38px;width:38px;height:38px;border-radius:50%;padding:0;}
+.user-detail-avatar.entity-avatar-shell {flex:0 0 54px;width:54px;height:54px;padding:0;}
+.user-detail-avatar .entity-avatar-fallback {font-size:16px;}
+/* Foto local del propio usuario, o iniciales donde antes aparecía un icono genérico. */
+.se-photo-avatar-initials {display:grid;place-items:center;width:100%;height:100%;font-size:clamp(11px,1.2vw,16px);font-weight:850;line-height:1;letter-spacing:-.02em;color:inherit;user-select:none;}
+.se-photo-preview-avatar .se-photo-avatar-initials {font-size:30px;}
+.account-hero-card .account-avatar>.se-photo-avatar-initials {font-size:25px;}
+.sidebar-user-avatar>.se-photo-avatar-initials {font-size:13px;}
+.prototype-avatar>.se-photo-avatar-initials {font-size:13px;}
+@media(max-width:700px){.entity-identity{gap:7px}.entity-avatar-shell{flex-basis:30px;width:30px;height:30px}.entity-avatar-fallback{font-size:10px}.entity-identity-copy>span{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.entity-avatar-shell,.entity-avatar-shell *{transition:none!important}}

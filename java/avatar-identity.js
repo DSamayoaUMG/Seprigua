@@ -16,14 +16,21 @@
   }
 
   function resolveUrl(entity = {}, explicitUrl = "") {
-    return String(explicitUrl ||
+    const configured = explicitUrl ||
       entity.avatar_url || entity.avatarUrl || entity.foto_url || entity.fotoUrl ||
       entity.imagen_url || entity.imagenUrl || entity.foto_perfil || entity.fotoPerfil ||
       entity.avatar || entity.foto || entity.imagen ||
       entity.cliente_foto || entity.clienteFoto || entity.foto_cliente || entity.fotoCliente ||
       entity.avatar_cliente || entity.avatarCliente ||
       entity.tecnico_foto || entity.tecnicoFoto || entity.foto_tecnico || entity.fotoTecnico ||
-      entity.empleado_foto || entity.empleadoFoto || "").trim();
+      entity.empleado_foto || entity.empleadoFoto || "";
+    if (String(configured).trim()) return String(configured).trim();
+    const userId = Number(entity.usuario_id || entity.usuarioId || entity.user_id || entity.userId || 0);
+    if (Number.isSafeInteger(userId) && userId > 0) return `/api/perfiles/${userId}/foto`;
+    const employeeId = Number(entity.empleado_id || entity.empleadoId || 0);
+    if (Number.isSafeInteger(employeeId) && employeeId > 0) return `/api/avatares/empleado/${employeeId}`;
+    const contactId = Number(entity.contacto_id || entity.contactoId || entity.contacto_cliente_id || entity.contactoClienteId || 0);
+    return Number.isSafeInteger(contactId) && contactId > 0 ? `/api/avatares/contacto/${contactId}` : "";
   }
 
   function render(nombre, options = {}) {

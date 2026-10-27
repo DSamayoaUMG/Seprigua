@@ -1,0 +1,567 @@
+/* SEPRIGUA · Centro de control: Actividad reciente y Tendencia
+   Únicamente presentación: no altera API, datos, acciones ni paginación.
+   Tokens compartidos con sistema.css para modo claro y oscuro. */
+
+body.center-control-mode .cc-detail-grid {
+  align-items: stretch;
+  gap: 12px;
+}
+body.center-control-mode .cc-detail-grid > .cc-bento-panel {
+  min-width: 0;
+  background: var(--se-surface);
+  border: 1px solid var(--se-border);
+  box-shadow: 0 5px 18px rgba(18, 65, 114, .065);
+}
+body.center-control-mode .cc-detail-grid .cc-panel-heading {
+  min-height: 86px;
+  padding: 16px 18px;
+  gap: 12px;
+  background: linear-gradient(115deg, color-mix(in srgb, var(--se-surface-2) 63%, var(--se-surface)), var(--se-surface) 75%);
+}
+body.center-control-mode .cc-detail-grid .cc-panel-heading > div:first-child {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+body.center-control-mode .cc-detail-grid .cc-panel-kicker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--se-brand-3) 18%, var(--se-border));
+  background: color-mix(in srgb, var(--se-brand-3) 7%, var(--se-surface));
+  color: var(--se-brand-3);
+  font-size: 11px;
+  letter-spacing: .01em;
+  text-transform: none !important;
+  font-weight: 800;
+}
+body.center-control-mode .cc-detail-grid .cc-panel-heading h2 {
+  margin: 0;
+  color: var(--se-text-strong);
+  font-size: clamp(17px, 1.28vw, 20px);
+  line-height: 1.25;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  text-transform: none !important;
+}
+body.center-control-mode .cc-detail-grid .cc-link-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--se-brand-3) 16%, var(--se-border));
+  background: color-mix(in srgb, var(--se-brand-3) 5%, var(--se-surface));
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 750;
+  color: var(--se-brand-3);
+  transition: background .16s ease, border-color .16s ease, transform .16s ease;
+}
+body.center-control-mode .cc-detail-grid .cc-link-action:hover,
+body.center-control-mode .cc-detail-grid .cc-link-action:focus-visible {
+  background: color-mix(in srgb, var(--se-brand-3) 9%, var(--se-surface));
+  border-color: color-mix(in srgb, var(--se-brand-3) 24%, var(--se-border));
+  transform: translateY(-1px);
+}
+body.center-control-mode .cc-detail-grid .cc-link-action svg {
+  width: 16px;
+  height: 16px;
+}
+body.center-control-mode .cc-chart-panel > .cc-panel-heading > svg {
+  width: 18px;
+  height: 18px;
+  padding: 9px;
+  box-sizing: content-box;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--se-brand-3) 16%, var(--se-border));
+  background: color-mix(in srgb, var(--se-brand-3) 5%, var(--se-surface));
+  color: var(--se-brand-3);
+}
+
+/* Historial de movimientos: filas escaneables sin cabecera de tabla. */
+body.center-control-mode .cc-recent-history {
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: var(--se-surface);
+}
+body.center-control-mode .cc-activity-list {
+  display: grid;
+  min-width: 0;
+  padding: 2px 16px;
+}
+body.center-control-mode .cc-activity-item {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) minmax(174px, 230px);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--se-border);
+  color: var(--se-text);
+  transition: background .14s ease;
+}
+body.center-control-mode .cc-activity-item:last-child { border-bottom: 0; }
+body.center-control-mode .cc-activity-item:hover { background: var(--se-hover); }
+body.center-control-mode .cc-activity-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--se-info) 10%, var(--se-surface));
+  color: var(--se-info);
+}
+body.center-control-mode .cc-activity-icon svg { width: 19px; height: 19px; }
+body.center-control-mode .cc-activity-icon-danger { background: color-mix(in srgb, var(--se-red) 11%, var(--se-surface)); color: var(--se-danger); }
+body.center-control-mode .cc-activity-icon-warning { background: color-mix(in srgb, var(--se-amber) 13%, var(--se-surface)); color: var(--se-amber); }
+body.center-control-mode .cc-activity-icon-success { background: color-mix(in srgb, var(--se-green) 11%, var(--se-surface)); color: var(--se-green); }
+body.center-control-mode .cc-activity-icon-neutral { background: var(--se-surface-3); color: var(--se-muted); }
+body.center-control-mode .cc-activity-main { display: grid; gap: 4px; min-width: 0; }
+body.center-control-mode .cc-activity-reference {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 750;
+  color: var(--se-text-strong);
+}
+body.center-control-mode .cc-activity-person { font-size: 12px; font-weight: 650; color: var(--se-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; }
+body.center-control-mode .cc-activity-context { font-size: 11px; font-weight: 500; color: var(--se-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; }
+body.center-control-mode .cc-activity-side {
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+body.center-control-mode .cc-activity-meta { display: grid; align-content: center; justify-items: end; gap: 6px; min-width: 0; flex: 1 1 auto; }
+body.center-control-mode .cc-activity-date { color: var(--se-muted); font-size: 11px; line-height: 1.35; text-align: right; text-transform: none; }
+body.center-control-mode .cc-activity-meta .cc-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 26px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: none !important;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+body.center-control-mode .cc-activity-meta .cc-status-symbol { font-size: 11px; line-height: 1; opacity: .88; }
+body.center-control-mode .cc-activity-meta .cc-status-programada { color: #1468AD; background: #EAF4FF; border-color: #D5E7F8; }
+body.center-control-mode .cc-activity-meta .cc-status-proceso { color: #8B600A; background: #FFF4DC; border-color: #F5E0AE; }
+body.center-control-mode .cc-activity-meta .cc-status-finalizada { color: #167A4C; background: #E5F5EB; border-color: #CDEAD9; }
+body.center-control-mode .cc-activity-meta .cc-status-cancelada { color: #677989; background: #ECF0F4; border-color: #D9E1E8; }
+body.center-control-mode .cc-activity-meta .cc-status-neutral { color: var(--se-text-2); background: var(--se-surface-3); border-color: var(--se-border); }
+body.center-control-mode .cc-activity-open {
+  width: 34px;
+  min-height: 56px;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--se-border);
+  border-radius: 12px;
+  background: var(--se-surface-2);
+  color: var(--se-brand-3);
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease;
+}
+body.center-control-mode .cc-activity-open:hover,
+body.center-control-mode .cc-activity-open:focus-visible { border-color: var(--se-brand-3); background: var(--se-hover); }
+body.center-control-mode .cc-activity-open svg { width: 16px; height: 16px; }
+body.center-control-mode .cc-activity-empty { display: flex; justify-content: center; align-items: center; gap: 10px; min-height: 116px; font-size: 13px; color: var(--se-muted); }
+body.center-control-mode .cc-activity-empty svg { width: 21px; height: 21px; color: var(--se-brand-3); }
+body.center-control-mode .cc-recent-history .cc-recent-pagination { background: var(--se-surface-2); }
+
+/* Tendencia: el total y las columnas proceden del API existente. */
+body.center-control-mode .cc-chart-body { display: grid; gap: 8px; padding: 15px 17px 16px; min-width: 0; }
+body.center-control-mode .cc-chart-summary { display: flex; align-items: baseline; gap: 9px; color: var(--se-text-2); }
+body.center-control-mode .cc-chart-summary strong { color: var(--se-text-strong); font-size: 27px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.15; }
+body.center-control-mode .cc-chart-summary span { color: var(--se-muted); font-size: 12px; line-height: 1.35; }
+body.center-control-mode .cc-chart-body .cc-column-chart {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: clamp(5px, 1vw, 12px);
+  min-width: 0;
+  height: 195px;
+  padding: 14px 2px 0;
+}
+body.center-control-mode .cc-chart-body .cc-chart-column {
+  display: grid;
+  grid-template-rows: 16px minmax(0, 1fr) 20px;
+  gap: 7px;
+  align-items: end;
+  min-width: 0;
+  height: 100%;
+  text-align: center;
+}
+body.center-control-mode .cc-chart-body .cc-chart-track {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  position: relative;
+  min-height: 0;
+  height: 100%;
+  border-bottom: 1px solid var(--se-border-strong);
+  background: repeating-linear-gradient(to top, transparent 0, transparent calc(33.333% - 1px), color-mix(in srgb, var(--se-border) 58%, transparent) calc(33.333% - 1px), color-mix(in srgb, var(--se-border) 58%, transparent) 33.333%);
+}
+body.center-control-mode .cc-chart-body .cc-chart-bar {
+  width: clamp(13px, 3.2vw, 34px);
+  max-width: 72%;
+  min-height: 0;
+  border-radius: 6px 6px 0 0;
+  background: linear-gradient(180deg, #5EADE3, #2D7DBB);
+  transition: filter .16s ease, background .16s ease;
+}
+body.center-control-mode .cc-chart-body .cc-chart-column-leading .cc-chart-bar { background: linear-gradient(180deg, #2695DB, #0E477F); }
+body.center-control-mode .cc-chart-body .cc-chart-column-zero .cc-chart-bar { height: 0 !important; }
+body.center-control-mode .cc-chart-body .cc-chart-column:hover .cc-chart-bar { filter: brightness(1.12); }
+body.center-control-mode .cc-chart-body .cc-chart-value { color: var(--se-text-2); font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.25; }
+body.center-control-mode .cc-chart-body .cc-chart-column-leading .cc-chart-value { color: var(--se-brand-3); font-weight: 800; }
+body.center-control-mode .cc-chart-body .cc-chart-label { color: var(--se-muted); font-size: 12px; font-weight: 550; }
+body.center-control-mode .cc-chart-empty { display: flex; justify-content: center; align-items: center; gap: 10px; padding: 35px 16px; color: var(--se-muted); font-size: 13px; }
+body.center-control-mode .cc-chart-empty svg { width: 22px; height: 22px; }
+
+/* Modo oscuro con contraste accesible, sin colores brillantes. */
+html[data-theme="dark"] body.center-control-mode .cc-detail-grid > .cc-bento-panel { box-shadow: 0 6px 20px rgba(0, 0, 0, .14); }
+html[data-theme="dark"] body.center-control-mode .cc-activity-meta .cc-status-programada { color: #A8D3F8; background: rgba(35, 107, 174, .23); border-color: rgba(101, 162, 215, .25); }
+html[data-theme="dark"] body.center-control-mode .cc-activity-meta .cc-status-proceso { color: #F0D292; background: rgba(153, 108, 30, .25); border-color: rgba(194, 150, 65, .26); }
+html[data-theme="dark"] body.center-control-mode .cc-activity-meta .cc-status-finalizada { color: #9FE1BD; background: rgba(29, 131, 85, .22); border-color: rgba(93, 187, 136, .25); }
+html[data-theme="dark"] body.center-control-mode .cc-activity-meta .cc-status-cancelada { color: #B4C2CE; background: rgba(122, 145, 165, .14); border-color: rgba(122, 145, 165, .22); }
+html[data-theme="dark"] body.center-control-mode .cc-detail-grid .cc-panel-kicker {
+  border-color: rgba(101, 162, 215, .24);
+  background: rgba(35, 107, 174, .18);
+  color: #B8DBF7;
+}
+html[data-theme="dark"] body.center-control-mode .cc-detail-grid .cc-link-action,
+html[data-theme="dark"] body.center-control-mode .cc-chart-panel > .cc-panel-heading > svg {
+  border-color: rgba(101, 162, 215, .22);
+  background: rgba(35, 107, 174, .14);
+  color: #B8DBF7;
+}
+html[data-theme="dark"] body.center-control-mode .cc-detail-grid .cc-link-action:hover,
+html[data-theme="dark"] body.center-control-mode .cc-detail-grid .cc-link-action:focus-visible {
+  background: rgba(35, 107, 174, .22);
+  border-color: rgba(126, 182, 228, .30);
+}
+
+@media (max-width: 1250px) {
+  body.center-control-mode .cc-activity-item { grid-template-columns: 38px minmax(0,1fr) minmax(164px, 214px); gap: 9px; }
+}
+@media (max-width: 750px) {
+  body.center-control-mode .cc-detail-grid .cc-panel-heading { min-height: 74px; padding: 13px 14px; }
+  body.center-control-mode .cc-activity-list { padding-inline: 12px; }
+  body.center-control-mode .cc-activity-item { grid-template-columns: 36px minmax(0,1fr); gap: 9px; padding: 12px 0; }
+  body.center-control-mode .cc-activity-icon { width: 34px; height: 34px; }
+  body.center-control-mode .cc-activity-main { grid-column: 2; grid-row: 1; }
+  body.center-control-mode .cc-activity-side { grid-column: 2; grid-row: 2; justify-content: space-between; align-items: center; gap: 10px; }
+  body.center-control-mode .cc-activity-meta { display: flex; align-items: center; justify-content: space-between; justify-items: start; flex-wrap: wrap; gap: 6px 10px; }
+  body.center-control-mode .cc-activity-open { min-height: 38px; width: 38px; border-radius: 11px; }
+  body.center-control-mode .cc-activity-date { text-align: left; }
+  body.center-control-mode .cc-chart-body .cc-column-chart { height: 190px; }
+}
+@media (max-width: 390px) {
+  body.center-control-mode .cc-activity-main .cc-activity-reference { font-size: 12px; }
+  body.center-control-mode .cc-activity-date { font-size: 10px; }
+  body.center-control-mode .cc-chart-body { padding-inline: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.center-control-mode .cc-activity-item,
+  body.center-control-mode .cc-activity-open,
+  body.center-control-mode .cc-chart-body .cc-chart-bar { transition: none; }
+}
+
+/* === Ajuste v2 · encabezados consistentes de las cuatro secciones ===
+   Solo afecta al Centro de control. Sobrescribe el CSS anterior incluso si
+   algunas reglas de sistema.css utilizan mayor especificidad. */
+body.center-control-mode :is(.cc-secondary-grid, .cc-detail-grid) > .cc-bento-panel > .cc-panel-heading {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 92px;
+  padding: 16px 18px;
+  gap: 16px;
+  border-bottom: 1px solid var(--se-border);
+  background: linear-gradient(120deg, color-mix(in srgb, var(--se-surface-2) 35%, var(--se-surface)), var(--se-surface) 80%);
+}
+body.center-control-mode :is(.cc-secondary-grid, .cc-detail-grid) > .cc-bento-panel > .cc-panel-heading > div:first-child {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+body.center-control-mode :is(.cc-secondary-grid, .cc-detail-grid) > .cc-bento-panel > .cc-panel-heading .cc-panel-kicker {
+  display: block;
+  width: auto;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--se-text-2);
+  font: 650 12px/1.35 Inter, 'Segoe UI', sans-serif;
+  letter-spacing: .005em;
+  text-transform: none !important;
+}
+body.center-control-mode :is(.cc-secondary-grid, .cc-detail-grid) > .cc-bento-panel > .cc-panel-heading h2 {
+  margin: 0;
+  color: var(--se-text-strong);
+  font: 750 clamp(16px, 1.25vw, 19px)/1.3 Inter, 'Segoe UI', sans-serif;
+  letter-spacing: -.022em;
+  text-transform: none !important;
+}
+body.center-control-mode :is(.cc-secondary-grid, .cc-detail-grid) > .cc-bento-panel > .cc-panel-heading .cc-link-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 98px;
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid var(--se-border);
+  border-radius: 9px;
+  color: var(--se-brand-3);
+  background: var(--se-surface-2);
+  font: 650 12px/1.2 Inter, 'Segoe UI', sans-serif;
+  letter-spacing: normal;
+  text-transform: none !important;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .16s, border-color .16s, color .16s;
+}
+body.center-control-mode :is(.cc-secondary-grid, .cc-detail-grid) > .cc-bento-panel > .cc-panel-heading .cc-link-action:hover,
+body.center-control-mode :is(.cc-secondary-grid, .cc-detail-grid) > .cc-bento-panel > .cc-panel-heading .cc-link-action:focus-visible {
+  background: var(--se-hover);
+  border-color: var(--se-brand-3);
+}
+body.center-control-mode :is(.cc-secondary-grid, .cc-detail-grid) > .cc-bento-panel > .cc-panel-heading .cc-link-action svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  transform: none;
+}
+body.center-control-mode .cc-chart-panel > .cc-panel-heading > svg {
+  width: 19px;
+  height: 19px;
+  padding: 0;
+  color: var(--se-brand-3);
+  background: transparent;
+  border: 0;
+  box-sizing: content-box;
+  flex: 0 0 auto;
+}
+body.center-control-mode .cc-time-banner .cc-eyebrow {
+  text-transform: none !important;
+  letter-spacing: .025em;
+}
+body.center-control-mode .cc-time-banner .cc-daypart-badge,
+body.center-control-mode .cc-time-banner .cc-daypart-badge span {
+  text-transform: none !important;
+  letter-spacing: .005em;
+}
+body.center-control-mode .cc-activity-main .cc-activity-context,
+body.center-control-mode .cc-activity-meta .cc-status {
+  text-transform: none !important;
+  letter-spacing: 0;
+}
+@media (max-width: 600px) {
+  body.center-control-mode :is(.cc-secondary-grid, .cc-detail-grid) > .cc-bento-panel > .cc-panel-heading {
+    min-height: 82px;
+    padding: 13px 14px;
+    gap: 8px;
+  }
+  body.center-control-mode :is(.cc-secondary-grid, .cc-detail-grid) > .cc-bento-panel > .cc-panel-heading h2 {
+    font-size: 16px;
+  }
+  body.center-control-mode :is(.cc-secondary-grid, .cc-detail-grid) > .cc-bento-panel > .cc-panel-heading .cc-link-action {
+    min-width: 83px;
+    padding-inline: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.center-control-mode :is(.cc-secondary-grid, .cc-detail-grid) .cc-link-action { transition: none; }
+}
+
+
+/* === Centro de control · "Ver más" uniforme en los 4 KPI (v3) =============
+   Misma tipografía, tamaño, borde, fondo, flecha y estados que las cabeceras
+   de Capacidad operativa, Resumen operativo y Actividad reciente.
+   El posicionamiento a la derecha usa el eje central del KPI para evitar
+   superposiciones con su etiqueta superior y su texto inferior. */
+body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more {
+  box-sizing: border-box;
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  left: auto;
+  bottom: auto;
+  transform: translateY(-50%);
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 98px;
+  min-width: 98px;
+  height: 36px;
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid var(--se-border);
+  border-radius: 9px;
+  background: var(--se-surface-2);
+  color: var(--se-brand-3);
+  font: 650 12px/1.2 Inter, 'Segoe UI', sans-serif;
+  letter-spacing: normal;
+  text-transform: none !important;
+  white-space: nowrap;
+  cursor: pointer;
+  z-index: 2;
+  transition: background .16s, border-color .16s, color .16s;
+}
+body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more span {
+  display: inline;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more svg {
+  display: block;
+  flex: 0 0 15px;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  transform: none;
+}
+body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more:hover,
+body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more:focus-visible {
+  background: var(--se-hover);
+  border-color: var(--se-brand-3);
+}
+body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more:focus-visible {
+  outline: 2px solid var(--se-brand-3);
+  outline-offset: 2px;
+}
+/* Pantallas angostas: 2 KPI por fila o 1 en móvil. Se mantiene un área
+   pulsable suficientemente grande y se evita que se corte el control. */
+@media (max-width: 600px) {
+  body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more {
+    right: 9px;
+    width: 88px;
+    min-width: 88px;
+    padding-inline: 7px;
+    gap: 5px;
+  }
+}
+@media (max-width: 390px) {
+  body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more {
+    right: 12px;
+    width: 98px;
+    min-width: 98px;
+    padding-inline: 11px;
+    gap: 7px;
+  }
+}
+html[data-theme="dark"] body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more {
+  border-color: var(--se-border);
+  background: var(--se-surface-2);
+  color: var(--se-brand-3);
+}
+html[data-theme="dark"] body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more:hover,
+html[data-theme="dark"] body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more:focus-visible {
+  background: var(--se-hover);
+  border-color: var(--se-brand-3);
+}
+@media (prefers-reduced-motion: reduce) {
+  body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more { transition: none; }
+}
+
+
+/* SEPRIGUA | KPI: acceso secundario discreto en esquina inferior derecha.
+   Sustituye al botón centrado del parche anterior sin tocar lógica ni HTML generado.
+   Se conserva la coherencia tipográfica con los demás botones «Ver más». */
+body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more {
+  position: absolute;
+  top: auto;
+  bottom: 8px;
+  right: 10px;
+  left: auto;
+  transform: none;
+  width: auto;
+  min-width: 82px;
+  height: 29px;
+  min-height: 29px;
+  max-height: 29px;
+  padding: 4px 7px;
+  gap: 5px;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  font: 650 11px/1.15 Inter, 'Segoe UI', sans-serif;
+  color: var(--se-brand-3);
+  white-space: nowrap;
+}
+body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+}
+body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more:hover,
+body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more:focus-visible {
+  border-color: var(--se-border);
+  background: var(--se-surface-2);
+}
+html[data-theme="dark"] body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more {
+  border-color: transparent;
+  background: transparent;
+  color: var(--se-brand-3);
+}
+html[data-theme="dark"] body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more:hover,
+html[data-theme="dark"] body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more:focus-visible {
+  background: var(--se-hover);
+  border-color: var(--se-border);
+}
+/* En móviles/tablets de dos columnas el acceso ocupa un pequeño renglón
+   inferior reservado, para evitar tapar los títulos o notas del KPI. */
+@media (max-width: 950px) {
+  body.center-control-mode .cc-kpi-grid .cc-kpi {
+    min-height: 125px;
+    padding-bottom: 42px;
+  }
+  body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more {
+    right: 9px;
+    bottom: 6px;
+    width: auto;
+    min-width: 82px;
+    height: 29px;
+    min-height: 29px;
+    padding: 4px 7px;
+    gap: 5px;
+  }
+}
+@media (max-width: 390px) {
+  body.center-control-mode .cc-kpi-grid .cc-kpi {
+    min-height: 99px;
+    padding-bottom: 14px;
+  }
+  body.center-control-mode .cc-kpi-grid .cc-kpi .cc-kpi-more { bottom: 7px; }
+}

@@ -112,6 +112,13 @@ LABOR_DOCUMENT_MIME = {
 }
 MAX_LABOR_DOCUMENT_BYTES = max(1, min(50, int(os.getenv("MAX_LABOR_DOCUMENT_MB", "20")))) * 1024 * 1024
 
+# Las fotos de perfil se guardan fuera del contenido público y del navegador.
+_PROFILE_PHOTO_ROOT_VALUE = (os.getenv("PROFILE_PHOTO_STORAGE_ROOT") or "").strip()
+PROFILE_PHOTO_ROOT = (Path(_PROFILE_PHOTO_ROOT_VALUE).expanduser().resolve() if _PROFILE_PHOTO_ROOT_VALUE
+                      else (BASE_DIR / ".seprigua-private" / "fotos-perfil").resolve())
+MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024
+PROFILE_PHOTO_CHANGE_DAYS = 30
+
 # Web Push / PWA. En VM y dispositivos reales requiere HTTPS.
 PUSH_DEDUPE_LOCK = Lock()
 PUSH_DEDUPE_BUCKETS: dict[str, float] = {}
@@ -180,6 +187,7 @@ MODULE_PATH_PREFIXES = (
     ("/api/mantenimientos", "equipo_mantenimiento"),
     ("/api/catalogo-maestro", "cotizaciones_comercial"),
     ("/api/cotizaciones", "cotizaciones_comercial"),
+    ("/api/archivos-usuario", "documentos"),
     ("/api/documentos-laborales", "documentos"),
     ("/api/documentos", "documentos"),
     ("/api/garantias", "garantia"),
@@ -605,6 +613,20 @@ def utcnow() -> datetime:
     return datetime.utcnow().replace(microsecond=0)
 
 
+def record_reschedule(cursor, order_id, status_id, user_id, previous, current):
+    """Registra un cambio real de fecha en el historial existente de la OT."""
+    if not previous or not current or previous == current:
+        return
+    def local_label(value):
+        stamp = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+        return stamp.astimezone(ZoneInfo("America/Guatemala")).strftime("%d/%m/%Y %H:%M")
+    note = f"Reprogramada: {local_label(previous)} a {local_label(current)} (Guatemala)"
+    cursor.execute("""INSERT INTO srv.HistorialEstadoOrden
+        (OrdenTrabajoId,EstadoAnteriorId,EstadoNuevoId,CambiadoPorUsuarioId,FechaCambio,Comentario)
+        VALUES (?,?,?,?,SYSUTCDATETIME(),?)""",
+        order_id, status_id, status_id, user_id, note)
+
+
 def parse_datetime_local(value, field_name="fecha"):
     if value is None or value == "": return None
     try:
@@ -860,14 +882,75 @@ def require_session(*roles):
                     assert_order_access(session,kwargs['orden_id'],order_write)
                 if 'solicitud_id' in kwargs and request.path.startswith('/api/solicitudes/'):
                     assert_request_access(session,kwargs['solicitud_id'],write)
+                if session['rol'] == 'CLIENTE':
+                    if 'cotizacion_id' in kwargs:
+                        _assert_cotizacion_access(session, kwargs['cotizacion_id'])
+                    if 'garantia_id' in kwargs and request.path.startswith('/api/garantias/'):
+                        _assert_garantia_access(session, kwargs['garantia_id'])
+                    if 'document_id' in kwargs and request.path.startswith('/api/documentos/'):
+                        _assert_documento_access(session, kwargs['document_id'])
                 return fn(session,*args,**kwargs)
             except Exception as exc: return app_error(exc)
         return wrapper
     return decorator
 
 
+def _can_access_sede(session: dict, sede_id: int) -> bool:
+    if session.get("rol") != "CLIENTE":
+        return True
+    row = query_one("""SELECT TOP (1) s.SucursalClienteId AS id
+      FROM seg.UsuarioSucursalAcceso a
+      JOIN crm.SucursalCliente s ON s.SucursalClienteId=a.SucursalClienteId
+      JOIN seg.Usuario u ON u.UsuarioId=a.UsuarioId
+      JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId
+      WHERE a.UsuarioId=? AND s.SucursalClienteId=? AND a.Activo=1
+        AND u.Activo=1 AND cc.Activo=1 AND s.ClienteId=cc.ClienteId""",
+      (session["usuario_id"], sede_id))
+    return bool(row)
+
+
+def _assert_ubicacion_access(session: dict, ubicacion_id: int):
+    if session.get("rol") != "CLIENTE":
+        return
+    allowed = query_one("""SELECT TOP (1) ub.UbicacionServicioId AS id
+        FROM crm.UbicacionServicio ub
+        INNER JOIN seg.ufn_SucursalesPermitidas(?) a
+           ON a.SucursalClienteId=ub.SucursalClienteId
+        WHERE ub.UbicacionServicioId=? AND ub.Activo=1""",
+        (session["usuario_id"], ubicacion_id))
+    if not allowed:
+        raise NotFound("La ubicación no existe o no está autorizada para tu cuenta.")
+
+
+def _assert_documento_access(session: dict, documento_id: int):
+    item = query_one("SELECT OrdenTrabajoId AS id FROM doc.DocumentoServicio WHERE DocumentoServicioId=?", (documento_id,))
+    if not item:
+        raise NotFound("Documento no encontrado.")
+    assert_order_access(session, int(item['id']))
+
+
+def _assert_cotizacion_access(session: dict, cotizacion_id: int):
+    if session.get("rol") != "CLIENTE":
+        return
+    item = query_one("""SELECT o.OrdenTrabajoId AS id
+        FROM cot.Cotizacion c JOIN srv.OrdenTrabajo o ON o.OrdenTrabajoId=c.OrdenTrabajoId
+        WHERE c.CotizacionId=?""", (cotizacion_id,))
+    if not item:
+        raise NotFound("Cotización no encontrada.")
+    assert_order_access(session, int(item['id']))
+
+
+def _assert_garantia_access(session: dict, garantia_id: int):
+    if session.get("rol") != "CLIENTE":
+        return
+    item = query_one("SELECT OrdenTrabajoId AS id FROM srv.IncidenciaOrden WHERE IncidenciaOrdenId=?", (garantia_id,))
+    if not item:
+        raise NotFound("Garantía no encontrada.")
+    assert_order_access(session, int(item['id']))
+
+
 def assert_order_access(session,orden_id,write=False):
-    row=query_one("""SELECT s.ClienteId AS cliente_id, e.Codigo AS estado,
+    row=query_one("""SELECT s.ClienteId AS cliente_id, s.UbicacionServicioId AS ubicacion_id, e.Codigo AS estado,
       CASE WHEN EXISTS(SELECT 1 FROM srv.TecnicoOrden t WHERE t.OrdenTrabajoId=o.OrdenTrabajoId
         AND t.EmpleadoId=? AND t.Estado IN ('ASIGNADO','CONFIRMADO','FINALIZADO')) THEN 1 ELSE 0 END AS asignado
       FROM srv.OrdenTrabajo o JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId
@@ -875,13 +958,17 @@ def assert_order_access(session,orden_id,write=False):
       (session.get('empleado_id') or -1,orden_id))
     if not row or (session['rol']=='CLIENTE' and row['cliente_id']!=session.get('cliente_id')) or (session['rol']=='TECNICO' and not row['asignado']):
         raise NotFound("Orden no encontrada o sin acceso.")
+    if session['rol']=='CLIENTE':
+        _assert_ubicacion_access(session, int(row['ubicacion_id']))
     if write and row['estado'] in {'COMPLETADA','CANCELADA'}: raise Conflict("La orden está cerrada; no admite cambios operativos.")
     return row
 
 
 def assert_request_access(session,solicitud_id,write=False):
-    row=query_one('SELECT ClienteId AS cliente_id, Estado AS estado FROM srv.SolicitudServicio WHERE SolicitudServicioId=?',(solicitud_id,))
+    row=query_one('SELECT ClienteId AS cliente_id, UbicacionServicioId AS ubicacion_id, Estado AS estado FROM srv.SolicitudServicio WHERE SolicitudServicioId=?',(solicitud_id,))
     if not row or (session['rol']=='CLIENTE' and row['cliente_id']!=session.get('cliente_id')): raise NotFound("Solicitud no encontrada o sin acceso.")
+    if session['rol']=='CLIENTE':
+        _assert_ubicacion_access(session, int(row['ubicacion_id']))
     if write and row['estado']=='CANCELADA': raise Conflict("La solicitud está cancelada.")
     return row
 
@@ -1110,9 +1197,14 @@ def queue_web_push(user_ids, *, title: str, body: str, role: str, entity: str | 
     key = dedupe_key or f"{tag or title}:{entity or ''}:{entity_id or ''}:{','.join(map(str, ids))}"
     if not _push_dedupe_allowed(key):
         return
+    # La pantalla bloqueada nunca muestra nombres de clientes, sedes, importes ni detalles del servicio.
+    safe_title = str(title).split(" · ", 1)[0].strip()[:80]
+    if not safe_title or any(char.isdigit() for char in safe_title):
+        safe_title = "Aviso de SEPRIGUA"
     payload = {
-        "title": str(title)[:120],
-        "body": str(body)[:420],
+        "title": safe_title,
+        "body": ("Las notificaciones de este dispositivo están activas."
+                 if str(tag or "").startswith("push-test-") else "Abre SEPRIGUA para consultar los detalles."),
         "url": _push_role_url(role, entity, entity_id),
         "tag": str(tag or f"seprigua-{entity or 'aviso'}-{entity_id or 'general'}")[:120],
         "icon": "/assets/pwa/seprigua-192.png",
@@ -1135,7 +1227,9 @@ def _client_user_ids_for_request(solicitud_id: int) -> list[int]:
         FROM srv.SolicitudServicio s
         INNER JOIN crm.ContactoCliente cc ON cc.ClienteId=s.ClienteId AND cc.Activo=1
         INNER JOIN seg.Usuario u ON u.ContactoClienteId=cc.ContactoClienteId AND u.Activo=1
-        WHERE s.SolicitudServicioId=?
+        JOIN crm.UbicacionServicio loc ON loc.UbicacionServicioId=s.UbicacionServicioId
+        CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) permitted
+        WHERE s.SolicitudServicioId=? AND permitted.SucursalClienteId=loc.SucursalClienteId
     """, (solicitud_id,))
     return [int(x["usuario_id"]) for x in rows]
 
@@ -1147,7 +1241,9 @@ def _client_user_ids_for_order(orden_id: int) -> list[int]:
         INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId
         INNER JOIN crm.ContactoCliente cc ON cc.ClienteId=s.ClienteId AND cc.Activo=1
         INNER JOIN seg.Usuario u ON u.ContactoClienteId=cc.ContactoClienteId AND u.Activo=1
-        WHERE o.OrdenTrabajoId=?
+        JOIN crm.UbicacionServicio loc ON loc.UbicacionServicioId=s.UbicacionServicioId
+        CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) permitted
+        WHERE o.OrdenTrabajoId=? AND permitted.SucursalClienteId=loc.SucursalClienteId
     """, (orden_id,))
     return [int(x["usuario_id"]) for x in rows]
 
@@ -1605,17 +1701,39 @@ def chatbot_page():
 def system_page(rol: str):
     if rol.lower() not in {"coordinador", "tecnico", "cliente"}:
         return "Ruta no encontrada", 404
-    return send_from_directory(BASE_DIR, "sistema.html")
+    response = send_from_directory(BASE_DIR, "sistema.html", max_age=0)
+    response.headers["Cache-Control"] = "private, no-store, must-revalidate"
+    return response
+
+
+def optimized_static(directory, filename: str, mimetype: str, max_age: int):
+    """Serve precompressed code when supported, retaining Flask's safe path handling."""
+    wants_gzip = request.accept_encodings["gzip"] > 0
+    if (wants_gzip and not request.headers.get("Range") and
+            filename.endswith((".css", ".js")) and
+            ".." not in filename.replace("\\", "/").split("/")):
+        compressed = directory / (filename + ".gz")
+        original = directory / filename
+        if compressed.is_file() and original.is_file() and compressed.stat().st_mtime >= original.stat().st_mtime:
+            response = send_from_directory(directory, filename + ".gz", mimetype=mimetype,
+                                           max_age=max_age, conditional=True)
+            response.headers["Content-Encoding"] = "gzip"
+            response.vary.add("Accept-Encoding")
+            return response
+    response = send_from_directory(directory, filename, mimetype=mimetype,
+                                   max_age=max_age, conditional=True)
+    response.vary.add("Accept-Encoding")
+    return response
 
 
 @app.get("/css/<path:filename>")
 def css(filename: str):
-    return send_from_directory(BASE_DIR / "css", filename, max_age=86400, conditional=True)
+    return optimized_static(BASE_DIR / "css", filename, "text/css", 86400)
 
 
 @app.get("/java/<path:filename>")
 def js(filename: str):
-    return send_from_directory(BASE_DIR / "java", filename, max_age=86400, conditional=True)
+    return optimized_static(BASE_DIR / "java", filename, "application/javascript", 86400)
 
 
 @app.get("/assets/<path:filename>")
@@ -1628,6 +1746,25 @@ def assets(filename: str):
 def api_archivo_evidencia(session, evidencia_id: int):
     """Sirve una evidencia autorizada usando la metadata registrada en el sistema."""
     try:
+        if session['rol'] == 'CLIENTE':
+            owner = query_one("""SELECT ev.SolicitudServicioId AS solicitud_id,
+                       ev.OrdenTrabajoId AS orden_id,ev.SubidaPorUsuarioId AS autor,
+                       ev.Categoria AS categoria,ev.Origen AS origen
+                  FROM srv.EvidenciaServicio ev WHERE ev.EvidenciaServicioId=?""", (evidencia_id,))
+            if not owner:
+                raise NotFound("Archivo no encontrado.")
+            # Los documentos administrativos privados de Cliente solamente pueden
+            # abrirse por la cuenta autora o por Coordinación. Las fotos operativas
+            # siguen obedeciendo al acceso autorizado a la OT.
+            if str(owner.get("categoria") or "").upper() == "DOCUMENTO_CLIENTE" and str(owner.get("origen") or "").upper() == "CLIENTE":
+                if int(owner.get("autor") or 0) != int(session["usuario_id"]):
+                    raise NotFound("Documento no encontrado o sin acceso.")
+            if owner['orden_id']:
+                assert_order_access(session, int(owner['orden_id']))
+            elif owner['solicitud_id']:
+                assert_request_access(session, int(owner['solicitud_id']))
+            else:
+                raise NotFound("Archivo sin referencia autorizada.")
         with get_db_connection() as conn:
             cursor = conn.cursor()
             set_audit_context(cursor, session, "Consulta de archivo de evidencia")
@@ -1965,6 +2102,131 @@ def api_password_reset_confirm():
         return app_error(exc, "No fue posible restablecer la contraseña.")
 
 
+def _ensure_recovery_codes_table(cursor):
+    """Instala el almacenamiento privado del código personal en la BD existente."""
+    cursor.execute("""
+        IF OBJECT_ID(N'seg.CodigoRecuperacion', N'U') IS NULL
+        BEGIN
+            CREATE TABLE seg.CodigoRecuperacion (
+                UsuarioId bigint NOT NULL PRIMARY KEY,
+                CodigoSalt varbinary(16) NOT NULL,
+                CodigoHash varbinary(32) NOT NULL,
+                IntentosFallidos int NOT NULL DEFAULT (0),
+                BloqueadoHasta datetime2 NULL,
+                ActualizadoEn datetime2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+                CONSTRAINT FK_CodigoRecuperacion_Usuario FOREIGN KEY (UsuarioId)
+                    REFERENCES seg.Usuario(UsuarioId)
+            )
+        END
+    """)
+
+
+def _normalize_recovery_code(value):
+    return re.sub(r"[\s-]", "", str(value or "")).upper()
+
+
+@app.get("/api/cuenta/recuperacion")
+@require_session("COORDINADOR", "TECNICO", "CLIENTE")
+def api_recovery_code_status(session):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            _ensure_recovery_codes_table(cursor)
+            cursor.execute("SELECT 1 FROM seg.CodigoRecuperacion WHERE UsuarioId=?", session["usuario_id"])
+            configured = cursor.fetchone() is not None
+        return jsonify(ok=True, configured=configured)
+    except Exception as exc:
+        return app_error(exc, "No fue posible consultar la recuperación de la cuenta.")
+
+
+@app.post("/api/cuenta/recuperacion")
+@require_session("COORDINADOR", "TECNICO", "CLIENTE")
+def api_create_recovery_code(session):
+    if not rate_limit_allowed("recovery-enroll", str(session["usuario_id"]), 5, 3600):
+        return jsonify(ok=False, message="Demasiados intentos. Inténtalo más tarde."), 429
+    password = str((request.get_json(silent=True) or {}).get("password") or "")
+    if not password:
+        return jsonify(ok=False, message="Ingresa tu contraseña actual."), 400
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT ContrasenaSalt,ContrasenaHash,Activo FROM seg.Usuario WHERE UsuarioId=?", session["usuario_id"])
+            user = cursor.fetchone()
+            if not user or not user.Activo or not verify_password(password, user.ContrasenaSalt, user.ContrasenaHash):
+                return jsonify(ok=False, message="La contraseña actual no es correcta."), 403
+            _ensure_recovery_codes_table(cursor)
+            raw = secrets.token_hex(12).upper()
+            salt, hashed = create_password_hash(raw)
+            cursor.execute("""
+                UPDATE seg.CodigoRecuperacion SET CodigoSalt=?,CodigoHash=?,IntentosFallidos=0,
+                    BloqueadoHasta=NULL,ActualizadoEn=SYSUTCDATETIME() WHERE UsuarioId=?
+                IF @@ROWCOUNT=0 INSERT INTO seg.CodigoRecuperacion
+                    (UsuarioId,CodigoSalt,CodigoHash) VALUES (?,?,?)
+            """, pyodbc.Binary(salt), pyodbc.Binary(hashed), session["usuario_id"],
+                session["usuario_id"], pyodbc.Binary(salt), pyodbc.Binary(hashed))
+        grouped = "-".join(raw[i:i+4] for i in range(0, len(raw), 4))
+        return jsonify(ok=True, code=grouped, message="Guarda este código en un lugar privado. Solo se mostrará ahora y se usará una vez.")
+    except Exception as exc:
+        return app_error(exc, "No fue posible generar el código de seguridad.")
+
+
+@app.post("/api/auth/password-reset/code")
+def api_password_reset_code():
+    data = request.get_json(silent=True) or {}
+    identity = str(data.get("identity") or "").strip()
+    code = _normalize_recovery_code(data.get("code"))
+    password = str(data.get("password") or "")
+    generic = "No se pudo verificar el usuario y el código de seguridad. Revisa los datos o espera antes de intentar otra vez."
+    if not identity or len(identity) > 180 or not re.fullmatch(r"[A-F0-9]{24}", code):
+        return jsonify(ok=False, message=generic), 400
+    if not _password_reset_rate_allowed(identity):
+        return jsonify(ok=False, message="Demasiados intentos. Inténtalo más tarde."), 429
+    try:
+        _validar_password_portal(password)
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            _ensure_recovery_codes_table(cursor)
+            cursor.execute("""
+                SELECT TOP (1) u.UsuarioId,u.ContrasenaHash,u.ContrasenaSalt,u.Activo,
+                    r.CodigoSalt,r.CodigoHash,r.IntentosFallidos,r.BloqueadoHasta
+                FROM seg.Usuario u WITH (UPDLOCK, ROWLOCK)
+                LEFT JOIN seg.CodigoRecuperacion r WITH (UPDLOCK, ROWLOCK) ON r.UsuarioId=u.UsuarioId
+                WHERE u.NombreUsuario=? OR (u.Correo IS NOT NULL AND u.Correo=?)
+            """, identity, identity)
+            user = cursor.fetchone()
+            if not user or not user.Activo or not user.CodigoHash:
+                return jsonify(ok=False, message=generic), 400
+            if user.BloqueadoHasta and user.BloqueadoHasta > utcnow():
+                return jsonify(ok=False, message=generic), 400
+            if not verify_password(code, user.CodigoSalt, user.CodigoHash):
+                cursor.execute("""
+                    UPDATE seg.CodigoRecuperacion SET IntentosFallidos=IntentosFallidos+1,
+                        BloqueadoHasta=CASE WHEN IntentosFallidos+1>=5
+                            THEN DATEADD(MINUTE,30,SYSUTCDATETIME()) ELSE NULL END
+                    WHERE UsuarioId=?
+                """, user.UsuarioId)
+                return jsonify(ok=False, message=generic), 400
+            if verify_password(password, user.ContrasenaSalt, user.ContrasenaHash):
+                return jsonify(ok=False, message="La nueva contraseña debe ser diferente de la anterior."), 400
+            salt, hashed = create_password_hash(password, len(bytes(user.ContrasenaHash)))
+            cursor.execute("""
+                UPDATE seg.Usuario SET ContrasenaHash=?,ContrasenaSalt=?,RequiereCambioContrasena=0,
+                    IntentosFallidos=0,BloqueadoHasta=NULL,ActualizadoEn=SYSUTCDATETIME()
+                WHERE UsuarioId=? AND Activo=1
+            """, pyodbc.Binary(hashed), pyodbc.Binary(salt), user.UsuarioId)
+            cursor.execute("""
+                UPDATE seg.SesionUsuario SET Activa=0,CerradaEn=COALESCE(CerradaEn,SYSUTCDATETIME()),
+                    MotivoCierre=COALESCE(MotivoCierre,N'Restablecimiento con código de seguridad')
+                WHERE UsuarioId=? AND Activa=1
+            """, user.UsuarioId)
+            cursor.execute("DELETE FROM seg.CodigoRecuperacion WHERE UsuarioId=?", user.UsuarioId)
+        return jsonify(ok=True, message="Contraseña actualizada. Inicia sesión y genera un código de seguridad nuevo en Mi cuenta.")
+    except ValueError as exc:
+        return jsonify(ok=False, message=str(exc)), 400
+    except Exception as exc:
+        return app_error(exc, "No fue posible restablecer la contraseña.")
+
+
 # ---------------------------------------------------------------------------
 # Salud, autenticación y sesión
 # ---------------------------------------------------------------------------
@@ -2071,9 +2333,12 @@ def api_login():
                 SELECT TOP (1) u.UsuarioId, u.NombreUsuario, u.Correo, u.ContrasenaHash,
                        u.ContrasenaSalt, u.RequiereCambioContrasena, u.IntentosFallidos,
                        u.BloqueadoHasta, u.Activo, r.RolId, r.Nombre AS Rol,
-                       u.EmpleadoId, u.ContactoClienteId
+                        u.EmpleadoId, u.ContactoClienteId,
+                        cc.Activo AS ContactoActivo, c.Activo AS EmpresaActiva
                 FROM seg.Usuario u
                 INNER JOIN seg.Rol r ON r.RolId = u.RolId
+                LEFT JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId
+                LEFT JOIN crm.Cliente c ON c.ClienteId=cc.ClienteId
                 WHERE u.NombreUsuario = ? OR (u.Correo IS NOT NULL AND u.Correo = ?)
                 """,
                 identity, identity,
@@ -2094,9 +2359,19 @@ def api_login():
                 )
                 return jsonify(ok=False, message="Usuario o contraseña incorrectos."), 401
 
-            # No revelamos si la cuenta existe pero está deshabilitada.
+            empresa_desactivada = (user.ContactoClienteId is not None
+                                    and user.EmpresaActiva is not None
+                                    and not bool(user.EmpresaActiva))
+
+            # Solo mostramos la causa empresarial tras comprobar la contraseña.
+            # Para usuarios inexistentes, inactivos por otros motivos o claves erróneas
+            # se conserva el mensaje genérico y se evita enumerar cuentas.
             if not bool(user.Activo):
-                verify_password(password, user.ContrasenaSalt, user.ContrasenaHash)
+                valid_password = verify_password(password, user.ContrasenaSalt, user.ContrasenaHash)
+                if valid_password and empresa_desactivada:
+                    rate_limit_clear("login-identity", identity_key)
+                    return jsonify(ok=False, codigo="EMPRESA_DESACTIVADA",
+                                   message="Tu empresa está desactivada. Comunícate con Coordinación para restablecer el acceso."), 403
                 return jsonify(ok=False, message="Usuario o contraseña incorrectos."), 401
 
             now = utcnow()
@@ -2127,6 +2402,13 @@ def api_login():
                 )
                 conn.commit()
                 return jsonify(ok=False, message="Usuario o contraseña incorrectos."), 401
+
+            if empresa_desactivada:
+                rate_limit_clear("login-identity", identity_key)
+                return jsonify(ok=False, codigo="EMPRESA_DESACTIVADA",
+                               message="Tu empresa está desactivada. Comunícate con Coordinación para restablecer el acceso."), 403
+            if user.ContactoClienteId is not None and (user.ContactoActivo is None or not bool(user.ContactoActivo)):
+                return jsonify(ok=False, message="La cuenta no está disponible. Comunícate con Coordinación."), 403
 
             actual_role = str(user.Rol or "").strip().upper()
             permission_codes = _role_permission_codes(cursor, int(user.RolId))
@@ -2169,10 +2451,50 @@ def api_login():
         return app_error(exc, "Ocurrió un error al iniciar sesión.")
 
 
+@app.get("/api/calendario/actividades")
+@require_session("COORDINADOR", "TECNICO", "CLIENTE")
+def api_calendario_actividades(session):
+    """Órdenes programadas del mes visible para los indicadores del calendario."""
+    try:
+        start = date.fromisoformat(str(request.args.get("desde") or ""))
+        end = date.fromisoformat(str(request.args.get("hasta") or ""))
+    except ValueError:
+        return jsonify(ok=False, message="El rango de fechas no es válido."), 400
+    if end <= start or (end - start).days > 32:
+        return jsonify(ok=False, message="Consulta un mes a la vez."), 400
+    rows = query_all("""
+        SELECT CONVERT(char(10),o.ProgramadaPara,23) AS fecha,
+               o.NumeroOrden AS titulo,c.NombreComercial AS cliente,
+               eo.Codigo AS estado
+        FROM srv.OrdenTrabajo o
+        INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId
+        INNER JOIN crm.Cliente c ON c.ClienteId=s.ClienteId
+        INNER JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
+        WHERE o.ProgramadaPara>=? AND o.ProgramadaPara<?
+          AND (
+            ?='COORDINADOR'
+            OR (?='TECNICO' AND EXISTS(SELECT 1 FROM srv.TecnicoOrden t
+                 WHERE t.OrdenTrabajoId=o.OrdenTrabajoId AND t.EmpleadoId=? AND t.Estado IN ('ASIGNADO','CONFIRMADO','FINALIZADO')))
+            OR (?='CLIENTE' AND s.ClienteId=? AND EXISTS(
+                 SELECT 1 FROM crm.UbicacionServicio loc
+                 JOIN seg.ufn_SucursalesPermitidas(?) permitido ON permitido.SucursalClienteId=loc.SucursalClienteId
+                 WHERE loc.UbicacionServicioId=s.UbicacionServicioId))
+          )
+        ORDER BY o.ProgramadaPara,o.NumeroOrden
+    """, (datetime.combine(start, datetime.min.time()), datetime.combine(end, datetime.min.time()),
+          session["rol"], session["rol"], session.get("empleado_id") or -1,
+          session["rol"], session.get("cliente_id") or -1, session["usuario_id"]))
+    return jsonify(ok=True, items=rows)
+
+
 @app.get("/api/auth/me")
 @require_session("COORDINADOR", "TECNICO", "CLIENTE")
 def api_me(session):
-    return jsonify(ok=True, user=session)
+    user = dict(session)
+    photo = _profile_photo_path(session["usuario_id"])
+    if photo.is_file():
+        user["foto_url"] = f"/api/perfiles/{int(session['usuario_id'])}/foto?v={int(photo.stat().st_mtime)}"
+    return jsonify(ok=True, user=user)
 
 
 
@@ -2230,10 +2552,91 @@ def _account_profile_item(session):
         (session["usuario_id"],),
     ) or {}
     item.update({
+        "usuario_id": int(session["usuario_id"]),
         "rol": session.get("rol"),
         "sesion_expira": session.get("expira_en"),
     })
+    photo = _profile_photo_path(session["usuario_id"])
+    if photo.is_file():
+        eligible_at = datetime.fromtimestamp(photo.stat().st_mtime, timezone.utc) + timedelta(days=PROFILE_PHOTO_CHANGE_DAYS)
+        item["foto_url"] = f"/api/perfiles/{int(session['usuario_id'])}/foto?v={int(photo.stat().st_mtime)}"
+        item["foto_actualizada"] = datetime.fromtimestamp(photo.stat().st_mtime, timezone.utc).isoformat()
+        item["foto_cambio_disponible_en"] = eligible_at.isoformat()
+        item["foto_cambio_bloqueado"] = datetime.now(timezone.utc) < eligible_at
     return item
+
+
+def _profile_photo_path(usuario_id):
+    return PROFILE_PHOTO_ROOT / f"{int(usuario_id)}.webp"
+
+
+@app.get("/api/perfiles/<int:usuario_id>/foto")
+@require_session("COORDINADOR", "TECNICO", "CLIENTE")
+def api_foto_perfil(session, usuario_id):
+    path = _profile_photo_path(usuario_id)
+    if not path.is_file():
+        return jsonify(ok=False, message="Este usuario todavía no tiene fotografía."), 404
+    response = make_response(send_file(path, mimetype="image/webp", conditional=True, max_age=0))
+    response.headers["Cache-Control"] = "private, no-cache, must-revalidate"
+    return response
+
+
+@app.get("/api/avatares/<string:tipo>/<int:registro_id>")
+@require_session("COORDINADOR", "TECNICO", "CLIENTE")
+def api_avatar_registro(session, tipo, registro_id):
+    if tipo == "empleado":
+        row = query_one("SELECT TOP (1) UsuarioId AS id FROM seg.Usuario WHERE EmpleadoId=? AND Activo=1 ORDER BY UsuarioId", (registro_id,))
+    elif tipo == "contacto":
+        row = query_one("SELECT TOP (1) UsuarioId AS id FROM seg.Usuario WHERE ContactoClienteId=? AND Activo=1 ORDER BY UsuarioId", (registro_id,))
+    else:
+        return jsonify(ok=False, message="Tipo de perfil no válido."), 404
+    photo = _profile_photo_path(row["id"]) if row else None
+    if not photo or not photo.is_file():
+        return jsonify(ok=False, message="Este usuario todavía no tiene fotografía."), 404
+    response = make_response(send_file(photo, mimetype="image/webp", conditional=True, max_age=0))
+    response.headers["Cache-Control"] = "private, no-cache, must-revalidate"
+    return response
+
+
+@app.post("/api/cuenta/foto")
+@require_session("COORDINADOR", "TECNICO", "CLIENTE")
+def api_actualizar_foto_perfil(session):
+    if not PILLOW_AVAILABLE:
+        return jsonify(ok=False, message="La carga de fotografías no está disponible en este servidor."), 503
+    if request.content_length and request.content_length > MAX_PROFILE_PHOTO_BYTES + 256 * 1024:
+        return jsonify(ok=False, message="La fotografía debe pesar 5 MB o menos."), 413
+    storage = request.files.get("foto")
+    if not storage or not storage.filename:
+        return jsonify(ok=False, message="Selecciona una fotografía."), 400
+    raw = storage.stream.read(MAX_PROFILE_PHOTO_BYTES + 1)
+    if not raw or len(raw) > MAX_PROFILE_PHOTO_BYTES:
+        return jsonify(ok=False, message="La fotografía debe pesar 5 MB o menos."), 400
+    path = _profile_photo_path(session["usuario_id"])
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists():
+            eligible_at = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc) + timedelta(days=PROFILE_PHOTO_CHANGE_DAYS)
+            now = datetime.now(timezone.utc)
+            if now < eligible_at:
+                remaining = max(1, (eligible_at.date() - now.date()).days)
+                return jsonify(ok=False, message=f"Podrás cambiar tu fotografía en {remaining} día(s)."), 429
+        with Image.open(io.BytesIO(raw)) as source:
+            if source.format not in {"JPEG", "PNG", "WEBP"}:
+                raise ValueError("Usa una imagen JPG, PNG o WEBP.")
+            image = ImageOps.exif_transpose(source).convert("RGB")
+            resampling = getattr(Image, "Resampling", Image)
+            image = ImageOps.fit(image, (512, 512), method=resampling.LANCZOS, centering=(0.5, 0.5))
+            temporary = path.with_suffix(".tmp.webp")
+            image.save(temporary, format="WEBP", quality=84, method=6)
+            os.replace(temporary, path)
+    except ValueError as exc:
+        return jsonify(ok=False, message=str(exc)), 400
+    except Exception as exc:
+        app.logger.warning("No se pudo guardar la foto de perfil del usuario %s: %s", session["usuario_id"], exc)
+        return jsonify(ok=False, message="No fue posible procesar la fotografía."), 400
+    url = f"/api/perfiles/{int(session['usuario_id'])}/foto?v={int(path.stat().st_mtime)}"
+    return jsonify(ok=True, message="Fotografía actualizada.", foto_url=url,
+                   siguiente_cambio=(datetime.now(timezone.utc) + timedelta(days=PROFILE_PHOTO_CHANGE_DAYS)).isoformat())
 
 
 @app.get("/api/cuenta")
@@ -2243,6 +2646,29 @@ def api_cuenta(session):
         return jsonify(ok=True, item=_account_profile_item(session))
     except Exception as exc:
         return app_error(exc, "No fue posible cargar la información de la cuenta.")
+
+
+@app.patch("/api/cuenta/correo-acceso")
+@require_session("COORDINADOR", "TECNICO", "CLIENTE")
+def api_actualizar_correo_acceso(session):
+    """Actualiza únicamente el correo de acceso del usuario autenticado."""
+    data = request.get_json(silent=True) or {}
+    try:
+        correo = str(require_value(data, "correo_acceso", "Ingresa el correo de acceso.")).strip()
+        if len(correo) > 160 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", correo):
+            raise ValueError("Ingresa un correo electrónico válido de hasta 160 caracteres.")
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            set_audit_context(cursor, session, "Actualización del correo de acceso propio")
+            exec_proc_row(
+                cursor,
+                "EXEC seg.usp_Usuario_ActualizarCorreoPropio ?,?",
+                (session["usuario_id"], correo),
+            )
+            conn.commit()
+        return jsonify(ok=True, message="Correo de acceso actualizado.", item=_account_profile_item(session))
+    except Exception as exc:
+        return app_error(exc, "No fue posible actualizar el correo de acceso.")
 
 
 @app.patch("/api/cuenta")
@@ -2650,11 +3076,14 @@ def api_usuarios_catalogos(session):
             for role in roles:
                 codes = _role_permission_codes(cursor, int(role.get("id") or 0))
                 role["portal"] = _portal_role(role.get("codigo") or role.get("nombre"), codes) or "COORDINADOR"
+            cursor.execute("SELECT ClienteId AS id, NombreComercial AS nombre, Activo AS activo FROM crm.Cliente ORDER BY NombreComercial")
+            empresas = rows_to_dicts(cursor, cursor.fetchall())
         return jsonify(
             ok=True,
             roles=roles,
             empleados=sets[1] if len(sets) > 1 else [],
             contactos=sets[2] if len(sets) > 2 else [],
+            clientes=empresas,
         )
     except Exception as exc:
         return _respuesta_error_usuario(exc, "No fue posible cargar los catálogos de usuarios.")
@@ -2668,7 +3097,16 @@ def api_usuario_detalle(session, usuario_id: int):
             cursor = conn.cursor()
             set_audit_context(cursor, session, f"Consulta de detalle del usuario {usuario_id}")
             sets = exec_proc_sets(cursor, "EXEC seg.usp_UsuarioDetalleAdministracion ?", (usuario_id,))
+            cursor.execute("""SELECT cc.ClienteId AS cliente_id, cc.NombreCompleto AS nombre_contacto,
+                                    cc.Cargo AS cargo_contacto, cc.Telefono AS telefono_contacto
+                             FROM seg.Usuario u LEFT JOIN crm.ContactoCliente cc
+                                 ON cc.ContactoClienteId=u.ContactoClienteId
+                             WHERE u.UsuarioId=?""", usuario_id)
+            extra = cursor.fetchone()
+            enlace = rows_to_dicts(cursor, [extra])[0] if extra else {}
         item = _normalizar_detalle_usuario((sets[0][0] if sets and sets[0] else None))
+        if item:
+            item.update(enlace)
         if not item:
             return jsonify(ok=False, message="El usuario indicado no existe."), 404
         sessions = sets[1] if len(sets) > 1 else []
@@ -2678,6 +3116,32 @@ def api_usuario_detalle(session, usuario_id: int):
         return jsonify(ok=True, item=item, sesiones=sessions, actividad=events)
     except Exception as exc:
         return _respuesta_error_usuario(exc, "No fue posible cargar el detalle del usuario.")
+
+
+@app.get("/api/usuarios/<int:usuario_id>/reporte.pdf")
+@require_session("COORDINADOR")
+def api_usuario_reporte_pdf(session, usuario_id: int):
+    """Ficha administrativa del usuario, sin credenciales ni secretos."""
+    if not REPORTLAB_AVAILABLE:
+        return jsonify(ok=False, message="La exportación PDF no está disponible."), 503
+
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            set_audit_context(cursor, session, f"Descarga PDF del usuario {usuario_id}")
+            sets = exec_proc_sets(cursor, "EXEC seg.usp_UsuarioDetalleAdministracion ?", (usuario_id,))
+        item = _normalizar_detalle_usuario(sets[0][0] if sets and sets[0] else None)
+        if not item:
+            return jsonify(ok=False, message="El usuario indicado no existe."), 404
+        if __package__:
+            from .pdf_documents import build_user_report
+        else:
+            from pdf_documents import build_user_report
+        output = build_user_report(item)
+        return send_file(output, mimetype="application/pdf", as_attachment=True,
+                         download_name=f"SEPRIGUA_Usuario_{usuario_id}.pdf", max_age=0)
+    except Exception as exc:
+        return _respuesta_error_usuario(exc, "No fue posible generar el PDF del usuario.")
 
 
 def _validate_user_role_link(cursor, rol_id: int, empleado_id, contacto_id) -> str:
@@ -2696,6 +3160,61 @@ def _validate_user_role_link(cursor, rol_id: int, empleado_id, contacto_id) -> s
     if portal != "CLIENTE" and contacto_id:
         raise ValueError("Solo los roles con portal Cliente pueden vincularse a un contacto de cliente.")
     return portal
+
+
+def _cuenta_cliente_contacto(cursor, data: dict, correo: str | None, contacto_anterior=None):
+    """Crea o mantiene el contacto individual de la cuenta sin duplicar empresa.
+
+    No reutiliza al contacto principal empresarial ni al de otra cuenta.
+    """
+    raw_id = data.get('cliente_id')
+    if raw_id is None or not str(raw_id).strip():
+        raise ValueError('Selecciona la empresa para la cuenta de cliente.')
+    try:
+        cliente_id = int(raw_id)
+    except (TypeError, ValueError) as exc:
+        raise ValueError('Selecciona una empresa válida.') from exc
+    cursor.execute('SELECT Activo FROM crm.Cliente WHERE ClienteId=?', cliente_id)
+    row=cursor.fetchone()
+    if not row or not bool(row[0]):
+        raise ValueError('La empresa no existe o está inactiva.')
+    name=str(data.get('nombre_completo') or '').strip()
+    cargo=str(data.get('cargo_contacto') or '').strip() or None
+    telefono=str(data.get('telefono_contacto') or '').strip() or None
+    if not name or len(name)>180:
+        raise ValueError('Ingresa el nombre completo del usuario cliente (máximo 180 caracteres).')
+    if cargo and len(cargo)>120:
+        raise ValueError('El cargo del usuario cliente es demasiado largo.')
+    if telefono and len(telefono)>20:
+        raise ValueError('El teléfono del usuario cliente es demasiado largo.')
+    if contacto_anterior:
+        cursor.execute("""SELECT ClienteId FROM crm.ContactoCliente WHERE ContactoClienteId=?""", contacto_anterior)
+        old = cursor.fetchone()
+        if old and int(old[0]) == cliente_id:
+            cursor.execute("""UPDATE crm.ContactoCliente
+                              SET NombreCompleto=?, Cargo=?, Telefono=?, Correo=?, ActualizadoEn=SYSUTCDATETIME()
+                              WHERE ContactoClienteId=?""", name, cargo, telefono, correo, contacto_anterior)
+            return int(contacto_anterior), False
+    created = exec_proc_row(cursor, """SET NOCOUNT ON;
+        DECLARE @Creado TABLE (ContactoClienteId BIGINT);
+        INSERT INTO crm.ContactoCliente
+        (ClienteId,SucursalClienteId,NombreCompleto,Cargo,Telefono,Correo,
+         PuedeSolicitar,PuedeAutorizar,PuedeRecibir,Activo,CreadoEn,ActualizadoEn)
+        OUTPUT INSERTED.ContactoClienteId INTO @Creado(ContactoClienteId)
+        VALUES (?,NULL,?,?,?,?,1,1,1,1,SYSUTCDATETIME(),SYSUTCDATETIME());
+        SELECT ContactoClienteId FROM @Creado;""",
+        (cliente_id, name, cargo, telefono, correo))
+    if not created:
+        raise RuntimeError('No se pudo crear el contacto individual de la cuenta.')
+    return int(created['ContactoClienteId']), True
+
+
+def _portal_seleccionado(cursor, rol_id, empleado_id=None):
+    cursor.execute('SELECT Nombre,Activo FROM seg.Rol WHERE RolId=?', int(rol_id))
+    role = cursor.fetchone()
+    if not role or not bool(role.Activo):
+        raise ValueError('El rol seleccionado no está activo.')
+    return _portal_role(role.Nombre, _role_permission_codes(cursor, int(rol_id)), empleado_id)
 
 
 @app.post("/api/usuarios")
@@ -2721,13 +3240,18 @@ def api_usuario_crear(session):
         _validar_password_portal(password)
 
         empleado_id = int(data["empleado_id"]) if str(data.get("empleado_id") or "").strip() else None
-        contacto_id = int(data["contacto_cliente_id"]) if str(data.get("contacto_cliente_id") or "").strip() else None
         salt, password_hash = create_password_hash(password)
 
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            _validate_user_role_link(cursor, rol_id, empleado_id, contacto_id)
             set_audit_context(cursor, session, f"Registro administrativo del usuario {usuario}")
+            portal = _portal_seleccionado(cursor, rol_id, empleado_id)
+            contacto_id = None
+            if portal == "CLIENTE":
+                if empleado_id:
+                    raise ValueError('Una cuenta Cliente no se puede vincular a un empleado.')
+                contacto_id, _ = _cuenta_cliente_contacto(cursor, data, correo)
+            _validate_user_role_link(cursor, rol_id, empleado_id, contacto_id)
             sets = exec_proc_sets(
                 cursor,
                 "EXEC seg.usp_Usuario_Crear ?,?,?,?,?,?,?,?",
@@ -2758,18 +3282,46 @@ def api_usuario_actualizar(session, usuario_id: int):
         if correo and (len(correo) > 160 or not CONTACT_EMAIL_RE.fullmatch(correo)):
             raise ValueError("Ingresa un correo electrónico válido.")
         empleado_id = int(data["empleado_id"]) if str(data.get("empleado_id") or "").strip() else None
-        contacto_id = int(data["contacto_cliente_id"]) if str(data.get("contacto_cliente_id") or "").strip() else None
         activo = bool(data.get("activo", True))
 
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            _validate_user_role_link(cursor, rol_id, empleado_id, contacto_id)
             set_audit_context(cursor, session, f"Actualización administrativa del usuario {usuario_id}")
+            cursor.execute("""SELECT u.ContactoClienteId, cc.ClienteId
+                FROM seg.Usuario u LEFT JOIN crm.ContactoCliente cc
+                    ON u.ContactoClienteId=cc.ContactoClienteId
+                WHERE u.UsuarioId=?""", usuario_id)
+            previous = cursor.fetchone()
+            if not previous:
+                return jsonify(ok=False, message='Usuario no encontrado.'), 404
+            old_contact = int(previous[0]) if previous[0] is not None else None
+            old_company = int(previous[1]) if previous[1] is not None else None
+            portal = _portal_seleccionado(cursor, rol_id, empleado_id)
+            contacto_id = None
+            changing_company = False
+            if portal == "CLIENTE":
+                if empleado_id:
+                    raise ValueError('Una cuenta Cliente no se puede vincular a un empleado.')
+                contacto_id, _ = _cuenta_cliente_contacto(cursor, data, correo, old_contact)
+                cursor.execute('SELECT ClienteId FROM crm.ContactoCliente WHERE ContactoClienteId=?', contacto_id)
+                changing_company = old_company != int(cursor.fetchone()[0])
+            elif old_company is not None:
+                changing_company = True
+            _validate_user_role_link(cursor, rol_id, empleado_id, contacto_id)
             sets = exec_proc_sets(
                 cursor,
                 "EXEC seg.usp_Usuario_Actualizar ?,?,?,?,?,?,?,?",
                 (usuario_id, rol_id, usuario, empleado_id, correo, contacto_id, int(activo), None),
             )
+            if changing_company and contacto_id != old_contact:
+                # Impedir arrastrar sucursales de la antigua empresa a otro vínculo.
+                cursor.execute("""UPDATE seg.UsuarioSucursalAcceso
+                               SET Activo=0, ActualizadoPorUsuarioId=?, ActualizadoEn=SYSUTCDATETIME()
+                               WHERE UsuarioId=? AND Activo=1""", session['usuario_id'], usuario_id)
+                cursor.execute("""UPDATE seg.SesionUsuario
+                               SET Activa=0, CerradaEn=COALESCE(CerradaEn,SYSUTCDATETIME()),
+                                   MotivoCierre=N'Cambio de empresa asignada'
+                               WHERE UsuarioId=? AND Activa=1""", usuario_id)
             conn.commit()
         item = _normalizar_detalle_usuario(sets[0][0] if sets and sets[0] else None)
         return jsonify(ok=True, message="Usuario actualizado correctamente.", item=item)
@@ -2777,6 +3329,38 @@ def api_usuario_actualizar(session, usuario_id: int):
         return jsonify(ok=False, message=str(exc)), 400
     except Exception as exc:
         return _respuesta_error_usuario(exc, "No fue posible actualizar el usuario.")
+
+
+@app.get('/api/usuarios/<int:usuario_id>/sedes-autorizadas')
+@require_session('COORDINADOR')
+def api_usuario_sedes_administrar_listar(session, usuario_id: int):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            set_audit_context(cursor, session, f'Consultar sedes de usuario cliente {usuario_id}')
+            rows = exec_proc_rows(cursor, 'EXEC seg.usp_UsuarioSucursal_ListarAdministracion ?,?',
+                                  (session['usuario_id'], usuario_id))
+        return jsonify(ok=True, items=rows)
+    except Exception as exc:
+        return app_error(exc, 'No fue posible consultar las sucursales del usuario.')
+
+
+@app.post('/api/usuarios/<int:usuario_id>/sedes-autorizadas/<int:sucursal_id>')
+@require_session('COORDINADOR')
+def api_usuario_sedes_administrar_asignar(session, usuario_id: int, sucursal_id: int):
+    data = request.get_json(silent=True) or {}
+    if type(data.get('activo')) is not bool:
+        return jsonify(ok=False, message='Indica si la sucursal se autoriza o revoca.'), 400
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            set_audit_context(cursor, session, f'Asignación de sede {sucursal_id} a cuenta {usuario_id}')
+            exec_proc_rows(cursor, 'EXEC seg.usp_UsuarioSucursal_Asignar ?,?,?,?',
+                           (session['usuario_id'], usuario_id, sucursal_id, int(data['activo'])))
+            conn.commit()
+        return jsonify(ok=True, message='Asignación de sucursal actualizada.')
+    except Exception as exc:
+        return app_error(exc, 'No fue posible actualizar la asignación.')
 
 
 @app.post("/api/usuarios/<int:usuario_id>/estado")
@@ -2789,6 +3373,13 @@ def api_usuario_estado(session, usuario_id: int):
         with get_db_connection() as conn:
             cursor = conn.cursor()
             set_audit_context(cursor, session, ("Activación" if activo else "Desactivación") + f" del usuario {usuario_id}")
+            if activo:
+                cursor.execute("""SELECT c.Activo FROM seg.Usuario u
+                  JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId
+                  JOIN crm.Cliente c ON c.ClienteId=cc.ClienteId WHERE u.UsuarioId=?""", usuario_id)
+                empresa = cursor.fetchone()
+                if empresa and not bool(empresa[0]):
+                    raise Conflict("Activa primero la empresa antes de activar a este usuario.")
             exec_proc_rows(cursor, "EXEC seg.usp_Usuario_CambiarEstado ?,?", (usuario_id, int(activo)))
             conn.commit()
         return jsonify(ok=True, message="Usuario activado." if activo else "Usuario desactivado.")
@@ -3382,6 +3973,10 @@ def api_ubicaciones(session):
                 "EXEC crm.usp_ClienteUbicacionesPortal_Listar ?,?",
                 (session["usuario_id"], cliente_id),
             )
+            if session['rol'] == 'CLIENTE':
+                cursor.execute("SELECT SucursalClienteId FROM seg.ufn_SucursalesPermitidas(?)", session['usuario_id'])
+                allowed = {int(row[0]) for row in cursor.fetchall()}
+                items = [i for i in items if int(i.get('sucursal_id') or -1) in allowed]
         return jsonify(ok=True, items=items)
     except Exception as exc:
         return app_error(exc, "No fue posible cargar las ubicaciones.")
@@ -3415,6 +4010,26 @@ def api_municipios(_session):
 # ---------------------------------------------------------------------------
 # Dashboards / estadísticas reales de la BD
 # ---------------------------------------------------------------------------
+@app.get("/api/dashboard/reporte-semanal.pdf")
+@require_session("COORDINADOR")
+def api_dashboard_reporte_semanal(session):
+    if not REPORTLAB_AVAILABLE:
+        return jsonify(ok=False, message="La exportación PDF no está disponible."), 503
+    try:
+        from .weekly_report import build_weekly_pdf, collect_weekly_data, week_bounds
+        monday, start, end = week_bounds(request.args.get("semana"))
+        data = collect_weekly_data(query_all, monday, start, end)
+        with get_db_connection() as conn:
+            set_audit_context(conn.cursor(), session, f"Descarga de reporte semanal {monday.isoformat()}")
+        response = send_file(build_weekly_pdf(data), mimetype="application/pdf", as_attachment=True,
+                             download_name=f"SEPRIGUA-reporte-semanal-{monday.isoformat()}.pdf")
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
+    except Exception as exc:
+        return app_error(exc, "No fue posible generar el reporte semanal.")
+
+
 @app.get("/api/dashboard")
 @require_session("COORDINADOR", "TECNICO", "CLIENTE")
 def api_dashboard(session):
@@ -3501,12 +4116,12 @@ def api_dashboard(session):
             cards = query_one(
                 """
                 SELECT
-                  (SELECT COUNT(*) FROM srv.SolicitudServicio WHERE ClienteId=?) AS solicitudes,
-                  (SELECT COUNT(*) FROM srv.OrdenTrabajo o INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId INNER JOIN srv.EstadoOrdenTrabajo e ON e.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId WHERE s.ClienteId=? AND e.EsFinal=0) AS servicios_activos,
-                  (SELECT COUNT(*) FROM srv.OrdenTrabajo o INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId INNER JOIN srv.EstadoOrdenTrabajo e ON e.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId WHERE s.ClienteId=? AND e.Codigo='COMPLETADA') AS completados,
-                  (SELECT COUNT(*) FROM doc.DocumentoServicio d INNER JOIN srv.OrdenTrabajo o ON o.OrdenTrabajoId=d.OrdenTrabajoId INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId WHERE s.ClienteId=?) AS documentos
+                  (SELECT COUNT(*) FROM srv.SolicitudServicio si JOIN crm.UbicacionServicio ui ON ui.UbicacionServicioId=si.UbicacionServicioId JOIN seg.ufn_SucursalesPermitidas(?) pi ON pi.SucursalClienteId=ui.SucursalClienteId WHERE si.ClienteId=?) AS solicitudes,
+                  (SELECT COUNT(*) FROM srv.OrdenTrabajo o INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId INNER JOIN srv.EstadoOrdenTrabajo e ON e.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId JOIN crm.UbicacionServicio ui ON ui.UbicacionServicioId=s.UbicacionServicioId JOIN seg.ufn_SucursalesPermitidas(?) pi ON pi.SucursalClienteId=ui.SucursalClienteId WHERE s.ClienteId=? AND e.EsFinal=0) AS servicios_activos,
+                  (SELECT COUNT(*) FROM srv.OrdenTrabajo o INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId INNER JOIN srv.EstadoOrdenTrabajo e ON e.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId JOIN crm.UbicacionServicio ui ON ui.UbicacionServicioId=s.UbicacionServicioId JOIN seg.ufn_SucursalesPermitidas(?) pi ON pi.SucursalClienteId=ui.SucursalClienteId WHERE s.ClienteId=? AND e.Codigo='COMPLETADA') AS completados,
+                  (SELECT COUNT(*) FROM doc.DocumentoServicio d INNER JOIN srv.OrdenTrabajo o ON o.OrdenTrabajoId=d.OrdenTrabajoId INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId JOIN crm.UbicacionServicio ui ON ui.UbicacionServicioId=s.UbicacionServicioId JOIN seg.ufn_SucursalesPermitidas(?) pi ON pi.SucursalClienteId=ui.SucursalClienteId WHERE s.ClienteId=?) AS documentos
                 """,
-                (cid,cid,cid,cid),
+                (session['usuario_id'],cid,session['usuario_id'],cid,session['usuario_id'],cid,session['usuario_id'],cid),
             )
             recent = query_all(
                 """
@@ -3514,9 +4129,9 @@ def api_dashboard(session):
                        ts.Nombre AS tipo,s.Clasificacion,s.Estado,s.FechaPreferida AS fecha
                 FROM srv.SolicitudServicio s
                 INNER JOIN srv.TipoServicio ts ON ts.TipoServicioId=s.TipoServicioId
-                WHERE s.ClienteId=? ORDER BY s.CreadoEn DESC
+                WHERE s.ClienteId=? AND EXISTS (SELECT 1 FROM crm.UbicacionServicio ui JOIN seg.ufn_SucursalesPermitidas(?) pi ON pi.SucursalClienteId=ui.SucursalClienteId WHERE ui.UbicacionServicioId=s.UbicacionServicioId) ORDER BY s.CreadoEn DESC
                 """,
-                (cid,),
+                (cid,session['usuario_id']),
             )
             chart = []
         return jsonify(ok=True, cards=cards or {}, recent=recent, chart=chart)
@@ -3545,6 +4160,7 @@ def api_crear_solicitud(session):
         if not cliente_id:
             raise ValueError("No se pudo determinar el cliente de la solicitud.")
         ubicacion_id = int(require_value(data, "ubicacion_id", "Selecciona una sede/ubicación."))
+        _assert_ubicacion_access(session, ubicacion_id)
         tipo_id = int(require_value(data, "tipo_servicio_id", "Selecciona un tipo de servicio."))
         clasificacion = str(data.get("clasificacion") or "PROGRAMADA").upper()
         if clasificacion not in {"PROGRAMADA", "EMERGENCIA"}:
@@ -3592,9 +4208,13 @@ def api_crear_solicitud(session):
                            N'SolicitudServicio',?,N'SISTEMA',N'PENDIENTE'
                     FROM crm.ContactoCliente cc
                     INNER JOIN seg.Usuario u ON u.ContactoClienteId=cc.ContactoClienteId AND u.Activo=1
-                    WHERE cc.ClienteId=? AND cc.Activo=1 AND u.UsuarioId<>?
+                    INNER JOIN srv.SolicitudServicio ss ON ss.SolicitudServicioId=? AND ss.ClienteId=cc.ClienteId
+                    INNER JOIN crm.UbicacionServicio ub ON ub.UbicacionServicioId=ss.UbicacionServicioId
+                    CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) allowed
+                    WHERE cc.ClienteId=? AND cc.Activo=1 AND u.UsuarioId<>? AND allowed.SucursalClienteId=ub.SucursalClienteId
                     """,
-                    clasificacion, str(solicitud_id) if solicitud_id is not None else None, cliente_id, session["usuario_id"],
+                    clasificacion, str(solicitud_id) if solicitud_id is not None else None,
+                    solicitud_id, cliente_id, session["usuario_id"],
                 )
             conn.commit()
         if solicitud_id:
@@ -3614,8 +4234,8 @@ def api_solicitud_detalle(session, solicitud_id: int):
         permission = ""
         params = [solicitud_id]
         if session["rol"] == "CLIENTE":
-            permission = "AND s.ClienteId=?"
-            params.append(session["cliente_id"] or -1)
+            permission = "AND s.ClienteId=? AND EXISTS (SELECT 1 FROM crm.UbicacionServicio ux JOIN seg.ufn_SucursalesPermitidas(?) ax ON ax.SucursalClienteId=ux.SucursalClienteId WHERE ux.UbicacionServicioId=s.UbicacionServicioId)"
+            params.extend((session["cliente_id"] or -1, session["usuario_id"]))
         item = query_one(
             f"""
             SELECT s.SolicitudServicioId AS id,s.ClienteId AS cliente_id,c.NombreComercial AS cliente,
@@ -3744,8 +4364,8 @@ def api_orden_detalle(session, orden_id: int):
             permission = "AND EXISTS(SELECT 1 FROM srv.TecnicoOrden tx WHERE tx.OrdenTrabajoId=o.OrdenTrabajoId AND tx.EmpleadoId=? AND tx.Estado IN ('ASIGNADO','CONFIRMADO','FINALIZADO'))"
             params.append(session["empleado_id"] or -1)
         elif session["rol"] == "CLIENTE":
-            permission = "AND ss.ClienteId=?"
-            params.append(session["cliente_id"] or -1)
+            permission = "AND ss.ClienteId=? AND EXISTS (SELECT 1 FROM crm.UbicacionServicio ux JOIN seg.ufn_SucursalesPermitidas(?) ax ON ax.SucursalClienteId=ux.SucursalClienteId WHERE ux.UbicacionServicioId=ss.UbicacionServicioId)"
+            params.extend((session["cliente_id"] or -1, session["usuario_id"]))
         item = query_one(
             f"""
             SELECT o.OrdenTrabajoId AS id,o.SolicitudServicioId AS solicitud_id,o.NumeroOrden AS numero,o.NumeroTicketCliente AS ticket,
@@ -3880,6 +4500,7 @@ def api_orden_detalle(session, orden_id: int):
             ok=True,item=item,tecnicos=tecnicos,actividades=actividades,incidencias=incidencias,
             historial=historial,evidencias=evidencias,cambios_alcance=cambios_alcance,equipos=equipos,
             cotizaciones=([c for c in cotizaciones if c['estado'] not in {'BORRADOR','ANULADA'}] if session['rol']=='CLIENTE' else [] if session['rol']=='TECNICO' else cotizaciones),progress=progress,
+            reprogramaciones=reprogramming_actions['list'](orden_id,session['rol']),
             reglas_cierre={'min_fotos':min_work_photos(),'ticket_obligatorio':env_bool('OT_REQUIRE_TICKET',False)}
         )
     except Exception as exc:
@@ -3931,7 +4552,9 @@ def api_crear_orden(session):
                     INNER JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
                     INNER JOIN crm.ContactoCliente cc ON cc.ClienteId=s.ClienteId AND cc.Activo=1
                     INNER JOIN seg.Usuario u ON u.ContactoClienteId=cc.ContactoClienteId AND u.Activo=1
-                    WHERE o.OrdenTrabajoId=?
+                    INNER JOIN crm.UbicacionServicio ub ON ub.UbicacionServicioId=s.UbicacionServicioId
+                    CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) allowed
+                    WHERE o.OrdenTrabajoId=? AND allowed.SucursalClienteId=ub.SucursalClienteId
                     """,
                     orden_id,
                 )
@@ -4028,7 +4651,15 @@ def api_editar_orden(session, orden_id: int):
             cursor = conn.cursor()
             planning.lock_planning(sys.modules[__name__],cursor)
             set_audit_context(cursor, session, "Edición de datos operativos de OT")
+            locked_order=exec_proc_row(cursor,"""SELECT eo.Codigo AS codigo,eo.EstadoOrdenTrabajoId AS estado_id,
+                 o.ProgramadaPara AS programada_anterior FROM srv.OrdenTrabajo o WITH (UPDLOCK,HOLDLOCK)
+                 JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId WHERE o.OrdenTrabajoId=?""",(orden_id,))
+            if not locked_order:raise NotFound('Orden no encontrada.')
+            if locked_order['codigo'] in {'COMPLETADA','CANCELADA'}:
+                raise Conflict('La OT está cerrada y no admite cambios en sus datos operativos.')
             if 'programada_para' in provided:
+                if reprogramming_actions['pending'](sys.modules[__name__],cursor,orden_id):
+                    raise Conflict('Hay una solicitud de reprogramación pendiente de Coordinación.')
                 code=exec_proc_row(cursor,'SELECT eo.Codigo AS estado FROM srv.OrdenTrabajo o JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId WHERE o.OrdenTrabajoId=?',(orden_id,))
                 if not code:raise NotFound('Orden no encontrada.')
                 if code['estado'] not in {'PENDIENTE','PROGRAMADA'}:raise Conflict('La orden ya no admite reprogramación.')
@@ -4054,7 +4685,18 @@ def api_editar_orden(session, orden_id: int):
                         target = cursor.fetchone()
                         if target:
                             exec_proc_row(cursor,"EXEC srv.usp_AppCambiarEstadoOrden ?,?,?,?",(orden_id,int(target[0]),session["usuario_id"],"Reprogramación desde portal web"))
+            if "programada_para" in provided:
+                record_reschedule(cursor, orden_id, locked_order["estado_id"], session["usuario_id"],
+                                  locked_order["programada_anterior"], scheduled)
             conn.commit()
+        if 'programada_para' in provided:
+            try:
+                crew_ids=[int(x['usuario_id']) for x in _crew_push_rows(orden_id) if x.get('usuario_id')]
+                client_ids=_client_user_ids_for_order(orden_id)
+                queue_web_push(crew_ids,title='Programación de OT actualizada',body='Revisa la fecha de tu orden asignada.',role='TECNICO',entity='OrdenTrabajo',entity_id=orden_id,tag=f'programacion-{orden_id}-{int(time.time())}')
+                queue_web_push(client_ids,title='Programación de OT actualizada',body='Revisa la fecha confirmada de tu orden.',role='CLIENTE',entity='OrdenTrabajo',entity_id=orden_id,tag=f'programacion-{orden_id}-{int(time.time())}')
+            except Exception:
+                app.logger.exception('La fecha se guardó, pero falló la entrega Web Push de la OT %s.',orden_id)
         return jsonify(ok=True, message="Datos de la orden actualizados.")
     except ValueError as exc:
         return jsonify(ok=False, message=str(exc)), 400
@@ -4193,7 +4835,7 @@ def api_cambiar_estado(session, orden_id: int):
         if not current:
             return jsonify(ok=False,message="Orden no encontrada."),404
         current_code = str(current.get("codigo") or "").upper()
-        allowed_states={'PENDIENTE':{'PROGRAMADA','EN_PROCESO','CANCELADA'},'PROGRAMADA':{'EN_PROCESO','CANCELADA'},'EN_PROCESO':{'POR_CONFIRMAR','COMPLETADA','CANCELADA'},'POR_CONFIRMAR':{'COMPLETADA','CANCELADA'}}
+        allowed_states={'PENDIENTE':{'PROGRAMADA','EN_PROCESO','CANCELADA'},'PROGRAMADA':{'EN_PROCESO','CANCELADA'},'EN_PROCESO':{'POR_CONFIRMAR','COMPLETADA'},'POR_CONFIRMAR':{'COMPLETADA'}}
         if target_code not in allowed_states.get(current_code,set()): raise Conflict("Ese cambio no corresponde al estado actual de la orden.")
         if target_code=='CANCELADA' and len(str(data.get('comentario') or '').strip())<5: raise ValueError("Indica el motivo de cancelación.")
 
@@ -4303,13 +4945,31 @@ def api_cambiar_estado(session, orden_id: int):
             cursor = conn.cursor()
             planning.lock_planning(sys.modules[__name__],cursor)
             set_audit_context(cursor, session, "Cambio de estado de OT")
-            locked=exec_proc_row(cursor,'SELECT eo.Codigo AS estado FROM srv.OrdenTrabajo o JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId WHERE o.OrdenTrabajoId=?',(orden_id,))
+            locked=exec_proc_row(cursor,'SELECT eo.Codigo AS estado,o.IniciadaEn AS iniciada FROM srv.OrdenTrabajo o WITH (UPDLOCK,HOLDLOCK) JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId WHERE o.OrdenTrabajoId=?',(orden_id,))
             if not locked or locked['estado']!=current_code:raise Conflict('Otra persona cambió el estado. Actualiza la orden.')
+            if reprogramming_actions['pending'](sys.modules[__name__],cursor,orden_id):
+                raise Conflict('La orden está suspendida y espera una decisión de reprogramación.')
+            if target_code=='CANCELADA' and (current_code not in {'PENDIENTE','PROGRAMADA'} or locked.get('iniciada')):
+                raise Conflict('No se puede cancelar una orden cuyo trabajo ya comenzó.')
             if target_code=='EN_PROCESO':planning.validate_order(sys.modules[__name__],cursor,orden_id,starting=True)
 
             cursor.execute("EXEC sys.sp_set_session_context @key=N'OT_MIN_WORK_PHOTOS',@value=?; EXEC sys.sp_set_session_context @key=N'OT_REQUIRE_TICKET',@value=?",min_work_photos(),int(env_bool('OT_REQUIRE_TICKET',False)))
             while cursor.nextset():pass
             row = exec_proc_row(cursor, "EXEC srv.usp_AppCambiarEstadoOrden ?,?,?,?", (orden_id, estado_id, session["usuario_id"], comentario))
+            if target_code == 'CANCELADA':
+                validated = exec_proc_row(cursor,"""SELECT eo.Codigo AS estado,o.SolicitudServicioId AS solicitud_id
+                    FROM srv.OrdenTrabajo o JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
+                    WHERE o.OrdenTrabajoId=?""",(orden_id,))
+                if not validated or validated['estado'] != 'CANCELADA':
+                    raise Conflict('La base no confirmó la cancelación de la OT; los cambios fueron revertidos.')
+                cursor.execute("""UPDATE srv.SolicitudServicio SET Estado='CANCELADA',ActualizadoEn=SYSUTCDATETIME()
+                    WHERE SolicitudServicioId=? AND Estado IN ('CONVERTIDA','REGISTRADA')""",validated['solicitud_id'])
+            if target_code in {"COMPLETADA", "CANCELADA"}:
+                try:
+                    from .notifications import resolve_order_notifications
+                except ImportError:
+                    from notifications import resolve_order_notifications
+                resolve_order_notifications(cursor, orden_id)
             cursor.execute(
                 """
                 ;WITH Destinatarios AS (
@@ -4323,7 +4983,9 @@ def api_cambiar_estado(session, orden_id: int):
                             FROM srv.OrdenTrabajo o
                             INNER JOIN srv.SolicitudServicio ss ON ss.SolicitudServicioId=o.SolicitudServicioId
                             INNER JOIN crm.ContactoCliente cc ON cc.ClienteId=ss.ClienteId AND cc.Activo=1
-                            WHERE o.OrdenTrabajoId=?
+                            INNER JOIN crm.UbicacionServicio ub ON ub.UbicacionServicioId=ss.UbicacionServicioId
+                            CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) allowed
+                            WHERE o.OrdenTrabajoId=? AND allowed.SucursalClienteId=ub.SucursalClienteId
                         )
                     )
                 )
@@ -4536,7 +5198,9 @@ def api_enviar_cambio_alcance(session, orden_id: int, cambio_id: int):
                 FROM srv.OrdenTrabajo o INNER JOIN srv.SolicitudServicio ss ON ss.SolicitudServicioId=o.SolicitudServicioId
                 INNER JOIN crm.ContactoCliente cc ON cc.ClienteId=ss.ClienteId AND cc.Activo=1
                 INNER JOIN seg.Usuario u ON u.ContactoClienteId=cc.ContactoClienteId AND u.Activo=1
-                WHERE o.OrdenTrabajoId=?
+                INNER JOIN crm.UbicacionServicio ub ON ub.UbicacionServicioId=ss.UbicacionServicioId
+                CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) allowed
+                WHERE o.OrdenTrabajoId=? AND allowed.SucursalClienteId=ub.SucursalClienteId
                 """,cambio_id,orden_id)
             conn.commit()
         queue_web_push(_client_user_ids_for_order(orden_id),title="Autorización requerida",body="Revisa el cambio de alcance de tu servicio.",role="CLIENTE",entity="OrdenTrabajo",entity_id=orden_id)
@@ -4669,24 +5333,27 @@ def api_subir_evidencia(session, orden_id: int):
                 # La firma de conformidad puede capturarse después del cierre técnico.
                 # No se altera el SP histórico (que correctamente bloquea evidencias ordinarias
                 # en OTs finales); se inserta únicamente este tipo controlado de evidencia.
-                cursor.execute(
+                created_row=exec_proc_row(cursor,
                     """
+                    DECLARE @n TABLE(id bigint);
                     INSERT INTO srv.EvidenciaServicio(
                         SolicitudServicioId,OrdenTrabajoId,SubidaPorUsuarioId,SubidaPorEmpleadoId,
                         Origen,Categoria,Etapa,TipoArchivo,NombreArchivo,RutaArchivo,TipoMime,TamanoBytes,
                         Descripcion,IncluirEnCollage,OrdenCollage,TomadaEn
                     )
-                    OUTPUT INSERTED.EvidenciaServicioId
-                    VALUES(NULL,?,?,?,?,?,?,?, ?,N'BD://PENDIENTE',?,?,?,?,NULL,NULL)
+                    OUTPUT INSERTED.EvidenciaServicioId INTO @n
+                    VALUES(NULL,?,?,?,?,?,?,?, ?,N'BD://PENDIENTE',?,?,?,?,NULL,NULL);
+                    SELECT id FROM @n;
                     """,
-                    orden_id, session["usuario_id"], session.get("empleado_id"), session["rol"],
-                    category, stage, prepared["tipo"], prepared["nombre"], prepared["mime"],
-                    prepared["tamano"], description, include_collage,
+                    (
+                        orden_id, session["usuario_id"], session.get("empleado_id"), session["rol"],
+                        category, stage, prepared["tipo"], prepared["nombre"], prepared["mime"],
+                        prepared["tamano"], description, include_collage,
+                    ),
                 )
-                created = cursor.fetchone()
-                if not created:
+                if not created_row or not created_row.get('id'):
                     raise RuntimeError("No fue posible crear la evidencia de firma.")
-                evidencia_id = int(created[0])
+                evidencia_id = int(created_row['id'])
                 cursor.execute(
                     "INSERT INTO srv.ArchivoEvidencia(EvidenciaServicioId,Contenido,HashSha256) VALUES(?,?,?)",
                     evidencia_id, pyodbc.Binary(prepared["contenido"]), pyodbc.Binary(payload_hash),
@@ -4756,13 +5423,26 @@ def api_mis_sedes(session):
     try:
         page,size=pagination_args()
         with get_db_connection() as conn:
-            cursor=conn.cursor(); set_audit_context(cursor,session,"Consulta paginada de sedes propias del cliente")
-            items=exec_proc_rows(cursor,"EXEC crm.usp_ClienteSedes_Listar ?,?,?",(session["usuario_id"],page,size))
-        for item in items:
-            item["activo"] = bool(item.get("activo"))
-        return paged_response(items,page,size)
+            cursor=conn.cursor(); set_audit_context(cursor,session,"Consulta de sedes autorizadas")
+            cursor.execute("""SELECT s.SucursalClienteId AS id,s.CodigoSucursal AS codigo,s.Nombre AS nombre,
+                s.Telefono AS telefono,s.Observaciones AS observaciones,CAST(s.Activo AS bit) AS activo,
+                ub.UbicacionServicioId AS ubicacion_id,ub.NombreReferencia AS referencia,
+                ub.Direccion AS direccion,ub.Municipio AS municipio,ub.Departamento AS departamento,
+                ub.ReferenciaLlegada AS referencia_llegada,
+                s.CreadoEn AS creada,s.ActualizadoEn AS actualizada
+                FROM seg.UsuarioSucursalAcceso acc
+                INNER JOIN seg.Usuario u ON u.UsuarioId=acc.UsuarioId AND u.Activo=1
+                INNER JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId AND cc.Activo=1
+                INNER JOIN crm.SucursalCliente s ON s.SucursalClienteId=acc.SucursalClienteId AND s.ClienteId=cc.ClienteId
+                OUTER APPLY (SELECT TOP (1) x.* FROM crm.UbicacionServicio x
+                   WHERE x.SucursalClienteId=s.SucursalClienteId AND x.Activo=1
+                   ORDER BY x.UbicacionServicioId DESC) ub
+                WHERE acc.UsuarioId=? AND acc.Activo=1
+                ORDER BY s.Nombre,s.SucursalClienteId""",session['usuario_id'])
+            items=rows_to_dicts(cursor,cursor.fetchall())
+        return jsonify(ok=True,items=items[(page-1)*size:page*size],total=len(items),pagina=page,tamano=size,paginas=max(1,(len(items)+size-1)//size))
     except Exception as exc:
-        return app_error(exc, "No fue posible cargar tus sedes.")
+        return app_error(exc,"No fue posible cargar tus sedes.")
 
 
 def _sede_payload(data: dict) -> tuple:
@@ -4786,10 +5466,7 @@ def _sede_payload(data: dict) -> tuple:
     if telefono and len(telefono) > 20:
         raise ValueError("El teléfono no puede exceder 20 caracteres.")
 
-    # Latitud/longitud permanecen como columnas históricas en la BD, pero el portal ya no las solicita.
-    latitud = None
-    longitud = None
-    return nombre, codigo, telefono, direccion, municipio, departamento, referencia, observaciones, latitud, longitud
+    return nombre, codigo, telefono, direccion, municipio, departamento, referencia, observaciones
 
 
 @app.post("/api/mis-sedes")
@@ -4801,11 +5478,22 @@ def api_mis_sedes_crear(session):
         with get_db_connection() as conn:
             cursor = conn.cursor()
             set_audit_context(cursor, session, f"Registro de nueva sede por cliente: {values[0]}")
+            cursor.execute("SELECT COALESCE(MAX(SucursalClienteId),0) FROM crm.SucursalCliente WHERE ClienteId=?",session['cliente_id'])
+            previous_max=int(cursor.fetchone()[0])
             items = exec_proc_rows(
                 cursor,
-                "EXEC crm.usp_ClienteSede_Crear ?,?,?,?,?,?,?,?,?,?,?",
+                "EXEC crm.usp_ClienteSede_Crear ?,?,?,?,?,?,?,?,?",
                 (session["usuario_id"],) + values,
             )
+            cursor.execute("""SELECT TOP (1) s.SucursalClienteId FROM crm.SucursalCliente s
+                WHERE s.ClienteId=? AND s.SucursalClienteId>? AND s.Nombre=?
+                ORDER BY s.SucursalClienteId DESC""",session['cliente_id'],previous_max,values[0])
+            created=cursor.fetchone()
+            if not created:
+                raise RuntimeError('No se pudo identificar la nueva sede para autorizarla.')
+            cursor.execute("""INSERT INTO seg.UsuarioSucursalAcceso
+              (UsuarioId,SucursalClienteId,Activo,AsignadoPorUsuarioId,ActualizadoPorUsuarioId)
+              VALUES(?,?,1,?,?)""",session['usuario_id'],created[0],session['usuario_id'],session['usuario_id'])
             conn.commit()
         return jsonify(ok=True, message="Sede agregada correctamente.", items=items), 201
     except ValueError as exc:
@@ -4820,12 +5508,14 @@ def api_mis_sedes_actualizar(session, sede_id: int):
     data = request.get_json(silent=True) or {}
     try:
         values = _sede_payload(data)
+        if not _can_access_sede(session, sede_id):
+            raise NotFound("Sucursal no autorizada.")
         with get_db_connection() as conn:
             cursor = conn.cursor()
             set_audit_context(cursor, session, f"Actualización de sede propia {sede_id}")
             items = exec_proc_rows(
                 cursor,
-                "EXEC crm.usp_ClienteSede_Actualizar ?,?,?,?,?,?,?,?,?,?,?,?",
+                "EXEC crm.usp_ClienteSede_Actualizar ?,?,?,?,?,?,?,?,?,?",
                 (session["usuario_id"], sede_id) + values,
             )
             conn.commit()
@@ -4843,6 +5533,8 @@ def api_mis_sedes_estado(session, sede_id: int):
     if type(data.get('activo')) is not bool:raise ValueError('Estado inválido.')
     activo = data['activo']
     try:
+        if not _can_access_sede(session, sede_id):
+            raise NotFound("Sucursal no autorizada.")
         with get_db_connection() as conn:
             cursor = conn.cursor()
             set_audit_context(cursor, session, ("Reactivación" if activo else "Desactivación") + f" de sede propia {sede_id}")
@@ -4860,6 +5552,81 @@ def api_mis_sedes_estado(session, sede_id: int):
 # ---------------------------------------------------------------------------
 # Clientes y sedes
 # ---------------------------------------------------------------------------
+def _contacto_principal_empresa(cursor, cliente_id: int) -> dict | None:
+    """Selecciona el contacto empresarial; conserva casos heredados vinculados.
+
+    Se prefieren contactos administrativos sin cuenta; si solo existe un
+    contacto ligado a una cuenta antigua, se muestra como referencia pero
+    nunca se modifica directamente desde Editar cliente.
+    """
+    cursor.execute(
+        """SELECT TOP (1) cc.ContactoClienteId AS id, cc.NombreCompleto AS nombre,
+                  cc.Cargo AS cargo, cc.Telefono AS telefono, cc.Correo AS correo,
+                  CONVERT(bit, CASE WHEN EXISTS(
+                      SELECT 1 FROM seg.Usuario u
+                      WHERE u.ContactoClienteId=cc.ContactoClienteId
+                  ) THEN 1 ELSE 0 END) AS vinculado_a_usuario
+           FROM crm.ContactoCliente cc
+           WHERE cc.ClienteId=? AND cc.Activo=1
+           ORDER BY CASE WHEN EXISTS(
+                       SELECT 1 FROM seg.Usuario u
+                       WHERE u.ContactoClienteId=cc.ContactoClienteId
+                    ) THEN 1 ELSE 0 END,
+                    CASE WHEN cc.PuedeSolicitar=0 AND cc.PuedeAutorizar=0 AND cc.PuedeRecibir=0 THEN 0 ELSE 1 END,
+                    cc.ContactoClienteId""",
+        cliente_id,
+    )
+    item = cursor.fetchone()
+    return rows_to_dicts(cursor, [item])[0] if item else None
+
+
+def _guardar_contacto_principal_empresa(cursor, cliente_id: int, data: dict):
+    """Mantener contacto empresarial aparte de contactos de cuentas de acceso."""
+    keys = ('contacto_nombre', 'contacto_cargo', 'contacto_telefono', 'contacto_correo')
+    if not any(key in data for key in keys):
+        return
+    nombre = str(data.get('contacto_nombre') or '').strip()
+    cargo = str(data.get('contacto_cargo') or '').strip() or None
+    telefono = str(data.get('contacto_telefono') or '').strip() or None
+    correo = str(data.get('contacto_correo') or '').strip().lower() or None
+    if any([cargo, telefono, correo]) and not nombre:
+        raise ValueError('Ingresa el nombre del contacto principal.')
+    if len(nombre) > 180 or (cargo and len(cargo)>120) or (telefono and len(telefono)>20):
+        raise ValueError('Los datos del contacto principal superan el tamaño permitido.')
+    if correo and (len(correo)>160 or not CONTACT_EMAIL_RE.fullmatch(correo)):
+        raise ValueError('El correo del contacto principal no es válido.')
+    current = _contacto_principal_empresa(cursor, cliente_id)
+    if not nombre:
+        # Nunca borrar/desvincular un contacto histórico implícitamente.
+        return
+    if current and current.get('vinculado_a_usuario'):
+        # Datos heredados: el contacto visible ya es dueño de una cuenta.
+        # Si no se modificó, no duplicamos nada. Si cambió, creamos un
+        # contacto administrativo separado SIN alterar la cuenta existente.
+        if (nombre == str(current.get('nombre') or '').strip()
+                and cargo == (str(current.get('cargo') or '').strip() or None)
+                and telefono == (str(current.get('telefono') or '').strip() or None)
+                and correo == (str(current.get('correo') or '').strip().lower() or None)):
+            return
+        current = None
+    if current:
+        cursor.execute(
+            """UPDATE crm.ContactoCliente SET NombreCompleto=?,Cargo=?,Telefono=?,Correo=?,
+                      PuedeSolicitar=0, PuedeAutorizar=0, PuedeRecibir=0,
+                      ActualizadoEn=SYSUTCDATETIME()
+               WHERE ContactoClienteId=? AND ClienteId=?""",
+            nombre, cargo, telefono, correo, current['id'], cliente_id,
+        )
+    else:
+        cursor.execute(
+            """INSERT INTO crm.ContactoCliente
+               (ClienteId, SucursalClienteId, NombreCompleto, Cargo, Telefono, Correo,
+                PuedeSolicitar, PuedeAutorizar, PuedeRecibir, Activo, CreadoEn, ActualizadoEn)
+               VALUES (?, NULL, ?, ?, ?, ?, 0, 0, 0, 1, SYSUTCDATETIME(), SYSUTCDATETIME())""",
+            cliente_id, nombre, cargo, telefono, correo,
+        )
+
+
 @app.get("/api/clientes-crud/build")
 @require_session("COORDINADOR")
 def api_clientes_crud_build(_session):
@@ -4953,6 +5720,7 @@ def api_cliente_detalle(session, cliente_id: int):
             if not db_row:
                 return jsonify(ok=False, message="Cliente no encontrado."), 404
             row = rows_to_dicts(cursor, [db_row])[0]
+            contacto_principal = _contacto_principal_empresa(cursor, cliente_id)
 
         item = {
             "id": row.get("id"),
@@ -4969,6 +5737,7 @@ def api_cliente_detalle(session, cliente_id: int):
             "actualizado_en": row.get("actualizado_en"),
             "sedes": int(row.get("sedes") or 0),
             "contactos": int(row.get("contactos") or 0),
+            "contacto_principal": contacto_principal,
             "solicitudes": int(row.get("solicitudes") or 0),
         }
         return jsonify(ok=True, item=item)
@@ -5025,6 +5794,7 @@ def api_cliente_actualizar(session, cliente_id: int):
                     current.get("FilaVersion"),
                 ),
             )
+            _guardar_contacto_principal_empresa(cursor, cliente_id, data)
             conn.commit()
         return jsonify(ok=True, message="Cliente actualizado correctamente.")
     except ValueError as exc:
@@ -5037,7 +5807,9 @@ def api_cliente_actualizar(session, cliente_id: int):
 @require_session("COORDINADOR")
 def api_cliente_estado(session, cliente_id: int):
     data = request.get_json(silent=True) or {}
-    activo = bool(data.get("activo"))
+    if type(data.get("activo")) is not bool:
+        return jsonify(ok=False, message="Indica si deseas activar o desactivar el cliente."), 400
+    activo = data["activo"]
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
@@ -5056,8 +5828,27 @@ def api_cliente_estado(session, cliente_id: int):
                     int(activo), current.get("FilaVersion"),
                 ),
             )
+            desactivados = 0
+            if not activo:
+                # La baja de empresa, cuentas y sesiones comparte una transacción.
+                # El vínculo de cada usuario pasa por su contacto de esta empresa.
+                cursor.execute("""SELECT COUNT_BIG(*) FROM seg.Usuario u WITH (UPDLOCK,HOLDLOCK)
+                  JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId
+                  WHERE cc.ClienteId=? AND u.Activo=1""", cliente_id)
+                desactivados = int(cursor.fetchone()[0])
+                cursor.execute("""UPDATE u SET Activo=0,ActualizadoEn=SYSUTCDATETIME()
+                  FROM seg.Usuario u JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId
+                  WHERE cc.ClienteId=? AND u.Activo=1""", cliente_id)
+                cursor.execute("""UPDATE s SET Activa=0,CerradaEn=COALESCE(CerradaEn,SYSUTCDATETIME()),
+                    MotivoCierre=N'Empresa cliente desactivada'
+                  FROM seg.SesionUsuario s
+                  JOIN seg.Usuario u ON u.UsuarioId=s.UsuarioId
+                  JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId
+                  WHERE cc.ClienteId=? AND s.Activa=1""", cliente_id)
             conn.commit()
-        return jsonify(ok=True, message="Cliente activado." if activo else "Cliente desactivado. Su historial se conserva.")
+        return jsonify(ok=True, usuarios_desactivados=desactivados,
+                       message=("Cliente reactivado. Activa manualmente las cuentas que deban recuperar acceso."
+                                if activo else f"Cliente desactivado. {desactivados} cuenta(s) desactivada(s) y sus sesiones cerradas. El historial se conserva."))
     except Exception as exc:
         return app_error(exc, "No fue posible cambiar el estado del cliente.")
 
@@ -5072,14 +5863,243 @@ def api_sedes_cliente(_session, cliente_id: int):
     try:
         return jsonify(ok=True, items=query_all(
             """
-            SELECT s.SucursalClienteId AS id,s.CodigoSucursal AS codigo,s.Nombre,s.Telefono,s.Activo,
-                   u.UbicacionServicioId AS ubicacion_id,u.Direccion,u.Municipio,u.Departamento
+            SELECT s.SucursalClienteId AS id, s.ClienteId AS cliente_id,
+                   s.CodigoSucursal AS codigo, s.Nombre AS nombre, s.Nombre,
+                   s.Telefono AS telefono, s.Telefono, s.Activo AS activo, s.Activo,
+                   s.Observaciones AS observaciones, u.UbicacionServicioId AS ubicacion_id,
+                   u.Direccion AS direccion, u.Municipio AS municipio,
+                   u.Departamento AS departamento, u.ReferenciaLlegada AS referencia_llegada,
+                   
+                   u.Direccion, u.Municipio, u.Departamento
             FROM crm.SucursalCliente s
-            LEFT JOIN crm.UbicacionServicio u ON u.SucursalClienteId=s.SucursalClienteId AND u.Activo=1
-            WHERE s.ClienteId=? ORDER BY s.Nombre
+            OUTER APPLY (
+                SELECT TOP (1) ub.* FROM crm.UbicacionServicio ub
+                WHERE ub.SucursalClienteId=s.SucursalClienteId
+                ORDER BY ub.Activo DESC, ub.UbicacionServicioId DESC
+            ) u
+            WHERE s.ClienteId=? ORDER BY s.Nombre, s.SucursalClienteId
             """, (cliente_id,)))
     except Exception as exc:
         return app_error(exc, "No fue posible cargar las sedes.")
+
+
+# Sucursales desde Coordinación: reutilizamos los SP existentes. No creamos
+# tablas ni permitimos que una cuenta Cliente elija un ClienteId arbitrario.
+def _coord_sede_cliente(cursor, cliente_id: int, require_active: bool = False):
+    cursor.execute("SELECT ClienteId, Activo FROM crm.Cliente WHERE ClienteId=?", cliente_id)
+    row = cursor.fetchone()
+    if not row:
+        raise ValueError("No se encontró la empresa cliente.")
+    if require_active and not row[1]:
+        raise ValueError("Primero activá la empresa para registrar nuevas sucursales.")
+
+
+def _coord_sede_existente(cursor, cliente_id: int, sede_id: int):
+    cursor.execute("""SELECT SucursalClienteId, ClienteId, Nombre, CodigoSucursal,
+                             Telefono, Observaciones, Activo
+                      FROM crm.SucursalCliente
+                      WHERE SucursalClienteId=? AND ClienteId=?""", sede_id, cliente_id)
+    row = cursor.fetchone()
+    if not row:
+        raise ValueError("La sucursal no existe o no pertenece a esta empresa.")
+    return {"id": row[0], "cliente_id": row[1], "nombre": row[2], "codigo": row[3],
+            "telefono": row[4], "observaciones": row[5], "activo": bool(row[6])}
+
+
+@app.post("/api/clientes/<int:cliente_id>/sedes")
+@require_session("COORDINADOR")
+def api_coord_sede_crear(session, cliente_id: int):
+    data = request.get_json(silent=True) or {}
+    try:
+        nombre, codigo, telefono, direccion, municipio, departamento, referencia, observaciones = _sede_payload(data)
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            set_audit_context(cursor, session, f"Crear sede en cliente {cliente_id}")
+            _coord_sede_cliente(cursor, cliente_id, require_active=True)
+            nueva = exec_proc_row(cursor, "EXEC crm.usp_SucursalCliente_Crear ?,?,?,?,?,?",
+                                  (cliente_id, nombre, codigo, telefono, observaciones, 1))
+            if not nueva or not nueva.get("SucursalClienteId"):
+                raise RuntimeError("La creación de la sucursal no devolvió su identificador.")
+            sede_id = int(nueva["SucursalClienteId"])
+            exec_proc_row(cursor, "EXEC crm.usp_UbicacionServicio_Crear ?,?,?,?,?,?,?",
+                          (sede_id, direccion, municipio, nombre, departamento, referencia, 1))
+            conn.commit()
+        return jsonify(ok=True, message="Sucursal creada correctamente.", id=sede_id), 201
+    except ValueError as exc:
+        return jsonify(ok=False, message=str(exc)), 400
+    except Exception as exc:
+        return app_error(exc, "No fue posible crear la sucursal.")
+
+
+@app.patch("/api/clientes/<int:cliente_id>/sedes/<int:sede_id>")
+@require_session("COORDINADOR")
+def api_coord_sede_actualizar(session, cliente_id: int, sede_id: int):
+    data = request.get_json(silent=True) or {}
+    try:
+        nombre, codigo, telefono, direccion, municipio, departamento, referencia, observaciones = _sede_payload(data)
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            set_audit_context(cursor, session, f"Editar sede {sede_id} de cliente {cliente_id}")
+            vieja = _coord_sede_existente(cursor, cliente_id, sede_id)
+            exec_proc_row(cursor, "EXEC crm.usp_SucursalCliente_Actualizar ?,?,?,?,?,?,?",
+                          (sede_id, cliente_id, codigo, nombre, telefono, observaciones, int(vieja["activo"])))
+            cursor.execute("""SELECT TOP (1) UbicacionServicioId, Activo
+                              FROM crm.UbicacionServicio WHERE SucursalClienteId=?
+                              ORDER BY Activo DESC, UbicacionServicioId DESC""", sede_id)
+            ubicacion = cursor.fetchone()
+            if ubicacion:
+                exec_proc_row(cursor, "EXEC crm.usp_UbicacionServicio_Actualizar ?,?,?,?,?,?,?,?",
+                              (ubicacion[0], sede_id, nombre, direccion, municipio, departamento,
+                               referencia, int(bool(ubicacion[1]))))
+            else:
+                exec_proc_row(cursor, "EXEC crm.usp_UbicacionServicio_Crear ?,?,?,?,?,?,?",
+                              (sede_id, direccion, municipio, nombre, departamento, referencia, int(vieja["activo"])))
+            conn.commit()
+        return jsonify(ok=True, message="Sucursal actualizada correctamente.")
+    except ValueError as exc:
+        return jsonify(ok=False, message=str(exc)), 400
+    except Exception as exc:
+        return app_error(exc, "No fue posible editar la sucursal.")
+
+
+@app.post("/api/clientes/<int:cliente_id>/sedes/<int:sede_id>/estado")
+@require_session("COORDINADOR")
+def api_coord_sede_estado(session, cliente_id: int, sede_id: int):
+    data = request.get_json(silent=True) or {}
+    if type(data.get("activo")) is not bool:
+        return jsonify(ok=False, message="Indicá el estado de la sucursal."), 400
+    activo = data["activo"]
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            set_audit_context(cursor, session, f"Estado de sede {sede_id} de cliente {cliente_id}")
+            vieja = _coord_sede_existente(cursor, cliente_id, sede_id)
+            exec_proc_row(cursor, "EXEC crm.usp_SucursalCliente_Actualizar ?,?,?,?,?,?,?",
+                          (sede_id, cliente_id, vieja["codigo"], vieja["nombre"],
+                           vieja["telefono"], vieja["observaciones"], int(activo)))
+            cursor.execute("""SELECT UbicacionServicioId, NombreReferencia, Direccion, Municipio,
+                                     Departamento, ReferenciaLlegada
+                              FROM crm.UbicacionServicio WHERE SucursalClienteId=?""", sede_id)
+            ubicaciones = cursor.fetchall()
+            for ubi in ubicaciones:
+                exec_proc_row(cursor, "EXEC crm.usp_UbicacionServicio_Actualizar ?,?,?,?,?,?,?,?",
+                              (ubi[0], sede_id, ubi[1], ubi[2], ubi[3], ubi[4], ubi[5],
+                               int(activo)))
+            conn.commit()
+        return jsonify(ok=True, message="Sucursal activada." if activo else "Sucursal desactivada.")
+    except ValueError as exc:
+        return jsonify(ok=False, message=str(exc)), 400
+    except Exception as exc:
+        return app_error(exc, "No fue posible cambiar el estado de la sucursal.")
+
+
+# ---------------------------------------------------------------------------
+# Importación masiva de sedes: vista previa + confirmación segura.
+# No acepta ClienteId desde la cuenta Cliente ni utiliza SQL ad hoc de usuario.
+# ---------------------------------------------------------------------------
+try:
+    from . import site_import
+except ImportError:
+    import site_import
+
+
+def _site_import_plan(cursor, cliente_id: int, upload):
+    rows = site_import.parse_upload(upload)
+    cursor.execute("""SELECT CodigoSucursal AS codigo, Nombre AS nombre
+                      FROM crm.SucursalCliente WHERE ClienteId=?""", cliente_id)
+    existing = rows_to_dicts(cursor, cursor.fetchall())
+    planned = site_import.validate_rows(rows, existing)
+    return planned, {
+        "nuevas": sum(i['estado'] == 'NUEVA' for i in planned),
+        "duplicadas": sum(i['estado'] == 'DUPLICADA' for i in planned),
+        "errores": sum(i['estado'] == 'ERROR' for i in planned),
+        "total": len(planned),
+    }
+
+
+def _site_import_execute(session, cliente_id, preview=False):
+    if 'archivo' not in request.files:
+        return jsonify(ok=False, message="Seleccioná un archivo de sucursales."), 400
+    if session['rol'] == 'CLIENTE' and int(cliente_id or 0) != int(session.get('cliente_id') or -1):
+        raise NotFound('Empresa no autorizada.')
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT Activo FROM crm.Cliente WHERE ClienteId=?", cliente_id)
+            row = cursor.fetchone()
+            if not row or not bool(row[0]):
+                raise ValueError('La empresa no existe o no está activa.')
+            if not preview:
+                # Una sola importación por empresa a la vez, para evitar duplicados en concurrencia.
+                cursor.execute("""DECLARE @res int;
+                   EXEC @res=sp_getapplock @Resource=?, @LockMode='Exclusive',
+                       @LockOwner='Transaction', @LockTimeout=10000;
+                   SELECT @res;""", f'SEPRIGUA_IMPORTAR_SEDES_{cliente_id}')
+                while cursor.description is None and cursor.nextset():
+                    pass
+                lock=cursor.fetchone()
+                if not lock or int(lock[0]) < 0:
+                    raise Conflict('Otra importación está en curso para esta empresa. Intentá de nuevo.')
+            planned, counts = _site_import_plan(cursor, cliente_id, request.files['archivo'])
+            if preview:
+                return jsonify(ok=True, modo='vista_previa', items=planned, resumen=counts)
+            if counts['errores']:
+                raise ValueError('Corregí las filas marcadas con ERROR antes de importar.')
+            if counts['nuevas'] == 0:
+                raise ValueError('No hay sucursales nuevas para importar.')
+            set_audit_context(cursor, session, f'Importación masiva de {counts["nuevas"]} sedes del cliente {cliente_id}')
+            inserted = []
+            for item in planned:
+                if item['estado'] != 'NUEVA':
+                    continue
+                # Se usa el SP EXISTENTE; no se modifican tablas existentes.
+                created = exec_proc_row(cursor, 'EXEC crm.usp_SucursalCliente_Crear ?,?,?,?,?,?',
+                           (cliente_id, item['nombre'], item['codigo'] or None, item['telefono'] or None,
+                            item['observaciones'] or None, 1))
+                if not created or not created.get('SucursalClienteId'):
+                    raise RuntimeError('El SP no devolvió el identificador de la sucursal creada.')
+                sede_id = int(created['SucursalClienteId'])
+                exec_proc_row(cursor, 'EXEC crm.usp_UbicacionServicio_Crear ?,?,?,?,?,?,?',
+                              (sede_id, item['direccion'], item['municipio'], item['nombre'],
+                               item['departamento'], item['referencia_llegada'] or None, 1))
+                if session['rol'] == 'CLIENTE':
+                    # Una cuenta Cliente recibe acceso únicamente a sus nuevas sedes.
+                    cursor.execute("""INSERT INTO seg.UsuarioSucursalAcceso
+                        (UsuarioId,SucursalClienteId,Activo,AsignadoPorUsuarioId,ActualizadoPorUsuarioId)
+                        VALUES(?,?,1,?,?)""",
+                        session['usuario_id'], sede_id, session['usuario_id'], session['usuario_id'])
+                inserted.append(sede_id)
+            conn.commit()
+        return jsonify(ok=True, message=f'{len(inserted)} sucursal(es) importada(s). {counts["duplicadas"]} duplicada(s) omitida(s).',
+                       creadas=len(inserted), duplicadas=counts['duplicadas'], resumen=counts)
+    except ValueError as exc:
+        return jsonify(ok=False, message=str(exc)), 400
+    except Exception as exc:
+        return app_error(exc, 'No fue posible completar la importación; revisá el archivo y volvé a intentar.')
+
+
+@app.post('/api/clientes/<int:cliente_id>/sedes/importar/preview')
+@require_session('COORDINADOR')
+def api_coord_sedes_import_preview(session, cliente_id):
+    return _site_import_execute(session, cliente_id, preview=True)
+
+
+@app.post('/api/clientes/<int:cliente_id>/sedes/importar')
+@require_session('COORDINADOR')
+def api_coord_sedes_import_confirm(session, cliente_id):
+    return _site_import_execute(session, cliente_id)
+
+
+@app.post('/api/mis-sedes/importar/preview')
+@require_session('CLIENTE')
+def api_mis_sedes_import_preview(session):
+    return _site_import_execute(session, session['cliente_id'], preview=True)
+
+
+@app.post('/api/mis-sedes/importar')
+@require_session('CLIENTE')
+def api_mis_sedes_import_confirm(session):
+    return _site_import_execute(session, session['cliente_id'])
 
 
 # ---------------------------------------------------------------------------
@@ -5202,12 +6222,16 @@ def api_equipo_crear(session):
         fecha = data.get("fecha_adquisicion") or None
         with get_db_connection() as conn:
             cursor=conn.cursor(); set_audit_context(cursor,session,"Registro de equipo")
-            row=exec_proc_row(cursor,"EXEC eqp.usp_AppEquipoCrear ?,?,?,?,?,?,?,?,?,?,?",(
+            if exec_proc_row(cursor,"SELECT TOP (1) EquipoId AS id FROM eqp.Equipo WHERE UPPER(LTRIM(RTRIM(CodigoEquipo)))=UPPER(?)",(codigo,)):
+                raise Conflict("Ya existe un equipo con ese código. Revisalo en el inventario.")
+            exec_proc_row(cursor,"EXEC eqp.usp_AppEquipoCrear ?,?,?,?,?,?,?,?,?,?,?",(
                 session["usuario_id"],codigo,nombre,data.get("categoria") or None,data.get("marca") or None,data.get("modelo") or None,
                 data.get("serie") or None,fecha,str(data.get("estado") or "DISPONIBLE").upper(),data.get("ubicacion") or None,data.get("descripcion") or None
             ))
             conn.commit()
-        return jsonify(ok=True,message="Equipo registrado.",item=row),201
+        # El SP puede retornar tipos nativos de SQL Server no serializables por Flask.
+        # El registro ya fue confirmado; no devolver el cursor ni objetos nativos.
+        return jsonify(ok=True,message="Equipo registrado correctamente."),201
     except ValueError as exc:
         return jsonify(ok=False,message=str(exc)),400
     except Exception as exc:
@@ -5265,6 +6289,7 @@ def api_crear_mantenimiento(session):
 # ---------------------------------------------------------------------------
 def _cotizacion_expediente_sets(session, cotizacion_id: int):
     """Obtiene desde SQL Server los 3 bloques del expediente autorizado."""
+    _assert_cotizacion_access(session, cotizacion_id)
     with get_db_connection() as conn:
         cursor = conn.cursor()
         set_audit_context(cursor, session, "Consulta de expediente de cotización")
@@ -5310,127 +6335,11 @@ def _pdf_money(value, currency="GTQ") -> str:
 def _build_quote_pdf(item: dict, details: list[dict]):
     if not REPORTLAB_AVAILABLE:
         raise RuntimeError("Falta instalar ReportLab en el entorno de Python.")
-
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        rightMargin=16 * mm,
-        leftMargin=16 * mm,
-        topMargin=16 * mm,
-        bottomMargin=16 * mm,
-        title=str(item.get("numero_cotizacion") or "Cotización SEPRIGUA"),
-        author="SEPRIGUA - Corporación Turam, S.A.",
-    )
-    if __package__:from .pdf_styles import portal_styles
-    else:from pdf_styles import portal_styles
-    styles = portal_styles()
-    navy = rl_colors.HexColor("#0B3C78")
-    blue = rl_colors.HexColor("#1769C2")
-    red = rl_colors.HexColor("#EF2347")
-    light = rl_colors.HexColor("#F3F7FC")
-    muted = rl_colors.HexColor("#5D728E")
-    title_style = ParagraphStyle("SepriguaTitle", parent=styles["Title"], fontName="PortalSans-Bold", fontSize=21, leading=24, textColor=navy, spaceAfter=4)
-    label_style = ParagraphStyle("SepriguaLabel", parent=styles["Normal"], fontName="PortalSans-Bold", fontSize=8, leading=10, textColor=muted)
-    body_style = ParagraphStyle("SepriguaBody", parent=styles["BodyText"], fontName="PortalSans", fontSize=9, leading=13, textColor=rl_colors.HexColor("#1B365D"))
-    right_style = ParagraphStyle("SepriguaRight", parent=body_style, alignment=TA_RIGHT)
-
-    story = []
-    header = RLTable([
-        [Paragraph("<b>SEPRIGUA</b><br/><font size='8'>CORPORACIÓN TURAM, S.A.</font>", title_style),
-         Paragraph(f"<b>COTIZACIÓN</b><br/><font size='12'>{_pdf_text(item.get('numero_cotizacion'))}</font>", right_style)]
-    ], colWidths=[115*mm, 55*mm])
-    header.setStyle(TableStyle([
-        ("VALIGN", (0,0), (-1,-1), "TOP"),
-        ("LINEBELOW", (0,0), (-1,-1), 2, red),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 8),
-    ]))
-    story += [header, Spacer(1, 6*mm)]
-
-    meta_data = [
-        [Paragraph("CLIENTE", label_style), Paragraph("SEDE / UBICACIÓN", label_style), Paragraph("ORDEN", label_style)],
-        [Paragraph(_pdf_text(item.get("cliente")), body_style), Paragraph(_pdf_text(item.get("sede")), body_style), Paragraph(_pdf_text(item.get("numero_orden")), body_style)],
-        [Paragraph("EMISIÓN", label_style), Paragraph("VENCIMIENTO", label_style), Paragraph("ESTADO", label_style)],
-        [Paragraph(_pdf_date(item.get("fecha_emision")), body_style), Paragraph(_pdf_date(item.get("fecha_expiracion")), body_style), Paragraph(_pdf_text(item.get("cotizacion_estado")), body_style)],
-    ]
-    meta = RLTable(meta_data, colWidths=[56*mm, 66*mm, 48*mm])
-    meta.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,-1), light),
-        ("BOX", (0,0), (-1,-1), 0.5, rl_colors.HexColor("#D7E2F0")),
-        ("INNERGRID", (0,0), (-1,-1), 0.4, rl_colors.HexColor("#D7E2F0")),
-        ("VALIGN", (0,0), (-1,-1), "TOP"),
-        ("LEFTPADDING", (0,0), (-1,-1), 7),
-        ("RIGHTPADDING", (0,0), (-1,-1), 7),
-        ("TOPPADDING", (0,0), (-1,-1), 5),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 5),
-    ]))
-    story += [meta, Spacer(1, 6*mm)]
-
-    story.append(Paragraph("Detalle de la cotización", ParagraphStyle("Section", parent=styles["Heading2"], textColor=navy, fontSize=13, leading=16, spaceAfter=6)))
-    head_style=ParagraphStyle('TableHead',parent=label_style,textColor=rl_colors.white)
-    rows=[[Paragraph(title,head_style) for title in ('#','Descripción','Cantidad','Unidad','Precio','Total')]]
-    for line in details:
-        rows.append([
-            Paragraph(_pdf_text(line.get("numero_linea")), body_style),
-            Paragraph(_pdf_text(line.get("descripcion"))+f"<br/><font size='7'>Descuento: {_pdf_money(line.get('descuento'),item.get('moneda'))} · Impuesto: {_pdf_text(line.get('porcentaje_impuesto') or 0)}%</font>"+(f"<br/>{_pdf_text(line.get('observaciones'))}" if line.get('observaciones') else ''),body_style),
-            Paragraph(_pdf_text(line.get("cantidad")), body_style),
-            Paragraph(_pdf_text(line.get("unidad")), body_style),
-            Paragraph(_pdf_money(line.get("precio_unitario"), item.get("moneda")), right_style),
-            Paragraph(_pdf_money(line.get("total_linea"), item.get("moneda")), right_style),
-        ])
-    if len(rows) == 1:
-        rows.append(["—", Paragraph("Sin líneas registradas.", body_style), "—", "—", "—", "—"])
-    detail_table = RLTable(rows, colWidths=[9*mm, 76*mm, 20*mm, 23*mm, 22*mm, 25*mm], repeatRows=1)
-    detail_table.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,0), navy),
-        ("TEXTCOLOR", (0,0), (-1,0), rl_colors.white),
-        ("GRID", (0,0), (-1,-1), 0.35, rl_colors.HexColor("#D7E2F0")),
-        ("VALIGN", (0,0), (-1,-1), "TOP"),
-        ("LEFTPADDING", (0,0), (-1,-1), 5),
-        ("RIGHTPADDING", (0,0), (-1,-1), 5),
-        ("TOPPADDING", (0,0), (-1,-1), 5),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 5),
-        ("BACKGROUND", (0,1), (-1,-1), rl_colors.white),
-    ]))
-    story += [detail_table, Spacer(1, 5*mm)]
-
-    totals = RLTable([
-        [Paragraph("Subtotal", body_style), Paragraph(_pdf_money(item.get("subtotal"), item.get("moneda")), right_style)],
-        [Paragraph("Descuento", body_style), Paragraph(_pdf_money(item.get("descuento_total"), item.get("moneda")), right_style)],
-        [Paragraph("Impuesto", body_style), Paragraph(_pdf_money(item.get("impuesto_total"), item.get("moneda")), right_style)],
-        [Paragraph("<b>TOTAL</b>", body_style), Paragraph(f"<b>{_pdf_money(item.get('total'), item.get('moneda'))}</b>", right_style)],
-    ], colWidths=[45*mm, 40*mm], hAlign="RIGHT")
-    totals.setStyle(TableStyle([
-        ("LINEABOVE", (0,3), (-1,3), 1.2, blue),
-        ("BACKGROUND", (0,3), (-1,3), light),
-        ("LEFTPADDING", (0,0), (-1,-1), 7),
-        ("RIGHTPADDING", (0,0), (-1,-1), 7),
-        ("TOPPADDING", (0,0), (-1,-1), 5),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 5),
-    ]))
-    story += [totals, Spacer(1, 6*mm)]
-
-    commercial = RLTable([
-        [Paragraph("CONDICIÓN COMERCIAL", label_style), Paragraph("VIGENCIA", label_style)],
-        [Paragraph(_pdf_text(item.get("condicion_pago")), body_style), Paragraph(f"Hasta {_pdf_date(item.get('fecha_expiracion'))}", body_style)],
-    ], colWidths=[115*mm, 55*mm])
-    commercial.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,-1), light),
-        ("BOX", (0,0), (-1,-1), 0.5, rl_colors.HexColor("#D7E2F0")),
-        ("INNERGRID", (0,0), (-1,-1), 0.4, rl_colors.HexColor("#D7E2F0")),
-        ("LEFTPADDING", (0,0), (-1,-1), 7),
-        ("RIGHTPADDING", (0,0), (-1,-1), 7),
-        ("TOPPADDING", (0,0), (-1,-1), 5),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 5),
-    ]))
-    story += [commercial, Spacer(1, 8*mm), Paragraph("Documento generado desde el portal privado de SEPRIGUA. No constituye un comprobante de pago.", ParagraphStyle("Foot", parent=styles["Normal"], fontSize=7.5, textColor=muted))]
-
-    def page_number(canvas,document):
-        canvas.saveState();canvas.setFont('PortalSans',8);canvas.setFillColor(muted)
-        canvas.drawRightString(A4[0]-16*mm,9*mm,f'Página {document.page}');canvas.restoreState()
-    doc.build(story,onFirstPage=page_number,onLaterPages=page_number)
-    buffer.seek(0)
-    return buffer
+    if __package__:
+        from .pdf_documents import build_quote_pdf
+    else:
+        from pdf_documents import build_quote_pdf
+    return build_quote_pdf(item, details)
 
 
 @app.get("/api/cotizaciones")
@@ -5480,6 +6389,13 @@ def api_enviar_cotizacion(session, cotizacion_id: int):
         with get_db_connection() as conn:
             cursor=conn.cursor()
             set_audit_context(cursor,session,"Envío de cotización al cliente")
+            linked=exec_proc_row(cursor,'''SELECT eo.Codigo AS estado FROM cot.Cotizacion c
+                JOIN srv.OrdenTrabajo o ON o.OrdenTrabajoId=c.OrdenTrabajoId
+                JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
+                WHERE c.CotizacionId=?''',(cotizacion_id,))
+            if not linked:raise NotFound('Cotización no encontrada.')
+            if linked['estado'] in {'CANCELADA','COMPLETADA'}:
+                raise Conflict('La OT está cerrada; no se puede enviar una nueva cotización.')
             row=exec_proc_row(cursor,"EXEC cot.usp_CotizacionEnviarPortal ?,?",(session["usuario_id"],cotizacion_id)) or {}
             if not row.get("ok"):
                 conn.rollback()
@@ -5498,6 +6414,11 @@ def api_responder_cotizacion(session, cotizacion_id: int):
     try:
         response=str(require_value(data,"respuesta","Selecciona una respuesta.")).upper()
         observation=str(data.get("observaciones") or "").strip()[:1200] or None
+        if response not in {'ACEPTADA','CAMBIOS','RECHAZADA'}:raise ValueError('Respuesta de cotización inválida.')
+        if response=='ACEPTADA' and observation:
+            raise ValueError('Si solicitás cambios en el precio o condiciones, elegí CAMBIOS, no ACEPTADA.')
+        if response in {'CAMBIOS','RECHAZADA'} and not observation:
+            raise ValueError('Describí los cambios solicitados o el motivo del rechazo.')
         with get_db_connection() as conn:
             cursor=conn.cursor()
             set_audit_context(cursor,session,"Respuesta de cliente a cotización")
@@ -5505,6 +6426,20 @@ def api_responder_cotizacion(session, cotizacion_id: int):
             if not row.get("ok"):
                 conn.rollback()
                 return jsonify(ok=False,message=row.get("message") or "Cotización no disponible para respuesta."),409
+            db_state=exec_proc_row(cursor,"SELECT Estado AS estado FROM cot.Cotizacion WHERE CotizacionId=?",(cotizacion_id,)) or {}
+            if response=='CAMBIOS' and str(db_state.get('estado') or '').upper()=='ACEPTADA':
+                raise Conflict('La base marcó ACEPTADA una solicitud de cambios. Se revirtió para evitar confirmar un precio no autorizado.')
+            # Además del push, guardar la respuesta para que Coordinación la vea
+            # desde Notificaciones aunque el navegador del coordinador esté cerrado.
+            try:
+                from .notifications import notify_users, coordinator_users
+            except ImportError:
+                from notifications import notify_users, coordinator_users
+            receivers=coordinator_users(sys.modules[__name__],cursor,'cotizaciones_comercial')
+            notify_users(sys.modules[__name__],cursor,receivers,'COTIZACION_RESPUESTA',
+                'Respuesta de cotización: '+('CAMBIOS' if response=='CAMBIOS' else response),
+                f'El cliente respondió {response} a la cotización #{cotizacion_id}. '+(observation or ''),
+                'Cotizacion',cotizacion_id)
             conn.commit()
         push_quote_response(cotizacion_id, response, session)
         return jsonify(ok=True,message=row.get("message") or "Respuesta de cotización registrada.",estado=row.get("estado"))
@@ -5977,6 +6912,253 @@ def api_documentos_laborales_estado(session, documento_id: int):
         return app_error(exc, "No fue posible actualizar el documento.")
 
 
+@app.patch("/api/documentos-laborales/<int:documento_id>")
+@require_session("COORDINADOR", "TECNICO")
+def api_documentos_laborales_editar(session, documento_id):
+    try:
+        item = _labor_document_access(session, documento_id)
+        if not item["activo"] or (session["rol"] == "TECNICO" and item["verificado"]):
+            raise Forbidden("Este documento no admite edición desde tu cuenta.")
+        data = request.get_json(silent=True) or {}
+        kind = re.sub(r"\s+", " ", str(data.get("tipo_documento") or "").strip()).upper()[:100]
+        if not kind:
+            raise ValueError("Indica el tipo de documento.")
+        number = str(data.get("numero_documento") or "").strip()[:80] or None
+        notes = str(data.get("observaciones") or "").strip()[:500] or None
+        issued_raw = str(data.get("fecha_emision") or "").strip()
+        expires_raw = str(data.get("fecha_vencimiento") or "").strip()
+        issued = date.fromisoformat(issued_raw) if issued_raw else None
+        expires = date.fromisoformat(expires_raw) if expires_raw else None
+        if issued and expires and expires < issued:
+            raise ValueError("El vencimiento no puede ser anterior a la emisión.")
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            set_audit_context(cur, session, "Edición de documento laboral")
+            guard = "" if session["rol"] == "COORDINADOR" else " AND PersonaId=? AND Verificado=0"
+            cur.execute("UPDATE rh.DocumentoLaboral SET TipoDocumento=?,NumeroDocumento=?,FechaEmision=?,"
+                        "FechaVencimiento=?,Observaciones=?,Verificado=0,VerificadoPorUsuarioId=NULL,"
+                        "VerificadoEn=NULL,ActualizadoEn=SYSUTCDATETIME() WHERE DocumentoLaboralId=? AND Activo=1" + guard,
+                        kind, number, issued, expires, notes, documento_id,
+                        *((int(item["persona_id"]),) if session["rol"] == "TECNICO" else ()))
+            if cur.rowcount != 1:
+                raise NotFound("Documento no encontrado o ya verificado.")
+        return jsonify(ok=True, message="Datos del documento actualizados; requiere nueva verificación.")
+    except Exception as exc:
+        return app_error(exc, "No fue posible editar el documento laboral.")
+
+
+@app.delete("/api/documentos-laborales/<int:documento_id>")
+@require_session("COORDINADOR", "TECNICO")
+def api_documentos_laborales_eliminar(session, documento_id):
+    try:
+        item = _labor_document_access(session, documento_id)
+        if session["rol"] == "TECNICO" and item["verificado"]:
+            raise Forbidden("Coordinación debe gestionar un documento verificado.")
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            set_audit_context(cur, session, "Eliminación de documento laboral")
+            guard = "" if session["rol"] == "COORDINADOR" else " AND PersonaId=? AND Verificado=0"
+            cur.execute("DELETE FROM rh.DocumentoLaboral WHERE DocumentoLaboralId=?" + guard,
+                        documento_id, *((int(item["persona_id"]),) if session["rol"] == "TECNICO" else ()))
+            if cur.rowcount != 1:
+                raise NotFound("Documento no encontrado o ya verificado.")
+        path = _labor_document_path(item.get("ruta_archivo"))
+        if path and path.is_file():
+            try:
+                path.unlink()
+            except OSError:
+                app.logger.warning("No se pudo retirar el archivo físico del documento laboral %s.", documento_id)
+        return jsonify(ok=True, message="Documento laboral eliminado.")
+    except Exception as exc:
+        return app_error(exc, "No fue posible eliminar el documento laboral.")
+
+
+# ---------------------------------------------------------------------------
+# Archivo general por usuario (sin necesidad de crear una OT).
+# Coordinación puede consultar documentos de todos; cada cuenta Cliente o
+# Técnico accede exclusivamente a los suyos. Requiere la tabla doc.ArchivoUsuario
+# definida en el script SQL separado.
+# ---------------------------------------------------------------------------
+ARCHIVO_USUARIO_MIME = {
+    "pdf": "application/pdf", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+    "png": "image/png", "webp": "image/webp",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "csv": "text/csv", "txt": "text/plain", "xml": "application/xml",
+}
+
+
+def _prepare_user_document_storage(archivo):
+    if not archivo or not archivo.filename:
+        raise ValueError("Seleccioná un documento para subir.")
+    nombre = secure_filename(archivo.filename)
+    ext = nombre.rsplit(".", 1)[-1].lower() if "." in nombre else ""
+    if ext not in ARCHIVO_USUARIO_MIME:
+        raise ValueError("Formato no admitido. Usá PDF, imagen, Word, Excel, CSV, XML o TXT.")
+    size_limit = 12 * 1024 * 1024
+    contenido = archivo.read(size_limit + 1)
+    if not contenido or len(contenido) > size_limit:
+        raise ValueError("El archivo está vacío o supera el máximo de 12 MB.")
+    if ext == "pdf" and not contenido.startswith(b"%PDF-"):
+        raise ValueError("El archivo no contiene un PDF válido.")
+    if ext in {"docx", "xlsx"} and not zipfile.is_zipfile(io.BytesIO(contenido)):
+        raise ValueError("El archivo Office no es válido.")
+    if ext in {"jpg", "jpeg", "png", "webp"}:
+        if not PILLOW_AVAILABLE:
+            raise ValueError("No se puede verificar la imagen porque falta Pillow.")
+        with Image.open(io.BytesIO(contenido)) as im:
+            if im.format not in {"JPEG", "PNG", "WEBP"} or im.width * im.height > 40000000:
+                raise ValueError("Imagen inválida o excesivamente grande.")
+            im.verify()
+    return nombre, ARCHIVO_USUARIO_MIME[ext], contenido, hashlib.sha256(contenido).digest()
+
+
+def _archivo_privado_fila(session, doc_id, *, include_inactive=False):
+    filtros = "" if session["rol"] == "COORDINADOR" else " AND UsuarioId=?"
+    params = (doc_id,) if session["rol"] == "COORDINADOR" else (doc_id, session["usuario_id"])
+    activo = "" if include_inactive else " AND Activo=1"
+    return query_one(
+        "SELECT ArchivoUsuarioId AS id,UsuarioId AS usuario_id,RolOrigen AS rol," 
+        "NombreArchivo AS nombre,TipoMime AS mime,TamanoBytes AS tamano,Descripcion AS descripcion," 
+        "CreadoEn AS creado,Activo AS activo FROM doc.ArchivoUsuario "
+        "WHERE ArchivoUsuarioId=?" + filtros + activo,
+        params,
+    )
+
+
+@app.get("/api/archivos-usuario")
+@require_session("COORDINADOR", "TECNICO", "CLIENTE")
+def api_archivos_usuario_listar(session):
+    try:
+        filtro = "" if session["rol"] == "COORDINADOR" else "WHERE a.UsuarioId=?"
+        params = () if session["rol"] == "COORDINADOR" else (session["usuario_id"],)
+        rows = query_all(
+            "SELECT a.ArchivoUsuarioId AS id,a.UsuarioId AS usuario_id,u.NombreUsuario AS usuario," 
+            "a.RolOrigen AS rol,a.NombreArchivo AS nombre,a.TipoMime AS mime," 
+            "a.TamanoBytes AS tamano,a.Descripcion AS descripcion,a.CreadoEn AS creado,a.Activo AS activo "
+            "FROM doc.ArchivoUsuario a INNER JOIN seg.Usuario u ON u.UsuarioId=a.UsuarioId "
+            + filtro + " ORDER BY a.CreadoEn DESC,a.ArchivoUsuarioId DESC",
+            params,
+        )
+        # No enviamos el contenido binario ni exponemos documentos de otra cuenta.
+        return jsonify(ok=True, items=rows, total=len(rows))
+    except Exception as exc:
+        return app_error(exc, "No fue posible listar el archivo personal. Comprobá que instalaste el SQL de archivos generales.")
+
+
+@app.post("/api/archivos-usuario")
+@require_session("COORDINADOR", "TECNICO", "CLIENTE")
+def api_archivos_usuario_subir(session):
+    try:
+        nombre, mime, contenido, digest = _prepare_user_document_storage(request.files.get("archivo"))
+        descripcion = str(request.form.get("descripcion") or "").strip()[:500] or None
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            set_audit_context(cur, session, "Carga de archivo general de usuario")
+            if exec_proc_row(cur,
+                "SELECT TOP (1) ArchivoUsuarioId AS id FROM doc.ArchivoUsuario "
+                "WHERE UsuarioId=? AND HashSha256=? AND Activo=1",
+                (session["usuario_id"], pyodbc.Binary(digest)),
+            ):
+                raise Conflict("Ese mismo archivo ya está en tu expediente.")
+            result = exec_proc_row(cur, """
+                DECLARE @ids TABLE(id bigint);
+                INSERT INTO doc.ArchivoUsuario
+                    (UsuarioId,RolOrigen,NombreArchivo,TipoMime,TamanoBytes,Descripcion,HashSha256,Contenido)
+                OUTPUT INSERTED.ArchivoUsuarioId INTO @ids
+                VALUES (?,?,?,?,?,?,?,?);
+                SELECT id FROM @ids;
+            """, (
+                session["usuario_id"], session["rol"], nombre, mime,
+                len(contenido), descripcion, pyodbc.Binary(digest), pyodbc.Binary(contenido),
+            ))
+        return jsonify(ok=True, id=int(result["id"]), message="Documento guardado correctamente."), 201
+    except Exception as exc:
+        return app_error(exc, "No se pudo subir el archivo general.")
+
+
+@app.get("/api/archivos-usuario/<int:doc_id>/archivo")
+@require_session("COORDINADOR", "TECNICO", "CLIENTE")
+def api_archivos_usuario_descargar(session, doc_id):
+    try:
+        fila = _archivo_privado_fila(session, doc_id)
+        if not fila: raise NotFound("Documento no encontrado o sin acceso.")
+        # Repetimos la restricción de propietario también al leer el binario,
+        # evitando que una segunda consulta pueda saltarse la autorización.
+        owner_filter = "" if session["rol"] == "COORDINADOR" else " AND UsuarioId=?"
+        owner_params = (doc_id,) if session["rol"] == "COORDINADOR" else (doc_id, session["usuario_id"])
+        dato = query_one("SELECT Contenido AS contenido FROM doc.ArchivoUsuario WHERE ArchivoUsuarioId=? AND Activo=1" + owner_filter, owner_params)
+        if not dato: raise NotFound("Archivo no disponible o sin acceso.")
+        response = send_file(io.BytesIO(bytes(dato["contenido"])),
+            mimetype=fila["mime"], as_attachment=True, download_name=fila["nombre"])
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Cache-Control"] = "private, no-store"
+        return response
+    except Exception as exc:
+        return app_error(exc, "No fue posible descargar el archivo.")
+
+
+@app.patch("/api/archivos-usuario/<int:doc_id>")
+@require_session("COORDINADOR", "TECNICO", "CLIENTE")
+def api_archivos_usuario_editar(session, doc_id):
+    try:
+        description = str(request.form.get("descripcion") or "").strip()[:500] or None
+        storage = request.files.get("archivo")
+        replacement = _prepare_user_document_storage(storage) if storage and storage.filename else None
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            set_audit_context(cur, session, "Edición de archivo general de usuario")
+            owner_clause = "" if session["rol"] == "COORDINADOR" else " AND UsuarioId=?"
+            args = (doc_id,) if session["rol"] == "COORDINADOR" else (doc_id, session["usuario_id"])
+            if replacement:
+                name, mime, payload, digest = replacement
+                cur.execute("UPDATE doc.ArchivoUsuario SET NombreArchivo=?,TipoMime=?,TamanoBytes=?,"
+                            "Descripcion=?,HashSha256=?,Contenido=? WHERE ArchivoUsuarioId=? AND Activo=1" + owner_clause,
+                            name, mime, len(payload), description, pyodbc.Binary(digest), pyodbc.Binary(payload), *args)
+            else:
+                cur.execute("UPDATE doc.ArchivoUsuario SET Descripcion=? WHERE ArchivoUsuarioId=? AND Activo=1" + owner_clause,
+                            description, *args)
+            if cur.rowcount != 1:
+                raise NotFound("Documento no encontrado o sin permiso para editarlo.")
+        return jsonify(ok=True, message="Documento actualizado.")
+    except Exception as exc:
+        return app_error(exc, "No fue posible editar el documento.")
+
+
+@app.delete("/api/archivos-usuario/<int:doc_id>/permanente")
+@require_session("COORDINADOR", "TECNICO", "CLIENTE")
+def api_archivos_usuario_eliminar(session, doc_id):
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            set_audit_context(cur, session, "Eliminación de archivo general de usuario")
+            owner_clause = "" if session["rol"] == "COORDINADOR" else " AND UsuarioId=?"
+            args = (doc_id,) if session["rol"] == "COORDINADOR" else (doc_id, session["usuario_id"])
+            cur.execute("DELETE FROM doc.ArchivoUsuario WHERE ArchivoUsuarioId=?" + owner_clause, *args)
+            if cur.rowcount != 1:
+                raise NotFound("Documento no encontrado o sin permiso para eliminarlo.")
+        return jsonify(ok=True, message="Documento eliminado.")
+    except Exception as exc:
+        return app_error(exc, "No fue posible eliminar el documento.")
+
+
+@app.delete("/api/archivos-usuario/<int:doc_id>")
+@require_session("COORDINADOR", "TECNICO", "CLIENTE")
+def api_archivos_usuario_archivar(session, doc_id):
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            set_audit_context(cur, session, "Archivado de archivo general")
+            clause = "" if session["rol"] == "COORDINADOR" else " AND UsuarioId=?"
+            args = (doc_id,) if session["rol"] == "COORDINADOR" else (doc_id, session["usuario_id"])
+            cur.execute("UPDATE doc.ArchivoUsuario SET Activo=0,RetiradoEn=SYSUTCDATETIME() "
+                        "WHERE ArchivoUsuarioId=? AND Activo=1" + clause, *args)
+            if cur.rowcount != 1: raise NotFound("Documento no encontrado o sin acceso.")
+        return jsonify(ok=True,message="Documento archivado. El historial se conserva.")
+    except Exception as exc:
+        return app_error(exc, "No fue posible archivar el documento.")
+
+
 # ---------------------------------------------------------------------------
 # Documentos del servicio
 # ---------------------------------------------------------------------------
@@ -5999,6 +7181,8 @@ def api_documentos_subir_cliente(session):
         return jsonify(ok=False, message="Selecciona un archivo."), 400
     try:
         orden_id = int(require_value(request.form, "orden_id", "Selecciona el servicio relacionado."))
+        # Impedir subir documentos a una OT de otra sucursal usando su ID.
+        assert_order_access(session, orden_id)
         prepared = prepare_upload(file)
         if prepared["tipo"] not in {"PDF", "FOTO"}:
             raise ValueError("Para Mis documentos utiliza PDF, JPG, PNG o WebP.")
@@ -6030,6 +7214,112 @@ def api_documentos_subir_cliente(session):
         )
     except Exception as exc:
         return app_error(exc, "No fue posible guardar el documento.")
+
+
+@app.patch("/api/documentos-cliente/<int:evidencia_id>")
+@require_session("COORDINADOR", "CLIENTE")
+def api_documento_cliente_editar(session, evidencia_id: int):
+    try:
+        description = str(request.form.get("descripcion") or "").strip()[:600] or None
+        file = request.files.get("archivo")
+        prepared = prepare_upload(file) if file and file.filename else None
+        if prepared and prepared["tipo"] not in {"PDF", "FOTO"}:
+            raise ValueError("Utiliza PDF, JPG, PNG o WebP.")
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            set_audit_context(cur, session, "Edición de documento del cliente")
+            doc = exec_proc_row(cur, """SELECT OrdenTrabajoId AS orden_id,SubidaPorUsuarioId AS autor,
+                Categoria AS categoria,Origen AS origen FROM srv.EvidenciaServicio WITH (UPDLOCK,HOLDLOCK)
+                WHERE EvidenciaServicioId=?""", (evidencia_id,))
+            if not doc or doc["origen"] != "CLIENTE" or doc["categoria"] != "DOCUMENTO_CLIENTE":
+                raise NotFound("Documento no encontrado o no editable.")
+            if session["rol"] == "CLIENTE" and int(doc.get("autor") or 0) != int(session["usuario_id"]):
+                raise Forbidden("Solo la persona que lo subió puede editar este documento.")
+            assert_order_access(session, int(doc["orden_id"]))
+            if prepared:
+                cur.execute("""UPDATE srv.EvidenciaServicio SET NombreArchivo=?,TipoArchivo=?,TipoMime=?,
+                    TamanoBytes=?,Descripcion=?,RutaArchivo=? WHERE EvidenciaServicioId=?""",
+                    prepared["nombre"], prepared["tipo"], prepared["mime"], prepared["tamano"],
+                    description, f"BD://EVIDENCIA/{evidencia_id}", evidencia_id)
+                cur.execute("UPDATE srv.ArchivoEvidencia SET Contenido=?,HashSha256=? WHERE EvidenciaServicioId=?",
+                    pyodbc.Binary(prepared["contenido"]), pyodbc.Binary(prepared["hash_sha256"]), evidencia_id)
+                if cur.rowcount == 0:
+                    cur.execute("INSERT INTO srv.ArchivoEvidencia (EvidenciaServicioId,Contenido,HashSha256,CreadoEn) "
+                                "VALUES (?,?,?,SYSUTCDATETIME())", evidencia_id,
+                                pyodbc.Binary(prepared["contenido"]), pyodbc.Binary(prepared["hash_sha256"]))
+            else:
+                cur.execute("UPDATE srv.EvidenciaServicio SET Descripcion=? WHERE EvidenciaServicioId=?",
+                            description, evidencia_id)
+            conn.commit()
+        return jsonify(ok=True, message="Documento actualizado.")
+    except Exception as exc:
+        return app_error(exc, "No fue posible editar el documento.")
+
+
+@app.delete("/api/documentos-cliente/<int:evidencia_id>")
+@require_session("COORDINADOR", "CLIENTE")
+def api_documento_cliente_retirar(session, evidencia_id: int):
+    """Permite corregir un archivo propio cargado por error; nunca toca documentos emitidos por SEPRIGUA.
+
+    Se elimina contenido y metadato de forma transaccional; la acción se audita.
+    Las evidencias de operaciones (fotos del trabajo y firmas) no son elegibles.
+    """
+    try:
+        with get_db_connection() as conn:
+            cur=conn.cursor()
+            set_audit_context(cur,session,'Retiro de documento de cliente')
+            doc=exec_proc_row(cur,"""SELECT e.OrdenTrabajoId AS orden_id,e.SubidaPorUsuarioId AS autor,
+                   e.Categoria AS categoria,e.Origen AS origen
+                   FROM srv.EvidenciaServicio e WITH (UPDLOCK,HOLDLOCK)
+                   WHERE e.EvidenciaServicioId=?""",(evidencia_id,))
+            if not doc or doc['origen']!='CLIENTE' or doc['categoria']!='DOCUMENTO_CLIENTE':
+                raise NotFound('Documento no encontrado o no se puede retirar.')
+            if session['rol']=='CLIENTE' and int(doc.get('autor') or 0)!=int(session['usuario_id']):
+                raise Forbidden('Solo la persona que lo subió puede retirar este documento.')
+            assert_order_access(session,int(doc['orden_id']))
+            cur.execute('DELETE FROM srv.ArchivoEvidencia WHERE EvidenciaServicioId=?',evidencia_id)
+            owner_clause='' if session['rol']=='COORDINADOR' else ' AND SubidaPorUsuarioId=?'
+            owner_args=(evidencia_id,'CLIENTE','DOCUMENTO_CLIENTE') if session['rol']=='COORDINADOR' else (evidencia_id,'CLIENTE','DOCUMENTO_CLIENTE',session['usuario_id'])
+            cur.execute('DELETE FROM srv.EvidenciaServicio WHERE EvidenciaServicioId=? AND Origen=? AND Categoria=?'+owner_clause,*owner_args)
+            if cur.rowcount!=1:raise Conflict('No se pudo confirmar el retiro; actualizá el listado.')
+            conn.commit()
+        return jsonify(ok=True,message='Documento retirado. Los registros de auditoría se conservaron.')
+    except Exception as exc:
+        return app_error(exc,'No fue posible retirar el documento.')
+
+
+@app.patch("/api/documentos-servicio/<int:documento_id>")
+@require_session("COORDINADOR")
+def api_documento_servicio_editar(session, documento_id: int):
+    try:
+        data = request.get_json(silent=True) or {}
+        notes = str(data.get("observaciones") or "").strip()[:1200] or None
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            set_audit_context(cur, session, "Edición de observaciones del documento de servicio")
+            cur.execute("UPDATE doc.DocumentoServicio SET Observaciones=?,ActualizadoEn=SYSUTCDATETIME() "
+                        "WHERE DocumentoServicioId=? AND Estado<>'ANULADO'", notes, documento_id)
+            if cur.rowcount != 1:
+                raise NotFound("Documento no encontrado o anulado.")
+        return jsonify(ok=True, message="Observaciones actualizadas.")
+    except Exception as exc:
+        return app_error(exc, "No fue posible editar el documento del servicio.")
+
+
+@app.delete("/api/documentos-servicio/<int:documento_id>")
+@require_session("COORDINADOR")
+def api_documento_servicio_eliminar(session, documento_id: int):
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            set_audit_context(cur, session, "Anulación de documento de servicio")
+            cur.execute("UPDATE doc.DocumentoServicio SET Estado='ANULADO',EsActual=0,"
+                        "ActualizadoEn=SYSUTCDATETIME() WHERE DocumentoServicioId=? AND Estado<>'ANULADO'", documento_id)
+            if cur.rowcount != 1:
+                raise NotFound("Documento no encontrado o ya eliminado de la vista.")
+        return jsonify(ok=True, message="Documento retirado de la vista; historial conservado.")
+    except Exception as exc:
+        return app_error(exc, "No fue posible retirar el documento del servicio.")
 
 
 # ---------------------------------------------------------------------------
@@ -6107,15 +7397,25 @@ def api_push_config(session):
 @require_session("COORDINADOR", "TECNICO", "CLIENTE")
 def api_push_devices(session):
     try:
+        endpoint_hash = (request.args.get("endpoint_hash") or "").strip().lower()
+        if not re.fullmatch(r"[0-9a-f]{64}", endpoint_hash):
+            endpoint_hash = ""
         with get_db_connection() as conn:
             cursor = conn.cursor()
             items = exec_proc_rows(cursor, "EXEC seg.usp_PushDispositivo_ListarActivos ?", (session["usuario_id"],))
+        def is_current_device(device):
+            if not endpoint_hash:
+                return False
+            subscription = _parse_subscription(str(device.get("token_push") or device.get("TokenPush") or ""))
+            endpoint = subscription.get("endpoint", "") if subscription else ""
+            return bool(endpoint and hashlib.sha256(endpoint.encode("utf-8")).hexdigest() == endpoint_hash)
         # Nunca devolver el endpoint/llaves de la suscripción al navegador.
         safe = [{
             "id": x.get("id") or x.get("DispositivoNotificacionId"),
             "nombre": x.get("nombre") or x.get("NombreDispositivo") or "Dispositivo",
             "plataforma": x.get("plataforma") or x.get("Plataforma") or "WEB",
             "ultimo_uso": x.get("ultimo_uso") or x.get("UltimoUsoEn"),
+            "actual": is_current_device(x),
         } for x in items]
         return jsonify(ok=True, items=safe)
     except Exception as exc:
@@ -6292,6 +7592,7 @@ if __package__:
     from .cancellations import register_cancellations
     from .portal_extensions import register_extensions
     from .agenda_operativa import register_agenda_operativa
+    from .reprogramming import register_reprogramming
     from .evidence_storage import DatabaseEvidenceStorage
     from .listings import listing as portal_listing
 else:
@@ -6300,6 +7601,7 @@ else:
     from cancellations import register_cancellations
     from portal_extensions import register_extensions
     from agenda_operativa import register_agenda_operativa
+    from reprogramming import register_reprogramming
     from evidence_storage import DatabaseEvidenceStorage
     from listings import listing as portal_listing
 evidence_storage=DatabaseEvidenceStorage(lambda cursor,sql,arguments: exec_proc_row(cursor,sql,arguments))
@@ -6307,6 +7609,7 @@ portal_actions=register_extensions(__import__(__name__, fromlist=['app']))
 register_production(sys.modules[__name__])
 register_cancellations(sys.modules[__name__])
 agenda_actions=register_agenda_operativa(__import__(__name__, fromlist=['app']))
+reprogramming_actions=register_reprogramming(sys.modules[__name__])
 
 if __name__ == "__main__":
     host = os.getenv("HOST", "127.0.0.1")
