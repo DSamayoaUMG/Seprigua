@@ -1,0 +1,61 @@
+/* Motivo compartido de los banners azules. El Centro de control conserva su banner propio. */
+body.seprigua-hoja-v4:not(.center-control-mode) .app-content .se-module-static-hero:not([data-module="dashboard"])::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(46%, 580px);
+  pointer-events: none;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='560' height='190' viewBox='0 0 560 190'%3E%3Cg fill='none' stroke='%23D9F1FF' stroke-linecap='round'%3E%3Ccircle cx='384' cy='95' r='58' stroke-width='2.4' stroke-dasharray='1 9' opacity='.75'/%3E%3Ccircle cx='384' cy='95' r='91' stroke-width='2.2' stroke-dasharray='1 11' opacity='.55'/%3E%3Ccircle cx='384' cy='95' r='128' stroke-width='2' stroke-dasharray='1 13' opacity='.32'/%3E%3C/g%3E%3C/svg%3E"),
+    radial-gradient(circle, rgba(217, 241, 255, .32) 1px, transparent 1.5px);
+  background-repeat: no-repeat, repeat;
+  background-position: right center, right top;
+  background-size: auto 190px, 16px 16px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, .55) 34%, #000 72%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, .55) 34%, #000 72%);
+  animation: se-banner-dots-drift 14s ease-in-out infinite alternate;
+}
+
+@keyframes se-banner-dots-drift {
+  from { transform: translate3d(0, 0, 0); opacity: .38; }
+  to { transform: translate3d(-12px, 4px, 0); opacity: .62; }
+}
+
+@media (max-width: 600px) {
+  body.seprigua-hoja-v4:not(.center-control-mode) .app-content .se-module-static-hero:not([data-module="dashboard"])::after {
+    width: 48%;
+    background-size: auto 150px, 15px 15px;
+    animation-duration: 18s;
+  }
+
+  body.seprigua-hoja-v4:not(.center-control-mode) .app-content :is(
+    .quotes-page-header,
+    .people-page-title-row,
+    .solicitudes-hero
+  ).se-module-static-hero {
+    display: flex !important;
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  body.seprigua-hoja-v4:not(.center-control-mode) .app-content :is(
+    .quotes-page-header .quotes-create-button,
+    .people-page-title-row .people-primary-action,
+    .solicitudes-hero .solicitudes-hero-actions,
+    .solicitudes-hero .request-primary-button
+  ) {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.seprigua-hoja-v4:not(.center-control-mode) .app-content .se-module-static-hero:not([data-module="dashboard"])::after {
+    animation: none;
+    opacity: .48;
+  }
+}

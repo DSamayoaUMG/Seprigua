@@ -1,0 +1,11 @@
+@media (min-width: 821px){#trabajos{margin-top:72px !important}}#inicio,
+#nosotros,
+#servicios,
+#cobertura,
+#trabajos,
+#contacto{scroll-margin-top:112px}#trabajos .swg-section-heading{position:relative;z-index:3}#contacto{position:relative;z-index:2}@media (max-width: 820px){#trabajos{margin-top:38px !important}#inicio,
+  #nosotros,
+  #servicios,
+  #cobertura,
+  #trabajos,
+  #contacto{scroll-margin-top:82px}}

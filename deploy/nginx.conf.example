@@ -1,0 +1,22 @@
+# Adaptar dominio y certificados al destino.
+server {
+    listen 80;
+    server_name portal.example.com;
+    return 301 https://$host$request_uri;
+}
+server {
+    listen 443 ssl;
+    server_name portal.example.com;
+    ssl_certificate /etc/ssl/seprigua/fullchain.pem;
+    ssl_certificate_key /etc/ssl/seprigua/privkey.pem;
+    client_max_body_size 60m;
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+    }
+}

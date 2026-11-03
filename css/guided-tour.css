@@ -1,0 +1,97 @@
+/* Tour operativo: spotlight y tooltip compactos sobre la interfaz real. */
+.se-tour-launcher,.se-tour-bubble { box-sizing:border-box; font-family:Inter,"Segoe UI",Arial,sans-serif; }
+.se-tour-launcher {
+  position:fixed;right:20px;bottom:20px;z-index:20031;
+  display:grid;place-items:center;width:50px;height:50px;padding:0;
+  border:1px solid rgba(255,255,255,.25);border-radius:50%;
+  background:#0e5aa7;color:#fff;box-shadow:0 5px 17px rgba(8,47,91,.24);
+  font-size:27px;font-weight:750;line-height:1;cursor:pointer;
+  transition:background .18s ease,transform .18s ease;
+}
+.se-tour-launcher:hover {background:#0b4a8b;transform:translateY(-2px)}
+.se-tour-launcher[aria-expanded="true"] {background:#123b68}
+.se-tour-ready-badge {
+  position:absolute;top:-2px;right:-1px;width:13px;height:13px;
+  border:2px solid #fff;border-radius:50%;background:#258ee2;
+}
+.se-tour-ready-badge[hidden],.se-tour-bubble[hidden],.se-tour-shade[hidden],.se-tour-spotlight[hidden] {display:none!important}
+.se-tour-shade {position:fixed;z-index:20020;background:rgba(4,22,45,.43);pointer-events:auto}
+.se-tour-spotlight {
+  position:fixed;z-index:20021;pointer-events:none;border:2px solid #258ee2;
+  border-radius:10px;box-shadow:0 0 0 3px rgba(255,255,255,.94),0 0 18px 2px rgba(37,142,226,.35);
+  transition:left .2s ease,top .2s ease,width .2s ease,height .2s ease;
+}
+.se-tour-bubble {
+  position:fixed;z-index:20030;width:min(330px,calc(100vw - 20px));max-height:min(65vh,510px);
+  overflow:auto;border:1px solid #c9ddec;border-radius:12px;background:#fff;
+  color:#16324f;box-shadow:0 14px 32px rgba(4,28,55,.24);
+  font-size:14px;line-height:1.45;animation:se-tour-appear .2s ease both;
+}
+.se-tour-bubble.is-anchored {overflow:visible}
+.se-tour-bubble.is-anchored::before {
+  content:"";position:absolute;left:calc(var(--tour-arrow-left,50%) - 8px);width:14px;height:14px;
+  background:#fff;border:1px solid #c9ddec;transform:rotate(45deg);z-index:-1;
+}
+.se-tour-bubble.arrow-top::before {top:-8px;border-right:0;border-bottom:0}
+.se-tour-bubble.arrow-bottom::before {bottom:-8px;border-left:0;border-top:0}
+.se-tour-tooltip {padding:15px 16px 13px;border-top:3px solid #1769aa}
+.se-tour-tooltip.is-waiting {border-top-color:#74a9d4}
+.se-tour-tooltip.is-complete {border-top-color:#169b5b}
+.se-tour-tooltip-head,.se-tour-menu-head {display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.se-tour-tooltip-head span,.se-tour-menu-head small {
+  display:block;color:#1769aa;font-size:11px;line-height:1.4;font-weight:800;letter-spacing:.065em;
+}
+.se-tour-tooltip h3 {margin:7px 0 6px;color:#123b68;font-size:17px;line-height:1.28;font-weight:750}
+.se-tour-tooltip p {margin:0;color:#365a79;font-size:14px;line-height:1.5}
+.se-tour-close {
+  flex:none;display:grid;place-items:center;width:30px;height:30px;padding:0;
+  border:1px solid #d8e6f2;border-radius:8px;background:#fff;
+  color:#123b68;font-size:22px;line-height:1;cursor:pointer;
+}
+.se-tour-close:hover {background:#edf4fb}
+.se-tour-detail {
+  margin-top:9px;padding:8px 9px;border-radius:7px;background:#edf4fb;
+  color:#365a79;font-size:13px;line-height:1.4;
+}
+.se-tour-verify-line,.se-tour-wait-line {margin-top:11px;color:#526d82;font-size:12px;font-weight:650}
+.se-tour-wait-line {display:flex;align-items:center;gap:7px}
+.se-tour-wait-line span {width:7px;height:7px;border-radius:50%;background:#258ee2;box-shadow:0 0 0 3px #e2f0fb}
+.se-tour-choice {display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:13px}
+.se-tour-choice button,.se-tour-primary {
+  min-height:39px;padding:8px 9px;border:1px solid #0e5aa7;border-radius:8px;
+  background:#0e5aa7;color:#fff;font-size:13px;font-weight:700;cursor:pointer;
+}
+.se-tour-choice button:last-child {background:#fff;color:#0e5aa7}
+.se-tour-choice button:hover,.se-tour-primary:hover {filter:brightness(.93)}
+.se-tour-primary {display:block;width:100%;margin-top:13px;font-size:14px}
+.se-tour-menu {border-radius:13px;max-height:min(70vh,540px)}
+.se-tour-menu-head {padding:14px 15px;border-top:3px solid #1769aa;border-bottom:1px solid #d8e6f2;background:linear-gradient(110deg,#fff,#edf4fb)}
+.se-tour-menu-head strong {display:block;margin-top:2px;color:#123b68;font-size:16px;line-height:1.3}
+.se-tour-menu-body {padding:13px 14px 14px}
+.se-tour-menu-option {
+  display:grid;gap:3px;width:100%;min-height:42px;margin-bottom:7px;padding:9px 10px;
+  border:1px solid #d8e6f2;border-radius:9px;background:#f9fcff;
+  color:#123b68;text-align:left;cursor:pointer;
+}
+.se-tour-menu-option:hover {background:#edf4fb;border-color:#9dc6e7}
+.se-tour-menu-option strong {font-size:14px;line-height:1.3}
+.se-tour-menu-option span {font-size:12px;line-height:1.35;color:#526d82}
+.se-tour-menu-reset {display:block;margin:7px auto 0;padding:5px;border:0;background:transparent;color:#0e5aa7;font-size:13px;font-weight:700;cursor:pointer}
+.se-tour-menu-reset:hover {text-decoration:underline}
+.se-tour-new-step {margin-bottom:9px;padding:8px 10px;border-radius:8px;background:#e1f0fc;color:#0b4a8b;font-size:13px;font-weight:700}
+.se-tour-note {margin:0 0 11px;color:#526d82;font-size:13px;line-height:1.45}
+.se-tour-overview {display:grid;gap:6px;max-height:275px;margin:0;padding:0;overflow:auto;list-style:none;counter-reset:tour}
+.se-tour-overview li {counter-increment:tour;display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid #e1ebf4;border-radius:8px;color:#123b68;font-size:13px}
+.se-tour-overview li::before {content:counter(tour);display:grid;place-items:center;flex:none;width:22px;height:22px;border-radius:6px;background:#e5f2fc;color:#0e5aa7;font-weight:800}
+.se-tour-launcher:focus-visible,.se-tour-bubble button:focus-visible {outline:3px solid #e9234b;outline-offset:2px}
+@keyframes se-tour-appear {from {opacity:0;transform:translateY(5px)}to {opacity:1;transform:translateY(0)}}
+@media(max-width:650px) {
+  .se-tour-launcher {right:15px;bottom:max(15px,env(safe-area-inset-bottom));width:46px;height:46px;font-size:25px}
+  .se-tour-bubble {width:min(320px,calc(100vw - 18px));max-height:min(52vh,390px)}
+  .se-tour-tooltip {padding:12px 13px}
+  .se-tour-tooltip h3 {font-size:16px}
+}
+@media(prefers-reduced-motion:reduce) {
+  .se-tour-launcher,.se-tour-spotlight {transition:none}
+  .se-tour-bubble {animation:none}
+}

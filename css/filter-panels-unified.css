@@ -1,0 +1,373 @@
+/* El panel de Solicitudes es la referencia visual para los demás filtros. */
+body.seprigua-hoja-v4 .app-content :is(
+  .orders-filters,
+  .people-filter-section,
+  .quotes-filters,
+  .smart-filter-shell,
+  .operations-filters,
+  .user-filter-grid,
+  .catalog-toolbar
+) {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 16px 17px !important;
+  border: 1px solid #d8e6f2 !important;
+  border-radius: 16px !important;
+  background: var(--se-surface, #fff) !important;
+  box-shadow: 0 5px 16px rgba(18, 59, 104, .045) !important;
+}
+
+/* La hoja interior de los filtros compartidos forma parte del mismo panel. */
+body.seprigua-hoja-v4 .app-content .smart-filter-shell .smart-list-tools {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .orders-filter-grid,
+  .people-filter-grid,
+  .clients-filter-main,
+  .quotes-filters,
+  .smart-list-tools,
+  .operations-filters
+) {
+  gap: 10px !important;
+  align-items: end;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .orders-filter-field > span:not(.se-enterprise-select),
+  .people-field > span:not(.se-enterprise-select),
+  .quotes-filter > span:not(.se-enterprise-select),
+  .clients-filter-kicker,
+  .clients-filter-copy small,
+  .smart-list-tools > .field > label,
+  .operations-filters > label
+) {
+  color: var(--se-text-2, #526d82);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .065em;
+  text-transform: uppercase;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .orders-filters,
+  .quotes-filters,
+  .smart-list-tools,
+  .operations-filters
+) :is(input, select, .se-enterprise-select-button),
+body.seprigua-hoja-v4 .app-content .clients-search-box {
+  box-sizing: border-box;
+  min-height: 42px !important;
+  height: 42px !important;
+  border-radius: 10px;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .orders-search-control,
+  .quotes-search > div,
+  .clients-search-box
+) {
+  border-color: #a9cbe8;
+  background: linear-gradient(90deg, var(--se-input, #fff), var(--se-surface-2, #edf4fb));
+}
+
+body.seprigua-hoja-v4 .app-content .quotes-search input {
+  font-weight: 400;
+}
+
+/* Cotizaciones: el icono pertenece al input y el buscador ocupa toda su columna. */
+body.seprigua-hoja-v4 .app-content .quotes-filters .quotes-filter {
+  align-items: stretch !important;
+}
+
+body.seprigua-hoja-v4 .app-content .quotes-filters .quotes-search > div {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+}
+
+body.seprigua-hoja-v4 .app-content .quotes-filters .quotes-search > div > :is(svg, i) {
+  position: absolute;
+  z-index: 1;
+  left: 13px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  color: #1769aa;
+  pointer-events: none;
+}
+
+body.seprigua-hoja-v4 .app-content .quotes-filters .quotes-search input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding-left: 38px !important;
+}
+
+body.seprigua-hoja-v4 .app-content .quotes-filters > .quotes-clear {
+  align-self: end;
+  margin: 0;
+}
+
+body.seprigua-hoja-v4 .app-content .quotes-list-toolbar > div {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Alinear la etiqueta y el control desde arriba, como en Solicitudes. */
+body.seprigua-hoja-v4 .app-content :is(.orders-filter-grid, .people-filter-grid, .quotes-filters) {
+  align-items: start !important;
+}
+
+body.seprigua-hoja-v4 .app-content :is(.orders-filter-field, .people-field, .quotes-filter) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  align-self: stretch;
+  margin: 0;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .orders-filter-field > span:not(.se-enterprise-select),
+  .people-field > span:not(.se-enterprise-select),
+  .quotes-filter > span:not(.se-enterprise-select),
+  .smart-list-tools > .field > label
+) {
+  display: block;
+  min-height: 15px;
+  margin: 0 0 6px;
+  line-height: 15px;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .orders-filter-field,
+  .people-field,
+  .quotes-filter
+) > .se-enterprise-select {
+  margin: 0;
+  min-height: 0;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+body.seprigua-hoja-v4 .app-content .orders-search-control,
+body.seprigua-hoja-v4 .app-content .quotes-search > div {
+  box-sizing: border-box;
+  min-height: 42px !important;
+  height: 42px !important;
+}
+
+body.seprigua-hoja-v4 .app-content .orders-filter-clear-wrap > span {
+  display: block;
+  height: 21px;
+  line-height: 15px;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .orders-search-control input,
+  .quotes-search input,
+  .smart-list-search input,
+  .clients-search-box input,
+  .people-search input
+) {
+  border-color: #a9cbe8;
+  background: linear-gradient(90deg, var(--se-input, #fff), color-mix(in srgb, #1769aa 8%, var(--se-input, #fff))) !important;
+  font-weight: 400;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .orders-quick-row,
+  .people-quick-row,
+  .smart-quick-area,
+  .clients-filter-modern .people-quick-row
+) {
+  margin-top: 13px !important;
+  padding-top: 13px !important;
+  border-top: 1px solid #d8e6f2 !important;
+}
+
+body.seprigua-hoja-v4 .app-content .smart-filter-shell .smart-quick-area {
+  margin-right: 0 !important;
+  margin-bottom: 0 !important;
+  margin-left: 0 !important;
+  padding-right: 0 !important;
+  padding-bottom: 0 !important;
+  padding-left: 0 !important;
+  background: transparent !important;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .orders-quick-label,
+  .smart-quick-label,
+  .people-quick-row > span:first-child
+) {
+  color: var(--se-text-2, #526d82);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .orders-quick-list,
+  .people-quick-list,
+  .smart-quick-pills,
+  .clients-filter-modern .people-quick-list
+) {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  overflow: visible !important;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .order-quick-pill,
+  .people-quick,
+  .smart-quick-pill,
+  .clients-filter-modern .people-quick
+) {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  min-width: 96px !important;
+  max-width: none !important;
+  min-height: 38px !important;
+  height: 38px !important;
+  padding: 0 12px !important;
+  border-radius: 10px !important;
+  box-shadow: none;
+}
+
+/* Misma lectura de chips activos, inactivos y críticos que Solicitudes. */
+body.seprigua-hoja-v4 .app-content :is(
+  .orders-filters,
+  .people-filter-section,
+  .smart-filter-shell
+) :is(.order-quick-pill, .people-quick, .smart-quick-pill):not(.active) {
+  border: 1px solid #d8e6f2;
+  background: var(--se-surface-2, #edf4fb);
+  color: var(--se-text-strong, #123b68);
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .orders-filters,
+  .people-filter-section,
+  .smart-filter-shell
+) :is(.order-quick-pill, .people-quick, .smart-quick-pill).active {
+  border: 1px solid #0e5aa7;
+  background: #0e5aa7;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(14, 90, 167, .15);
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .order-quick-pill.critical,
+  .smart-quick-pill.red,
+  .people-quick.critical
+) {
+  border-color: #f1ccd5 !important;
+  background: #fff3f5 !important;
+  color: #a52b48 !important;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .order-quick-pill.critical,
+  .smart-quick-pill.red,
+  .people-quick.critical
+).active {
+  border-color: #e61e4d !important;
+  background: #ffe7ed !important;
+  color: #98233f !important;
+  box-shadow: 0 4px 10px rgba(230, 30, 77, .09);
+}
+
+body.seprigua-hoja-v4 .app-content :is(.order-quick-pill, .people-quick, .smart-quick-pill):hover:not(.active) {
+  border-color: #aac8e3;
+  background: var(--se-hover, #dcebfa);
+  transform: none;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .order-clear-button,
+  .people-clear-button,
+  .quotes-clear,
+  .smart-list-clear .btn,
+  .clients-clear-button
+) {
+  min-height: 42px;
+  height: 42px;
+  border-color: #d8e6f2;
+  border-radius: 10px;
+  background: var(--se-surface-2, #edf4fb);
+  color: var(--se-text-2, #526d82);
+}
+
+html[data-theme="dark"] body.seprigua-hoja-v4 .app-content :is(
+  .orders-filters,
+  .people-filter-section,
+  .quotes-filters,
+  .smart-filter-shell,
+  .operations-filters,
+  .user-filter-grid,
+  .catalog-toolbar
+) {
+  border-color: var(--se-border) !important;
+}
+
+html[data-theme="dark"] body.seprigua-hoja-v4 .app-content :is(
+  .orders-quick-row,
+  .people-quick-row,
+  .smart-quick-area,
+  .clients-filter-modern .people-quick-row
+) {
+  border-top-color: var(--se-border) !important;
+}
+
+html[data-theme="dark"] body.seprigua-hoja-v4 .app-content :is(
+  .order-quick-pill.critical,
+  .smart-quick-pill.red,
+  .people-quick.critical
+) {
+  border-color: #784153 !important;
+  background: #382333 !important;
+  color: #ffc0ce !important;
+}
+
+@media (max-width: 820px) {
+  body.seprigua-hoja-v4 .app-content :is(
+    .orders-filters,
+    .people-filter-section,
+    .quotes-filters,
+    .smart-filter-shell,
+    .operations-filters,
+    .user-filter-grid,
+    .catalog-toolbar
+  ) {
+    padding: 12px !important;
+  }
+
+  body.seprigua-hoja-v4 .app-content .smart-filter-shell .smart-list-tools.mobile-filter-panel {
+    padding: 0 12px 14px !important;
+  }
+
+  body.seprigua-hoja-v4 .app-content :is(
+    .orders-quick-list,
+    .people-quick-list,
+    .smart-quick-pills,
+    .clients-filter-modern .people-quick-list
+  ) {
+    align-items: stretch !important;
+  }
+}

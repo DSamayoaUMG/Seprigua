@@ -1,0 +1,59 @@
+/* Banner, textos y acciones en teléfonos. */
+@media (max-width: 600px) {
+  .system-topbar { min-height: 0; height: auto; grid-template-columns: minmax(0,1fr) !important; align-items: flex-start; }
+  .system-topbar .heading-block { grid-column: 1 / -1; width: 100%; }
+  .system-topbar .heading-block { min-width: 0; overflow: visible; }
+  .system-topbar .heading-block h1,
+  .system-topbar .heading-block p,
+  .system-nav .nav-button span,
+  .cc-activity-person,
+  .cc-activity-context {
+    white-space: normal !important; overflow: visible !important;
+    text-overflow: clip !important; overflow-wrap: anywhere;
+  }
+  .system-topbar .heading-block h1 { line-height: 1.2; }
+  .cc-workspace-heading.cc-time-banner {
+    min-height: 180px; padding: 17px 44% 16px 17px;
+  }
+  .cc-time-banner .cc-time-banner-art {
+    width: 100%; height: 100%; opacity: 1; object-fit: cover;
+    object-position: center center; -webkit-mask-image: none; mask-image: none;
+  }
+  .cc-time-banner .cc-time-banner-overlay {
+    background: linear-gradient(90deg,rgba(4,28,52,.99) 0%,rgba(4,28,52,.94) 38%,rgba(4,28,52,.48) 64%,rgba(4,28,52,.05) 100%);
+  }
+  .cc-time-banner .cc-time-banner-copy { min-width: 0; min-height: 145px; }
+  .cc-time-banner .cc-time-banner-copy h1,
+  .cc-time-banner .cc-time-banner-copy p,
+  .cc-time-banner .cc-time-banner-footer { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+  body.center-control-mode .cc-kpi-grid .cc-kpi {
+    height: auto !important; min-height: 174px !important; padding-bottom: 42px !important;
+  }
+  body.center-control-mode .cc-kpi-grid .cc-kpi-copy { grid-template-rows: auto auto auto !important; align-content: start; }
+  body.center-control-mode .cc-kpi-grid .cc-kpi-copy > :is(span,small) { white-space: normal; overflow: visible; text-overflow: clip; }
+  .mobile-row-actions { display: block; min-width: 0; }
+  .mobile-row-actions > summary {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    min-height: 38px; padding: 7px 12px; border: 1px solid #b8d1e9;
+    border-radius: 10px; background: #f1f7fd; color: #103d70;
+    font-size: 12px; font-weight: 800; cursor: pointer; list-style: none;
+  }
+  .mobile-row-actions > summary::-webkit-details-marker { display: none; }
+  .mobile-row-actions > summary::after { content: '⌄'; font-size: 17px; line-height: 1; }
+  .mobile-row-actions[open] > summary::after { transform: rotate(180deg); }
+  .mobile-row-actions-body { display: flex; flex-wrap: wrap; gap: 7px; padding: 9px 0 1px; }
+  .mobile-row-actions-body .actions,
+  .mobile-row-actions-body .inline-actions,
+  .mobile-row-actions-body .people-row-actions,
+  .mobile-row-actions-body .equipment-row-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+  .mobile-row-actions-body :is(button,.btn,a) { white-space: normal; min-height: 36px; }
+}
+@media (max-width: 390px) {
+  .cc-workspace-heading.cc-time-banner { min-height: 192px; padding-right: 41%; }
+  .cc-time-banner .cc-time-banner-art { object-position: 68% center; }
+  body.center-control-mode .cc-kpi-grid .cc-kpi { min-height: 150px !important; }
+}
+@media (min-width: 601px) {
+  .mobile-row-actions, .mobile-row-actions-body { display: contents; }
+  .mobile-row-actions > summary { display: none; }
+}

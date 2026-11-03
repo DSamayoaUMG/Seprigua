@@ -1,0 +1,217 @@
+/* KPI compactos de Clientes y personal, siguiendo las tarjetas del Centro de control. */
+body.seprigua-hoja-v4 .app-content .people-workspace .people-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+body.seprigua-hoja-v4 .app-content .people-workspace .people-metric {
+  --metric-accent: #1769aa;
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 88px;
+  padding: 11px 14px;
+  border: 1px solid var(--se-border, #d8e6f2);
+  border-radius: 14px;
+  background: var(--se-surface, #fff);
+  box-shadow: 0 4px 12px rgba(18, 59, 104, .055);
+  overflow: hidden;
+}
+
+body.seprigua-hoja-v4 .app-content .people-workspace .people-metric::before {
+  top: 13px;
+  bottom: 13px;
+  width: 3px;
+  background: var(--metric-accent);
+}
+
+body.seprigua-hoja-v4 .app-content .people-workspace .people-metric-cyan { --metric-accent: #1685c5; }
+body.seprigua-hoja-v4 .app-content .people-workspace .people-metric-green { --metric-accent: #159a62; }
+body.seprigua-hoja-v4 .app-content .people-workspace .people-metric-amber { --metric-accent: #d59013; }
+body.seprigua-hoja-v4 .app-content .people-workspace .people-metric-red { --metric-accent: #e9234b; }
+
+body.seprigua-hoja-v4 .app-content .people-workspace .people-metric-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--metric-accent) 11%, var(--se-surface, #fff));
+  color: var(--metric-accent);
+}
+
+body.seprigua-hoja-v4 .app-content .people-workspace .people-metric-icon svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2.2;
+}
+
+body.seprigua-hoja-v4 .app-content .people-workspace .people-metric-copy {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+body.seprigua-hoja-v4 .app-content .people-workspace .people-metric-copy span {
+  color: var(--se-text-strong, #123b68);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+body.seprigua-hoja-v4 .app-content .people-workspace .people-metric-copy strong {
+  color: var(--se-text-strong, #123b68);
+  font-size: 25px;
+  font-weight: 750;
+  line-height: 1.1;
+}
+
+body.seprigua-hoja-v4 .app-content .people-workspace .people-metric-copy small {
+  color: var(--se-muted, #526d82);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+/* El panel de Clientes usa los mismos campos, con la forma limpia de Solicitudes. */
+body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-filter-main {
+  grid-template-columns: minmax(280px, 2.1fr) minmax(0, 4.9fr) !important;
+  align-items: end;
+  gap: 10px !important;
+}
+
+body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-filter-controls {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(105px, auto) !important;
+  align-items: end !important;
+  gap: 10px !important;
+}
+
+body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-search-control {
+  align-self: stretch;
+  margin: 0;
+}
+
+body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-filter-kicker,
+body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-filter-copy small {
+  display: block;
+  min-height: 15px;
+  margin: 0 0 6px;
+  color: var(--se-text-2, #526d82);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .065em;
+  line-height: 15px;
+  text-transform: uppercase;
+}
+
+body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-search-box {
+  width: 100%;
+  min-height: 42px !important;
+  height: 42px !important;
+  border: 1px solid #a9cbe8;
+  border-radius: 10px;
+  background: var(--se-input, #fff);
+}
+
+body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-search-box > svg {
+  left: 13px;
+  width: 16px;
+  height: 16px;
+  color: #1769aa;
+}
+
+body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-search-box input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding-left: 38px !important;
+  background: linear-gradient(90deg, var(--se-input, #fff), color-mix(in srgb, #1769aa 8%, var(--se-input, #fff))) !important;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-filter-select {
+  display: block;
+  min-width: 0;
+  min-height: 0 !important;
+  height: auto !important;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-filter-icon {
+  display: none;
+}
+
+body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-filter-copy {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  gap: 0;
+}
+
+body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-filter-copy .se-enterprise-select-button {
+  box-sizing: border-box;
+  min-height: 42px !important;
+  height: 42px !important;
+  padding: 0 12px !important;
+  border: 1px solid var(--se-border-strong, #c9dbea) !important;
+  border-radius: 10px;
+  background: var(--se-input, #fff) !important;
+  box-shadow: 0 2px 5px rgba(13, 54, 98, .035);
+  color: var(--se-text-strong, #123b68);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-filter-copy .se-enterprise-select-button:hover {
+  border-color: #76a9d6 !important;
+  background: var(--se-hover, #edf4fb) !important;
+}
+
+body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-clear-button {
+  align-self: end;
+  min-height: 42px !important;
+  height: 42px !important;
+  border: 1px solid #d8e6f2 !important;
+  border-radius: 10px;
+  background: var(--se-surface-2, #edf4fb) !important;
+  color: var(--se-text-2, #526d82) !important;
+}
+
+@media (max-width: 1250px) {
+  body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-filter-main {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 820px) {
+  body.seprigua-hoja-v4 .app-content .people-workspace .people-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-filter-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-clear-button {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  body.seprigua-hoja-v4 .app-content .people-workspace .people-metrics,
+  body.seprigua-hoja-v4 .app-content .clients-filter-modern .clients-filter-controls {
+    grid-template-columns: 1fr !important;
+  }
+}

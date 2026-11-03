@@ -1,0 +1,68 @@
+/* Fichas y resguardo del inventario. Usa la misma paleta del portal. */
+.inventory-page-head{display:flex;align-items:center;justify-content:space-between;gap:22px;padding:26px 30px;margin:0 0 18px;border:1px solid #b8d6ef;border-radius:20px;background:linear-gradient(118deg,#f9fcff 0%,#eff7ff 72%,#e6f2ff 100%);box-shadow:0 12px 28px rgba(17,60,101,.08);position:relative;overflow:hidden}
+.inventory-page-head::before{content:"";position:absolute;inset:0 0 auto;height:4px;background:linear-gradient(90deg,#1473c6,#0b376c 70%,#ed3156)}
+.inventory-page-head h2{margin:4px 0 5px;color:#082f5b;font-size:clamp(1.55rem,2.5vw,2rem);line-height:1.15}
+.inventory-page-head p{margin:0;color:#577491;line-height:1.5;max-width:70ch}
+.inventory-eyebrow{color:#0f5caa;font-size:.74rem;font-weight:900;letter-spacing:.12em}
+.inventory-head-actions,.inventory-form-footer,.inventory-detail-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.inventory-form,.inventory-history-grid{display:grid;gap:18px}
+.inventory-form{max-width:1180px;margin:0 auto}
+.inventory-form-card{padding:24px;border:1px solid #d1e2f2;border-radius:18px;background:#fff;box-shadow:0 8px 22px rgba(12,55,98,.055);min-width:0}
+.inventory-form-card h3{margin:0 0 8px;color:#0c345f;font-size:1.13rem}
+.inventory-card-heading{display:flex;gap:14px;align-items:center;margin-bottom:19px}
+.inventory-card-heading>span,.inventory-vehicle-icon{width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;background:#e7f2fd;color:#126cb8;border-radius:12px}
+.inventory-card-heading svg,.inventory-vehicle-icon svg{width:21px;height:21px}
+.inventory-card-heading h3{margin:0 0 3px}
+.inventory-card-heading p{margin:0;color:#68819b;line-height:1.4}
+.inventory-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 18px}
+.inventory-form label,.inventory-inline-vehicle label{display:flex;flex-direction:column;gap:7px;color:#42617f;font-size:.85rem;font-weight:800;min-width:0}
+.inventory-form label em{color:#df2d4f;font-style:normal}
+.inventory-form input:not([type="radio"]),.inventory-form select,.inventory-form textarea{box-sizing:border-box;width:100%;min-width:0;min-height:45px;padding:10px 13px;border:1px solid #bcd3e9;border-radius:11px;color:#092f5a;background:#fff;font:inherit;font-weight:600}
+.inventory-form textarea{resize:vertical;line-height:1.5}
+.inventory-form input:focus,.inventory-form select:focus,.inventory-form textarea:focus{outline:2px solid #2d8bd9;outline-offset:1px}
+.inventory-full-field{width:100%}
+.inventory-location-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.inventory-location-choice{position:relative;display:flex!important;flex-direction:row!important;align-items:center;gap:12px;padding:16px;border:1px solid #c7ddef;border-radius:14px;background:#f7fbff;cursor:pointer;transition:border-color .16s,background .16s,box-shadow .16s}
+.inventory-location-choice.selected{border-color:#1d73bb;background:#e9f4ff;box-shadow:0 0 0 2px rgba(29,115,187,.13)}
+.inventory-location-choice input{accent-color:#1469b3;width:18px;height:18px;flex:0 0 18px}
+.inventory-location-choice>svg{width:25px;height:25px;color:#1269ae;flex:0 0 25px}
+.inventory-location-choice span{display:grid;gap:3px}
+.inventory-location-choice strong{color:#09345f;font-size:.98rem}
+.inventory-location-choice small{color:#68819b;font-size:.78rem;font-weight:500;line-height:1.35}
+.inventory-location-fields{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;padding:18px;background:#f5f9fd;border:1px solid #d6e6f3;border-radius:13px}
+.inventory-location-fields[hidden],.inventory-inline-vehicle[hidden]{display:none!important}
+.inventory-location-fields>label{flex:1 1 260px}
+.inventory-location-fields>.btn{white-space:normal}
+.inventory-inline-vehicle{margin-top:12px;padding:18px;border:1px dashed #8ab6db;border-radius:13px;background:#f7fbff}
+.inventory-inline-vehicle h4{margin:0 0 12px;color:#0b3769}
+.inventory-inline-vehicle>.btn{margin-top:14px}
+.inventory-legacy-note{margin:0 0 14px;padding:11px 14px;background:#fff9e9;border-left:3px solid #d8a43b;color:#795d29;border-radius:5px;line-height:1.45}
+.inventory-form-footer{justify-content:flex-end;padding:2px 0 20px}
+.inventory-detail-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:18px}
+.inventory-status-card{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:22px;border:1px solid #cadff0;border-radius:17px;background:#fff;box-shadow:0 8px 20px rgba(12,55,98,.05)}
+.inventory-status-card>small,.inventory-detail-grid small{color:#6b86a0;font-size:.73rem;letter-spacing:.08em;font-weight:900}
+.inventory-status-card>strong{color:#0a3769;font-size:1.18rem;line-height:1.3;overflow-wrap:anywhere}
+.inventory-status-card p{margin:0 0 5px;color:#617d98;line-height:1.45}
+.inventory-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-top:16px}
+.inventory-detail-grid>div{display:grid;gap:5px;padding:13px;background:#f3f8fd;border-radius:10px;min-width:0}
+.inventory-detail-grid strong{color:#0d365f;overflow-wrap:anywhere}
+.inventory-detail-actions{margin-top:18px}
+.inventory-history-grid{grid-template-columns:1fr;margin-top:18px}
+.inventory-history-grid .inventory-form-card{overflow-x:auto}
+.inventory-use-card{margin-bottom:18px;overflow-x:auto}
+.inventory-use-card>.btn{margin-bottom:15px}
+.inventory-active-use{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:14px 16px;border:1px solid #acd2ef;border-radius:12px;background:#edf7ff;color:#0b3d70}
+.inventory-active-use span{color:#547391}
+.inventory-active-use>.btn{margin-left:auto}
+.inventory-vehicle-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.inventory-vehicle-card{display:grid;grid-template-columns:46px 1fr;column-gap:13px;align-content:start;padding:22px;border:1px solid #cadff0;border-radius:17px;background:#fff;box-shadow:0 9px 20px rgba(12,55,98,.06)}
+.inventory-vehicle-card.is-inactive{opacity:.65}
+.inventory-vehicle-card small{font-weight:900;color:#1769ae;letter-spacing:.06em}
+.inventory-vehicle-card h3{margin:4px 0;color:#0d355e;font-size:1.12rem}
+.inventory-vehicle-card p{margin:0;color:#68829a}
+.inventory-vehicle-foot{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:20px;padding-top:15px;border-top:1px solid #e1ecf6;color:#53728f;font-size:.83rem;font-weight:700}
+.inventory-empty{grid-column:1/-1;text-align:center;padding:42px;color:#5d7994;background:#fff;border:1px dashed #bcd4e8;border-radius:16px}
+.inventory-empty svg{width:34px;height:34px;color:#1974bb}
+.inventory-vehicle-form{max-width:800px}
+@media(max-width:740px){.inventory-page-head{align-items:flex-start;flex-direction:column;padding:22px}.inventory-head-actions{width:100%}.inventory-form-grid,.inventory-location-choices,.inventory-detail-overview,.inventory-detail-grid{grid-template-columns:1fr}.inventory-form-card{padding:18px}.inventory-form-footer{justify-content:stretch}.inventory-form-footer>.btn{flex:1 1 180px}.inventory-location-fields>.btn{width:100%}}
+@media(max-width:420px){.inventory-page-head{padding:18px;border-radius:15px}.inventory-head-actions>.btn{width:100%}.inventory-form-card{padding:16px}.inventory-location-choice{padding:13px}.inventory-detail-actions>.btn{width:100%}}
