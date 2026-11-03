@@ -1,0 +1,210 @@
+/* =========================================================
+   SEPRIGUA V17 — NAVBAR GLASS / LIQUID GLASS
+   Solo cambia la apariencia visual del navbar.
+   Mantiene exactamente el radio redondeado actual: 28px.
+   ========================================================= */
+
+.header .navbar {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+
+  /* Conserva la forma actual */
+  border-radius: 28px;
+
+  /* Glass principal */
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, .58) 0%,
+      rgba(247, 251, 255, .42) 38%,
+      rgba(230, 241, 252, .30) 72%,
+      rgba(255, 255, 255, .48) 100%
+    );
+
+  border: 1px solid rgba(255, 255, 255, .64);
+
+  -webkit-backdrop-filter:
+    blur(28px)
+    saturate(175%)
+    contrast(103%);
+  backdrop-filter:
+    blur(28px)
+    saturate(175%)
+    contrast(103%);
+
+  box-shadow:
+    0 18px 42px rgba(16, 45, 79, .13),
+    0 4px 12px rgba(16, 45, 79, .06),
+    inset 0 1px 0 rgba(255, 255, 255, .82),
+    inset 0 -1px 0 rgba(111, 157, 201, .08);
+
+  transition:
+    background .35s ease,
+    box-shadow .35s ease,
+    border-color .35s ease,
+    transform .35s ease;
+}
+
+/* Reflejo superior tipo iPhone */
+.header .navbar::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+
+  left: 2.5%;
+  right: 2.5%;
+  top: 0;
+  height: 48%;
+
+  border-radius: 26px 26px 50% 50% / 26px 26px 28% 28%;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, .48) 0%,
+      rgba(255, 255, 255, .18) 46%,
+      rgba(255, 255, 255, 0) 100%
+    );
+
+  opacity: .72;
+}
+
+/* Tinte/caústica suave dentro del vidrio */
+.header .navbar::after {
+  content: "";
+  position: absolute;
+  z-index: -2;
+  pointer-events: none;
+
+  inset: -55% -12%;
+
+  background:
+    radial-gradient(
+      circle at 18% 48%,
+      rgba(130, 194, 255, .16),
+      transparent 25%
+    ),
+    radial-gradient(
+      circle at 78% 42%,
+      rgba(255, 255, 255, .28),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 55% 115%,
+      rgba(103, 174, 240, .10),
+      transparent 34%
+    );
+
+  filter: blur(8px);
+  opacity: .88;
+}
+
+/* Cuando se hace scroll se compacta visualmente sin perder el vidrio */
+.header.scrolled .navbar {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, .64),
+      rgba(236, 246, 255, .38)
+    );
+
+  border-color: rgba(255, 255, 255, .72);
+
+  box-shadow:
+    0 15px 38px rgba(13, 43, 76, .15),
+    0 3px 10px rgba(13, 43, 76, .05),
+    inset 0 1px 0 rgba(255, 255, 255, .90);
+}
+
+/* Links: mantienen legibilidad sobre el cristal */
+.header .nav-link {
+  color: rgba(10, 50, 91, .94);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .46);
+}
+
+/* Botón de ingreso integrado al glass */
+.header .system-login-link {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, .48),
+      rgba(224, 235, 245, .32)
+    );
+
+  border: 1px solid rgba(255, 255, 255, .62);
+
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .78),
+    0 6px 16px rgba(16, 50, 84, .08);
+}
+
+.header .system-login-link:hover {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, .64),
+      rgba(214, 232, 248, .42)
+    );
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .92),
+    0 10px 22px rgba(16, 50, 84, .11);
+}
+
+/* Logo y contenido siempre encima de los reflejos */
+.header .logo-container,
+.header .nav-menu,
+.header .mobile-menu-button {
+  position: relative;
+  z-index: 3;
+}
+
+/* Móvil: conserva el mismo lenguaje glass */
+@media (max-width: 820px) {
+  .header .navbar {
+    border-radius: 22px; /* respeta el radio móvil que ya tenía el proyecto */
+    background:
+      linear-gradient(
+        135deg,
+        rgba(255, 255, 255, .68),
+        rgba(236, 246, 255, .42)
+      );
+
+    -webkit-backdrop-filter: blur(24px) saturate(165%);
+    backdrop-filter: blur(24px) saturate(165%);
+  }
+
+  .header .navbar::before {
+    border-radius: 20px 20px 42% 42%;
+  }
+
+  .header .nav-menu {
+    background:
+      linear-gradient(
+        145deg,
+        rgba(248, 252, 255, .84),
+        rgba(232, 243, 252, .76)
+      );
+
+    -webkit-backdrop-filter: blur(28px) saturate(165%);
+    backdrop-filter: blur(28px) saturate(165%);
+
+    border-left: 1px solid rgba(255, 255, 255, .70);
+
+    box-shadow:
+      -18px 0 44px rgba(0, 34, 76, .15),
+      inset 1px 0 0 rgba(255, 255, 255, .52);
+  }
+}
+
+/* Fallback si el navegador no soporta backdrop-filter */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .header .navbar {
+    background: rgba(244, 249, 253, .94);
+  }
+}

@@ -1,0 +1,437 @@
+/* =========================================================
+   SEPRIGUA V59 — HERO CON FORMA ORGÁNICA
+   Inspirada en la forma suave que compartiste.
+   No usa PNG/SVG externo ni genera una imagen nueva.
+   La silueta está hecha en CSS mediante máscara SVG embebida.
+   ========================================================= */
+
+:root {
+  --hero-blob-mask: url("data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 viewBox%3D%220 0 1000 650%22%3E%0A%3Cpath fill%3D%22white%22 d%3D%22%0AM78 55%0AC112 24 158 18 205 28%0AC238 34 264 50 291 55%0AL709 55%0AC745 50 774 31 811 27%0AC857 22 902 36 928 68%0AC951 97 956 128 950 162%0AL950 489%0AC955 526 946 559 921 585%0AC895 612 856 625 813 619%0AC775 614 744 596 710 592%0AL291 592%0AC253 597 224 617 184 621%0AC140 626 99 613 75 584%0AC51 555 44 521 50 484%0AL50 165%0AC44 123 51 82 78 55%0AZ%22%2F%3E%0A%3C%2Fsvg%3E");
+}
+
+
+/* =========================================================
+   POSICIÓN:
+   EXACTAMENTE EN EL LUGAR DE LA FOTO ORIGINAL
+   ========================================================= */
+
+.hero-section .hero-image-container.hero-blob-stage {
+  position: absolute !important;
+
+  top: 5px !important;
+  right: 0 !important;
+  left: auto !important;
+  bottom: auto !important;
+
+  width: 66% !important;
+  height: 500px !important;
+  min-height: 500px !important;
+  max-height: 500px !important;
+
+  margin: 0 !important;
+  justify-self: auto !important;
+
+  overflow: visible !important;
+
+  border: 0 !important;
+  border-radius: 0 !important;
+
+  background: transparent !important;
+  box-shadow: none !important;
+
+  perspective: 1400px;
+  isolation: isolate;
+}
+
+
+/* =========================================================
+   FORMA EXTERIOR
+   ========================================================= */
+
+.hero-blob-shell {
+  position: absolute;
+  inset: 0;
+
+  width: 100%;
+  height: 100%;
+
+  -webkit-mask-image: var(--hero-blob-mask);
+  mask-image: var(--hero-blob-mask);
+
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+
+  -webkit-mask-position: center;
+  mask-position: center;
+
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255,255,255,.98) 0%,
+      rgba(224,232,238,.96) 22%,
+      rgba(255,255,255,.99) 42%,
+      rgba(194,208,218,.90) 67%,
+      rgba(25,62,88,.32) 100%
+    );
+
+  filter:
+    drop-shadow(0 28px 38px rgba(25,62,88,.17))
+    drop-shadow(0 7px 12px rgba(25,62,88,.08));
+
+  animation:
+    heroBlobFloat
+    8.4s ease-in-out
+    infinite;
+
+  will-change: transform;
+}
+
+
+@keyframes heroBlobFloat {
+  0%,
+  100% {
+    transform: translate3d(0,-3px,0);
+  }
+
+  50% {
+    transform: translate3d(0,8px,0);
+  }
+}
+
+
+/* =========================================================
+   FOTO DENTRO DE LA FORMA
+   Deja un borde fino blanco/gris alrededor.
+   ========================================================= */
+
+.hero-blob-photo-window {
+  position: absolute;
+  z-index: 2;
+
+  inset: 7px;
+
+  -webkit-mask-image: var(--hero-blob-mask);
+  mask-image: var(--hero-blob-mask);
+
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+
+  -webkit-mask-position: center;
+  mask-position: center;
+
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  overflow: hidden;
+
+  background: #E8EEF2;
+}
+
+
+.hero-blob-photo-window .hero-image {
+  position: absolute !important;
+  inset: 0 !important;
+
+  width: 100% !important;
+  height: 100% !important;
+
+  object-fit: cover !important;
+  object-position: center center !important;
+
+  max-width: none !important;
+
+  border: 0 !important;
+  border-radius: 0 !important;
+
+  transform-origin: center center !important;
+}
+
+
+/* =========================================================
+   REFLEJO MUY SUAVE
+   ========================================================= */
+
+.hero-blob-sheen {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+
+  inset: 0;
+
+  -webkit-mask-image: var(--hero-blob-mask);
+  mask-image: var(--hero-blob-mask);
+
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+
+  -webkit-mask-position: center;
+  mask-position: center;
+
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  background:
+    linear-gradient(
+      120deg,
+      rgba(255,255,255,.20) 0%,
+      transparent 27%,
+      transparent 66%,
+      rgba(255,255,255,.12) 87%,
+      transparent 100%
+    );
+
+  opacity: .70;
+}
+
+
+/* =========================================================
+   SOMBRA INFERIOR
+   ========================================================= */
+
+.hero-blob-shadow {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+
+  left: 14%;
+  right: 8%;
+  bottom: -13px;
+
+  height: 31px;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(25,62,88,.15) 0%,
+      rgba(25,62,88,.07) 40%,
+      transparent 73%
+    );
+
+  filter: blur(7px);
+
+  animation:
+    heroBlobShadow
+    8.4s ease-in-out
+    infinite;
+}
+
+
+@keyframes heroBlobShadow {
+  0%,
+  100% {
+    transform: scaleX(.92);
+    opacity: .50;
+  }
+
+  50% {
+    transform: scaleX(1);
+    opacity: .72;
+  }
+}
+
+
+/* =========================================================
+   EFECTO DE MOUSE YA EXISTENTE
+   Mantener hero-wow.js funcionando sobre la foto.
+   ========================================================= */
+
+.hero-section
+.hero-image-container.hero-blob-stage.hero-truck-interactive::before {
+  inset: 1% !important;
+
+  border-radius: 0 !important;
+
+  -webkit-mask-image: var(--hero-blob-mask) !important;
+  mask-image: var(--hero-blob-mask) !important;
+
+  -webkit-mask-size: 100% 100% !important;
+  mask-size: 100% 100% !important;
+
+  -webkit-mask-repeat: no-repeat !important;
+  mask-repeat: no-repeat !important;
+
+  background:
+    radial-gradient(
+      circle at var(--truck-glow-x, 50%) var(--truck-glow-y, 50%),
+      rgba(255,255,255,.20) 0%,
+      rgba(25,62,88,.085) 20%,
+      transparent 44%
+    ) !important;
+}
+
+
+@media (hover: hover) and (pointer: fine) {
+  .hero-blob-stage:hover .hero-blob-shell,
+  .hero-blob-stage:hover .hero-blob-shadow {
+    animation-play-state: paused;
+  }
+
+  .hero-blob-stage:hover .hero-blob-shell {
+    filter:
+      drop-shadow(0 31px 42px rgba(25,62,88,.20))
+      drop-shadow(0 8px 13px rgba(25,62,88,.09));
+  }
+}
+
+
+/* =========================================================
+   CONSERVAR ALTURA ORIGINAL DEL HERO
+   ========================================================= */
+
+.hero-section .hero-container {
+  position: relative !important;
+  height: 560px !important;
+}
+
+
+/* =========================================================
+   LAPTOP
+   ========================================================= */
+
+@media (max-width: 1180px) and (min-width: 821px) {
+  .hero-section .hero-image-container.hero-blob-stage {
+    top: 10px !important;
+    right: -1% !important;
+
+    width: 61% !important;
+    height: 475px !important;
+    min-height: 475px !important;
+    max-height: 475px !important;
+  }
+}
+
+
+/* =========================================================
+   MÓVIL
+   ========================================================= */
+
+@media (max-width: 820px) {
+  .hero-section .hero-image-container.hero-blob-stage {
+    position: relative !important;
+
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+
+    width: min(96%, 620px) !important;
+    height: clamp(310px, 70vw, 460px) !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    margin: 28px auto 0 !important;
+  }
+
+  .hero-blob-photo-window {
+    inset: 5px;
+  }
+
+  .hero-blob-shell,
+  .hero-blob-shadow {
+    animation-duration: 9s;
+  }
+}
+
+
+@media (max-width: 520px) {
+  .hero-section .hero-image-container.hero-blob-stage {
+    height: 325px !important;
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-blob-shell,
+  .hero-blob-shadow {
+    animation: none !important;
+  }
+}
+
+
+/* =========================================================
+   SEPRIGUA V60 — FORMA ORGÁNICA SOLO EN LAS ESQUINAS
+   ========================================================= */
+
+/*
+  Ahora la silueta conserva casi TODO el rectángulo original.
+  La deformación orgánica solo ocurre en las 4 esquinas.
+*/
+
+.hero-section .hero-image-container.hero-blob-stage {
+  width: 66% !important;
+  height: 500px !important;
+}
+
+
+/* Foto más grande dentro del contenedor */
+.hero-blob-shell {
+  inset: 0 !important;
+}
+
+
+/*
+  Borde mucho más fino para no "comerse" la imagen.
+*/
+.hero-blob-photo-window {
+  inset: 4px !important;
+}
+
+
+/*
+  Menos sombra exterior para que la forma se sienta grande y limpia,
+  no como una tarjeta flotante pequeña.
+*/
+.hero-blob-shell {
+  filter:
+    drop-shadow(0 24px 34px rgba(25,62,88,.13))
+    drop-shadow(0 6px 10px rgba(25,62,88,.07)) !important;
+}
+
+
+/*
+  El movimiento vertical sigue existiendo, pero es más pequeño.
+  La forma ya ocupa casi todo el frame, por lo que no necesita tanto viaje.
+*/
+@keyframes heroBlobFloat {
+  0%,
+  100% {
+    transform: translate3d(0,-2px,0);
+  }
+
+  50% {
+    transform: translate3d(0,5px,0);
+  }
+}
+
+
+/* Laptop */
+@media (max-width: 1180px) and (min-width: 821px) {
+  .hero-section .hero-image-container.hero-blob-stage {
+    width: 62% !important;
+    height: 475px !important;
+  }
+
+  .hero-blob-photo-window {
+    inset: 4px !important;
+  }
+}
+
+
+/* Móvil */
+@media (max-width: 820px) {
+  .hero-section .hero-image-container.hero-blob-stage {
+    width: min(96%, 660px) !important;
+  }
+
+  .hero-blob-photo-window {
+    inset: 3px !important;
+  }
+}

@@ -1,0 +1,445 @@
+/* =========================================================
+   SEPRIGUA V61 — MAPA DE GUATEMALA EN RELIEVE / 3D
+   ---------------------------------------------------------
+   NO usa una imagen nueva.
+   Trabaja sobre assets/img/mapa-guatemala.png existente.
+
+   EFECTOS:
+   - perspectiva 3D;
+   - inclinación suave;
+   - relieve/extrusión con sombras por transparencia;
+   - reflejo superior;
+   - sombra proyectada;
+   - flotación muy sutil;
+   - tilt interactivo con mouse.
+   ========================================================= */
+
+:root {
+  --coverage-3d-blue: #193E58;
+  --coverage-3d-red: #F51F4B;
+}
+
+
+/* =========================================================
+   ESCENA 3D
+   ========================================================= */
+
+.coverage-map-wrapper.coverage-map-3d-stage {
+  perspective: 1450px;
+  perspective-origin: 52% 48%;
+
+  overflow: visible;
+
+  isolation: isolate;
+}
+
+
+.coverage-map-3d {
+  position: relative;
+
+  width: 90%;
+  height: 100%;
+
+  display: grid;
+  place-items: center;
+
+  transform-style: preserve-3d;
+
+  animation:
+    coverageMapFloat
+    6.8s ease-in-out
+    infinite;
+
+  will-change: transform;
+}
+
+
+@keyframes coverageMapFloat {
+  0%,
+  100% {
+    transform: translate3d(0, -3px, 0);
+  }
+
+  50% {
+    transform: translate3d(0, 7px, 0);
+  }
+}
+
+
+/* =========================================================
+   OBJETO QUE RECIBE LA PERSPECTIVA
+   ========================================================= */
+
+.coverage-map-object {
+  --map-tilt-x: 8deg;
+  --map-tilt-y: -5deg;
+  --map-shift-x: 0px;
+  --map-shift-y: 0px;
+
+  position: relative;
+
+  width: 100%;
+  height: 100%;
+
+  display: grid;
+  place-items: center;
+
+  transform-style: preserve-3d;
+
+  transform:
+    translate3d(
+      var(--map-shift-x),
+      var(--map-shift-y),
+      0
+    )
+    rotateX(var(--map-tilt-x))
+    rotateY(var(--map-tilt-y));
+
+  transform-origin: 52% 55%;
+
+  transition:
+    transform .65s cubic-bezier(.16,1,.3,1),
+    filter .35s ease;
+
+  will-change: transform;
+}
+
+
+/* =========================================================
+   SOMBRA PROYECTADA EN EL "SUELO"
+   ========================================================= */
+
+.coverage-map-object::before {
+  content: "";
+
+  position: absolute;
+  z-index: -3;
+  pointer-events: none;
+
+  left: 17%;
+  right: 8%;
+  bottom: 12%;
+
+  height: 19%;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(25,62,88,.22) 0%,
+      rgba(25,62,88,.11) 35%,
+      rgba(25,62,88,.035) 58%,
+      transparent 76%
+    );
+
+  filter: blur(17px);
+
+  transform:
+    translateZ(-70px)
+    translateY(18px)
+    scaleX(.96);
+
+  opacity: .72;
+
+  transition:
+    opacity .35s ease,
+    transform .55s cubic-bezier(.16,1,.3,1);
+}
+
+
+/* =========================================================
+   BRILLO / RELIEVE SUPERIOR
+
+   Se enmascara usando EL MISMO mapa existente.
+   No se crea otra imagen.
+   ========================================================= */
+
+.coverage-map-object::after {
+  content: "";
+
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+
+  inset: 0;
+
+  background:
+    linear-gradient(
+      125deg,
+      rgba(255,255,255,.44) 0%,
+      rgba(255,255,255,.14) 22%,
+      transparent 43%,
+      transparent 63%,
+      rgba(255,255,255,.12) 82%,
+      transparent 100%
+    );
+
+  -webkit-mask:
+    url("../assets/img/mapa-guatemala.png")
+    center / contain
+    no-repeat;
+
+  mask:
+    url("../assets/img/mapa-guatemala.png")
+    center / contain
+    no-repeat;
+
+  transform:
+    translateZ(31px);
+
+  opacity: .66;
+
+  mix-blend-mode: screen;
+}
+
+
+/* =========================================================
+   MAPA
+
+   La cadena de drop-shadow crea varias "capas" debajo de
+   los píxeles opacos y da sensación de extrusión/relieve.
+   ========================================================= */
+
+.coverage-map-3d-stage .coverage-map {
+  position: relative;
+  z-index: 2;
+
+  width: 100% !important;
+  height: 100% !important;
+
+  object-fit: contain !important;
+
+  transform:
+    translateZ(26px);
+
+  transform-origin: center center;
+
+  filter:
+    saturate(1.07)
+    contrast(1.035)
+
+    drop-shadow(
+      0 1px 0
+      rgba(255,255,255,.92)
+    )
+
+    drop-shadow(
+      1px 3px 0
+      rgba(101,163,220,.22)
+    )
+
+    drop-shadow(
+      2px 5px 0
+      rgba(64,126,185,.18)
+    )
+
+    drop-shadow(
+      3px 7px 0
+      rgba(31,89,145,.14)
+    )
+
+    drop-shadow(
+      4px 10px 0
+      rgba(25,62,88,.10)
+    )
+
+    drop-shadow(
+      7px 17px 16px
+      rgba(25,62,88,.18)
+    );
+
+  transition:
+    filter .45s ease,
+    transform .55s cubic-bezier(.16,1,.3,1);
+
+  will-change:
+    transform,
+    filter;
+}
+
+
+/* =========================================================
+   HOVER DESKTOP
+   ========================================================= */
+
+@media (hover: hover) and (pointer: fine) {
+
+  .coverage-map-3d-stage:hover .coverage-map {
+    transform:
+      translateZ(38px)
+      scale(1.012);
+
+    filter:
+      saturate(1.11)
+      contrast(1.05)
+
+      drop-shadow(
+        0 1px 0
+        rgba(255,255,255,.95)
+      )
+
+      drop-shadow(
+        1px 3px 0
+        rgba(101,163,220,.24)
+      )
+
+      drop-shadow(
+        2px 6px 0
+        rgba(64,126,185,.20)
+      )
+
+      drop-shadow(
+        4px 9px 0
+        rgba(31,89,145,.15)
+      )
+
+      drop-shadow(
+        5px 12px 0
+        rgba(25,62,88,.11)
+      )
+
+      drop-shadow(
+        10px 23px 21px
+        rgba(25,62,88,.22)
+      );
+  }
+
+
+  .coverage-map-3d-stage:hover
+  .coverage-map-object::before {
+    opacity: .88;
+
+    transform:
+      translateZ(-82px)
+      translateY(23px)
+      scaleX(1.02);
+  }
+}
+
+
+/* =========================================================
+   CAJA DE SOLUCIONES
+   Debe permanecer plana y perfectamente legible.
+   ========================================================= */
+
+.coverage-map-3d-stage .coverage-service-box {
+  z-index: 20;
+
+  transform: translateZ(0);
+
+  -webkit-backdrop-filter:
+    blur(15px)
+    saturate(115%);
+
+  backdrop-filter:
+    blur(15px)
+    saturate(115%);
+}
+
+
+/* =========================================================
+   ANIMACIÓN DE ENTRADA
+   ========================================================= */
+
+.coverage-map-3d-stage .coverage-map-object {
+  opacity: .01;
+
+  transform:
+    translate3d(0, 26px, 0)
+    rotateX(2deg)
+    rotateY(0deg)
+    scale(.975);
+}
+
+
+.coverage-map-3d-stage.is-3d-ready
+.coverage-map-object {
+  opacity: 1;
+
+  transform:
+    translate3d(
+      var(--map-shift-x),
+      var(--map-shift-y),
+      0
+    )
+    rotateX(var(--map-tilt-x))
+    rotateY(var(--map-tilt-y))
+    scale(1);
+
+  transition:
+    opacity .72s ease,
+    transform .95s cubic-bezier(.16,1,.3,1),
+    filter .35s ease;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1000px) {
+  .coverage-map-wrapper.coverage-map-3d-stage {
+    perspective: 1200px;
+  }
+
+  .coverage-map-object {
+    --map-tilt-x: 6deg;
+    --map-tilt-y: -3deg;
+  }
+}
+
+
+@media (max-width: 760px) {
+  .coverage-map-3d {
+    width: 96%;
+  }
+
+  .coverage-map-object {
+    --map-tilt-x: 4deg;
+    --map-tilt-y: 0deg;
+  }
+
+  .coverage-map-3d-stage .coverage-map {
+    filter:
+      saturate(1.05)
+      contrast(1.025)
+      drop-shadow(
+        0 1px 0
+        rgba(255,255,255,.9)
+      )
+      drop-shadow(
+        1px 3px 0
+        rgba(64,126,185,.17)
+      )
+      drop-shadow(
+        2px 6px 0
+        rgba(25,62,88,.10)
+      )
+      drop-shadow(
+        5px 13px 15px
+        rgba(25,62,88,.16)
+      );
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .coverage-map-3d {
+    animation: none !important;
+  }
+
+  .coverage-map-object,
+  .coverage-map-3d-stage .coverage-map {
+    transition: none !important;
+  }
+
+  .coverage-map-object {
+    --map-tilt-x: 5deg;
+    --map-tilt-y: -2deg;
+  }
+}

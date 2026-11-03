@@ -1,0 +1,59 @@
+SEPRIGUA V75 — TRABAJOS: FOTO COMPLETA + VER MÁS
+
+CAMBIOS PRINCIPALES
+
+1. LA IMAGEN CENTRAL VUELVE A TENER CASI TODO EL ESPACIO.
+La descripción ya NO ocupa el 38% inferior de la tarjeta.
+
+2. SOBRE LA FOTO SOLO APARECE:
+- el nombre del trabajo;
+- botón "Ver más".
+
+Ejemplo:
+"Mantenimiento de instalaciones hidráulicas"     [Ver más]
+
+La barra es flotante, translúcida y está encima de la fotografía.
+
+3. EL BOTÓN "VER MÁS" ABRE UN VISOR COMPLETO.
+Dentro aparecen:
+- fotografía grande;
+- nombre del trabajo;
+- descripción completa;
+- Servicio respaldado;
+- Atención especializada.
+
+4. CONTROLES DE FOTO:
+- alejar;
+- acercar;
+- porcentaje actual;
+- restablecer;
+- rueda del mouse;
+- arrastrar la imagen al hacer zoom;
+- pinch con dos dedos en móvil/tablet.
+
+RANGO:
+50% a 200%.
+
+Los botones muestran -100% / +100% como referencia visual de alejamiento
+y acercamiento, pero el zoom se aplica progresivamente en pasos para que
+la interacción sea cómoda.
+
+5. SOLO HAY UN PAR DE FLECHAS.
+Se mantienen únicamente las flechas inferiores de la galería.
+
+6. TÍTULOS Y DESCRIPCIONES:
+Se mantienen exactamente los cinco textos proporcionados.
+
+7. FOTOS:
+assets/img/trabajos/
+01.webp
+02.webp
+03.webp
+04.webp
+05.webp
+...
+
+INSTALACIÓN:
+Copia todo el contenido del ZIP sobre tu proyecto actual.
+Acepta reemplazar los archivos con el mismo nombre.
+Luego Live Server + Ctrl + F5.

@@ -1,0 +1,575 @@
+/* =========================================================
+   SEPRIGUA V57 — FOTO DEL HERO DENTRO DE UN ENGRANAJE
+   ---------------------------------------------------------
+   - No utiliza una imagen/máscara externa.
+   - La forma se construye enteramente con CSS clip-path.
+   - La fotografía queda DERECHA; no gira con el engranaje.
+   - El conjunto tiene un movimiento vertical lento hacia abajo.
+   - Conserva el tilt/parallax ya existente de hero-wow.js.
+   ========================================================= */
+
+:root {
+  --hero-gear-shape: polygon(41.465% 7.091%, 43.344% 0.445%, 56.656% 0.445%, 58.535% 7.091%, 58.535% 7.091%, 62.814% 1.670%, 75.113% 6.764%, 74.306% 13.623%, 74.306% 13.623%, 80.334% 10.253%, 89.747% 19.666%, 86.377% 25.694%, 86.377% 25.694%, 93.236% 24.887%, 98.330% 37.186%, 92.909% 41.465%, 92.909% 41.465%, 99.555% 43.344%, 99.555% 56.656%, 92.909% 58.535%, 92.909% 58.535%, 98.330% 62.814%, 93.236% 75.113%, 86.377% 74.306%, 86.377% 74.306%, 89.747% 80.334%, 80.334% 89.747%, 74.306% 86.377%, 74.306% 86.377%, 75.113% 93.236%, 62.814% 98.330%, 58.535% 92.909%, 58.535% 92.909%, 56.656% 99.555%, 43.344% 99.555%, 41.465% 92.909%, 41.465% 92.909%, 37.186% 98.330%, 24.887% 93.236%, 25.694% 86.377%, 25.694% 86.377%, 19.666% 89.747%, 10.253% 80.334%, 13.623% 74.306%, 13.623% 74.306%, 6.764% 75.113%, 1.670% 62.814%, 7.091% 58.535%, 7.091% 58.535%, 0.445% 56.656%, 0.445% 43.344%, 7.091% 41.465%, 7.091% 41.465%, 1.670% 37.186%, 6.764% 24.887%, 13.623% 25.694%, 13.623% 25.694%, 10.253% 19.666%, 19.666% 10.253%, 25.694% 13.623%, 25.694% 13.623%, 24.887% 6.764%, 37.186% 1.670%, 41.465% 7.091%);
+  --hero-gear-blue: #193E58;
+  --hero-gear-red: #F51F4B;
+}
+
+
+/* =========================================================
+   CONTENEDOR ORIGINAL
+   Quitamos la sensación de tarjeta rectangular.
+   ========================================================= */
+
+.hero-section .hero-image-container.hero-gear-stage {
+  position: relative !important;
+  isolation: isolate !important;
+
+  width: min(100%, 790px) !important;
+  height: auto !important;
+  min-height: 0 !important;
+
+  justify-self: end;
+
+  overflow: visible !important;
+
+  border: 0 !important;
+  border-radius: 0 !important;
+
+  background: transparent !important;
+
+  box-shadow: none !important;
+
+  perspective: 1400px;
+}
+
+
+.hero-section .hero-image-container.hero-gear-stage:hover {
+  box-shadow: none !important;
+}
+
+
+/*
+  El glow que ya tenía el movimiento del camión se conserva,
+  pero ahora también respeta la silueta del engranaje.
+*/
+.hero-section
+.hero-image-container.hero-gear-stage.hero-truck-interactive::before {
+  inset: 1.2% !important;
+
+  border-radius: 0 !important;
+
+  clip-path: var(--hero-gear-shape) !important;
+
+  background:
+    radial-gradient(
+      circle at var(--truck-glow-x, 50%) var(--truck-glow-y, 50%),
+      rgba(255,255,255,.22) 0%,
+      rgba(25,62,88,.10) 19%,
+      transparent 43%
+    ) !important;
+}
+
+
+/* =========================================================
+   ENGRANAJE PRINCIPAL
+   Es el marco exterior y también la silueta general.
+   ========================================================= */
+
+.hero-gear-shell {
+  position: relative;
+  isolation: isolate;
+
+  width: 100%;
+
+  /*
+    Más alto que el viejo rectángulo para que la silueta realmente
+    se lea como un engranaje sin volverla un círculo diminuto.
+  */
+  aspect-ratio: 1.40 / 1;
+
+  clip-path: var(--hero-gear-shape);
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255,255,255,.98) 0%,
+      rgba(212,222,230,.94) 17%,
+      rgba(255,255,255,.99) 34%,
+      rgba(120,143,158,.72) 51%,
+      rgba(240,245,248,.96) 70%,
+      rgba(25,62,88,.60) 100%
+    );
+
+  filter:
+    drop-shadow(0 28px 35px rgba(17,48,76,.18))
+    drop-shadow(0 8px 11px rgba(17,48,76,.10));
+
+  /*
+    "Se mueve hacia abajo":
+    baja lentamente unos píxeles, se asienta y vuelve.
+    La fotografía NO rota, por lo que sigue siendo legible.
+  */
+  animation:
+    heroGearMechanicalDescent
+    7.8s cubic-bezier(.45,0,.55,1)
+    infinite;
+
+  will-change: transform;
+}
+
+
+@keyframes heroGearMechanicalDescent {
+  0%,
+  100% {
+    transform:
+      translate3d(0,-4px,0);
+  }
+
+  45% {
+    transform:
+      translate3d(0,9px,0);
+  }
+
+  58% {
+    transform:
+      translate3d(0,10px,0);
+  }
+}
+
+
+/* =========================================================
+   FOTO DENTRO DEL ENGRANAJE
+   El inset deja visible un aro metálico alrededor.
+   ========================================================= */
+
+.hero-gear-photo-window {
+  position: absolute;
+  z-index: 2;
+
+  inset: 8px;
+
+  overflow: hidden;
+
+  clip-path: var(--hero-gear-shape);
+
+  background:
+    #DDE6EC;
+}
+
+
+.hero-gear-photo-window .hero-image {
+  position: absolute !important;
+  inset: 0 !important;
+
+  width: 100% !important;
+  height: 100% !important;
+
+  object-fit: cover !important;
+  object-position: center center !important;
+
+  max-width: none !important;
+
+  border: 0 !important;
+  border-radius: 0 !important;
+
+  /*
+    hero-wow.css controla transform para el efecto con el mouse.
+    No sobrescribimos transform aquí.
+  */
+  transform-origin: center center !important;
+}
+
+
+/* =========================================================
+   ACABADO METÁLICO SOBRE LOS DIENTES
+   ========================================================= */
+
+.hero-gear-metal-sheen {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+
+  inset: 0;
+
+  clip-path: var(--hero-gear-shape);
+
+  background:
+    linear-gradient(
+      118deg,
+      rgba(255,255,255,.26) 0%,
+      transparent 24%,
+      transparent 63%,
+      rgba(255,255,255,.16) 82%,
+      transparent 100%
+    ),
+    radial-gradient(
+      ellipse at 71% 18%,
+      rgba(255,255,255,.18),
+      transparent 34%
+    );
+
+  mix-blend-mode: screen;
+
+  opacity: .76;
+}
+
+
+/* =========================================================
+   DOS PEQUEÑOS DETALLES ROJOS INDUSTRIALES
+   No son decoraciones grandes: solo atan el hero al rojo SEPRIGUA.
+   ========================================================= */
+
+.hero-gear-red-detail {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+
+  width: 12px;
+  height: 12px;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      circle at 35% 30%,
+      #FF7A94,
+      var(--hero-gear-red) 48%,
+      #B91335 100%
+    );
+
+  box-shadow:
+    0 0 0 4px rgba(255,255,255,.82),
+    0 4px 10px rgba(245,31,75,.18);
+}
+
+
+.hero-gear-red-detail-a {
+  left: 9.4%;
+  top: 47%;
+}
+
+
+.hero-gear-red-detail-b {
+  right: 10.2%;
+  bottom: 27%;
+}
+
+
+/* =========================================================
+   SOMBRA EN EL SUELO
+   También baja/sube levemente para reforzar el peso mecánico.
+   ========================================================= */
+
+.hero-gear-ground-shadow {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+
+  left: 15%;
+  right: 9%;
+  bottom: -19px;
+
+  height: 34px;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(25,62,88,.18) 0%,
+      rgba(25,62,88,.08) 38%,
+      transparent 72%
+    );
+
+  filter: blur(7px);
+
+  opacity: .72;
+
+  animation:
+    heroGearShadowBreath
+    7.8s cubic-bezier(.45,0,.55,1)
+    infinite;
+}
+
+
+@keyframes heroGearShadowBreath {
+  0%,
+  100% {
+    transform: scaleX(.91);
+    opacity: .52;
+  }
+
+  48%,
+  58% {
+    transform: scaleX(1);
+    opacity: .78;
+  }
+}
+
+
+/* =========================================================
+   HOVER
+   El parallax existente mueve la FOTO por dentro.
+   Aquí solo damos más presencia al marco.
+   ========================================================= */
+
+@media (hover: hover) and (pointer: fine) {
+  .hero-gear-stage:hover .hero-gear-shell {
+    filter:
+      drop-shadow(0 32px 42px rgba(17,48,76,.22))
+      drop-shadow(0 9px 13px rgba(17,48,76,.12));
+
+    animation-play-state: paused;
+  }
+
+  .hero-gear-stage:hover .hero-gear-ground-shadow {
+    animation-play-state: paused;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1180px) {
+  .hero-section .hero-image-container.hero-gear-stage {
+    width: min(100%, 690px) !important;
+  }
+
+  .hero-gear-shell {
+    aspect-ratio: 1.34 / 1;
+  }
+}
+
+
+@media (max-width: 820px) {
+  .hero-section .hero-image-container.hero-gear-stage {
+    width: min(96%, 620px) !important;
+    justify-self: center;
+    margin-inline: auto;
+  }
+
+  .hero-gear-shell {
+    aspect-ratio: 1.24 / 1;
+
+    animation:
+      heroGearMechanicalDescentMobile
+      8.2s ease-in-out
+      infinite;
+  }
+
+  @keyframes heroGearMechanicalDescentMobile {
+    0%,
+    100% {
+      transform: translate3d(0,-2px,0);
+    }
+
+    52% {
+      transform: translate3d(0,5px,0);
+    }
+  }
+
+  .hero-gear-photo-window {
+    inset: 6px;
+  }
+
+  .hero-gear-red-detail {
+    width: 9px;
+    height: 9px;
+
+    box-shadow:
+      0 0 0 3px rgba(255,255,255,.82),
+      0 3px 8px rgba(245,31,75,.16);
+  }
+}
+
+
+@media (max-width: 520px) {
+  .hero-gear-shell {
+    aspect-ratio: 1.10 / 1;
+  }
+
+  .hero-gear-ground-shadow {
+    bottom: -13px;
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-gear-shell,
+  .hero-gear-ground-shadow {
+    animation: none !important;
+  }
+}
+
+
+/* =========================================================
+   SEPRIGUA V58 — CORRECCIÓN DE POSICIÓN DEL ENGRANAJE HERO
+
+   IMPORTANTE:
+   V57 cambió accidentalmente .hero-image-container de absolute
+   a relative, por eso el engranaje cayó debajo del hero y encima
+   del carrusel de tarjetas.
+
+   V58 recupera EXACTAMENTE el lugar original de la foto:
+   - a la derecha del título;
+   - dentro de los 560px del hero-container;
+   - sin mover las tarjetas inferiores.
+   ========================================================= */
+
+
+/* =========================================================
+   DESKTOP — MISMA POSICIÓN QUE TENÍA LA FOTO ORIGINAL
+   ========================================================= */
+
+.hero-section .hero-image-container.hero-gear-stage {
+  position: absolute !important;
+
+  top: 5px !important;
+  right: 0 !important;
+  left: auto !important;
+  bottom: auto !important;
+
+  width: 66% !important;
+  height: 500px !important;
+  min-height: 500px !important;
+  max-height: 500px !important;
+
+  margin: 0 !important;
+
+  justify-self: auto !important;
+
+  overflow: visible !important;
+
+  transform: none;
+}
+
+
+/*
+  El engranaje ya NO calcula su altura con aspect-ratio.
+  Ocupa exactamente el mismo rectángulo de 500px que ocupaba
+  la foto original, pero su SILUETA sigue siendo de engranaje.
+*/
+.hero-section .hero-gear-shell {
+  position: absolute !important;
+
+  inset: 0 !important;
+
+  width: 100% !important;
+  height: 100% !important;
+
+  aspect-ratio: auto !important;
+}
+
+
+/* La foto interna también respeta ese frame original. */
+.hero-section .hero-gear-photo-window {
+  position: absolute !important;
+
+  inset: 8px !important;
+
+  width: auto !important;
+  height: auto !important;
+}
+
+
+/* La sombra queda pegada debajo del engranaje, no debajo del hero. */
+.hero-section .hero-gear-ground-shadow {
+  left: 14% !important;
+  right: 8% !important;
+  bottom: -15px !important;
+}
+
+
+/* =========================================================
+   EVITAR QUE EL ENGRANAJE SE META SOBRE LAS CARDS
+   ========================================================= */
+
+.hero-section .hero-container {
+  position: relative !important;
+  height: 560px !important;
+}
+
+
+/*
+  El carrusel de fortalezas mantiene su flujo original por debajo.
+  El gear no participa en el flujo porque vuelve a ser absolute.
+*/
+.hero-section .hero-feature-carousel {
+  position: relative;
+  z-index: 10;
+}
+
+
+/* =========================================================
+   LAPTOP
+   Conserva proporción/posición original del responsive.
+   ========================================================= */
+
+@media (max-width: 1180px) and (min-width: 821px) {
+  .hero-section .hero-image-container.hero-gear-stage {
+    top: 10px !important;
+    right: -1% !important;
+
+    width: 61% !important;
+    height: 475px !important;
+    min-height: 475px !important;
+    max-height: 475px !important;
+  }
+
+  .hero-section .hero-gear-shell {
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
+
+/* =========================================================
+   MÓVIL
+   Aquí sí vuelve al flujo normal porque el hero normalmente apila
+   texto + imagen en vertical.
+   ========================================================= */
+
+@media (max-width: 820px) {
+  .hero-section .hero-image-container.hero-gear-stage {
+    position: relative !important;
+
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+
+    width: min(96%, 620px) !important;
+    height: clamp(310px, 72vw, 470px) !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    margin:
+      28px auto 0 !important;
+  }
+
+  .hero-section .hero-gear-shell {
+    position: absolute !important;
+    inset: 0 !important;
+
+    width: 100% !important;
+    height: 100% !important;
+
+    aspect-ratio: auto !important;
+  }
+}
+
+
+/* =========================================================
+   MUY PEQUEÑO
+   ========================================================= */
+
+@media (max-width: 520px) {
+  .hero-section .hero-image-container.hero-gear-stage {
+    height: 330px !important;
+  }
+}

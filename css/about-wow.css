@@ -1,0 +1,1368 @@
+/* =========================================================
+   SEPRIGUA V36 — NOSOTROS MEGA PRO
+   ========================================================= */
+
+.about-wow-section {
+  position: relative;
+  overflow: hidden;
+  padding-top: 128px;
+  padding-bottom: 126px;
+}
+
+.about-wow-section::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+
+  width: 520px;
+  height: 520px;
+  left: -250px;
+  top: 140px;
+
+  border-radius: 50%;
+  border: 1px solid rgba(7,88,153,.10);
+
+  box-shadow:
+    0 0 0 42px rgba(7,88,153,.022),
+    0 0 0 88px rgba(7,88,153,.015);
+}
+
+.about-wow-section::after {
+  content: "SEPRIGUA";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+
+  right: -38px;
+  top: 74px;
+
+  font:
+    900 clamp(84px, 9vw, 158px)/1
+    Montserrat, sans-serif;
+
+  letter-spacing: -8px;
+  color: rgba(7,88,153,.026);
+
+  transform: rotate(90deg);
+  transform-origin: right top;
+}
+
+.about-wow-shell {
+  position: relative;
+  z-index: 2;
+
+  width: min(var(--page), calc(100% - 42px));
+  margin: 0 auto;
+}
+
+/* =========================================================
+   TOP STORY
+   ========================================================= */
+
+.about-wow-top {
+  display: grid;
+  grid-template-columns: .82fr 1.18fr;
+  gap: clamp(46px, 6vw, 90px);
+  align-items: center;
+}
+
+.about-wow-copy {
+  position: relative;
+  z-index: 5;
+}
+
+.about-wow-label {
+  margin-bottom: 18px;
+}
+
+.about-wow-title {
+  max-width: 590px;
+  margin: 0 0 24px;
+
+  font-size: clamp(52px, 5.2vw, 86px);
+  line-height: .94;
+  letter-spacing: -3.5px;
+}
+
+.about-wow-title span {
+  display: block;
+  color: #F51F4B;
+}
+
+.about-wow-lead {
+  max-width: 650px;
+  margin: 0 0 16px;
+
+  color: #1E4B78;
+
+  font:
+    600 clamp(15px, 1.25vw, 19px)/1.7
+    Inter, sans-serif;
+}
+
+.about-wow-text {
+  max-width: 620px;
+  margin: 0;
+
+  color: #62758B;
+
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.about-wow-trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+
+  margin-top: 27px;
+}
+
+.about-trust-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  min-height: 36px;
+  padding: 0 13px;
+
+  border-radius: 999px;
+
+  border: 1px solid rgba(7,88,153,.09);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.88),
+      rgba(232,241,249,.72)
+    );
+
+  color: #264F78;
+
+  font:
+    700 9.5px/1
+    Montserrat, sans-serif;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.96),
+    0 8px 20px rgba(18,48,79,.055);
+
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+
+  transition:
+    transform .28s cubic-bezier(.16,1,.3,1),
+    color .28s ease,
+    border-color .28s ease,
+    box-shadow .28s ease;
+}
+
+.about-trust-chip svg {
+  width: 15px;
+  height: 15px;
+  color: #075899;
+}
+
+.about-trust-chip:hover {
+  transform: translateY(-3px);
+  color: #07346F;
+  border-color: rgba(245,31,75,.12);
+
+  box-shadow:
+    0 12px 25px rgba(18,48,79,.08),
+    0 0 20px rgba(245,31,75,.035);
+}
+
+.about-wow-signature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  margin-top: 29px;
+
+  color: #7890AA;
+
+  font:
+    800 8px/1
+    Montserrat, sans-serif;
+
+  letter-spacing: 1.8px;
+}
+
+.about-signature-line {
+  width: 38px;
+  height: 2px;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      90deg,
+      #F51F4B,
+      rgba(245,31,75,.15)
+    );
+}
+
+/* =========================================================
+   VISUAL / COLLAGE
+   ========================================================= */
+
+.about-wow-visual {
+  --about-rx: 0deg;
+  --about-ry: 0deg;
+  --about-glow-x: 50%;
+  --about-glow-y: 50%;
+
+  position: relative;
+  min-height: 470px;
+
+  perspective: 1300px;
+}
+
+.about-wow-frame {
+  position: absolute;
+  inset: 0;
+
+  display: grid;
+  grid-template-columns: 1.18fr .92fr;
+  gap: 9px;
+
+  padding: 9px;
+
+  overflow: hidden;
+
+  border-radius: 27px;
+
+  border: 1px solid rgba(255,255,255,.82);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.64),
+      rgba(220,234,246,.30)
+    );
+
+  box-shadow:
+    0 30px 72px rgba(17,48,82,.16),
+    inset 0 1px 0 rgba(255,255,255,.92);
+
+  transform:
+    rotateX(var(--about-rx))
+    rotateY(var(--about-ry));
+
+  transform-style: preserve-3d;
+
+  transition:
+    transform .14s ease-out,
+    box-shadow .30s ease;
+
+  will-change: transform;
+}
+
+.about-wow-frame::before {
+  content: "";
+  position: absolute;
+  z-index: 8;
+  pointer-events: none;
+
+  inset: 0;
+
+  background:
+    radial-gradient(
+      circle at var(--about-glow-x) var(--about-glow-y),
+      rgba(255,255,255,.22),
+      rgba(7,88,153,.055) 22%,
+      transparent 44%
+    );
+
+  opacity: .8;
+}
+
+.about-wow-main,
+.about-wow-stack figure {
+  position: relative;
+  overflow: hidden;
+  margin: 0;
+
+  border-radius: 19px;
+}
+
+.about-wow-main img,
+.about-wow-stack img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+
+  transition:
+    transform .85s cubic-bezier(.16,1,.3,1),
+    filter .45s ease;
+}
+
+.about-wow-main:hover img,
+.about-wow-stack figure:hover img {
+  transform: scale(1.055);
+  filter: saturate(1.04) contrast(1.02);
+}
+
+.about-wow-main {
+  min-height: 450px;
+}
+
+.about-wow-stack {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 9px;
+}
+
+.about-wow-stack figure {
+  min-height: 220px;
+}
+
+.about-media-overlay {
+  position: absolute;
+  z-index: 5;
+
+  left: 18px;
+  bottom: 17px;
+
+  padding: 10px 13px;
+
+  border-radius: 13px;
+
+  background:
+    rgba(5,38,74,.66);
+
+  border:
+    1px solid rgba(255,255,255,.16);
+
+  color: #fff;
+
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.about-media-kicker {
+  display: block;
+  margin-bottom: 4px;
+
+  color: #A9D3F5;
+
+  font:
+    800 7px/1
+    Montserrat, sans-serif;
+
+  letter-spacing: 1.5px;
+}
+
+.about-media-overlay strong {
+  font:
+    700 11px/1.2
+    Montserrat, sans-serif;
+}
+
+.about-wow-stack figcaption {
+  position: absolute;
+  z-index: 5;
+
+  left: 12px;
+  bottom: 11px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 8px 10px;
+
+  border-radius: 10px;
+
+  color: #fff;
+
+  background: rgba(7,43,79,.60);
+
+  border: 1px solid rgba(255,255,255,.12);
+
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+
+  font:
+    700 8px/1
+    Montserrat, sans-serif;
+}
+
+.about-wow-stack figcaption svg {
+  width: 13px;
+  height: 13px;
+}
+
+.about-wow-scan {
+  position: absolute;
+  z-index: 7;
+  pointer-events: none;
+
+  left: 8%;
+  right: 8%;
+  top: 16%;
+
+  height: 1px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(117,190,245,.25),
+      rgba(255,255,255,.95),
+      rgba(117,190,245,.25),
+      transparent
+    );
+
+  box-shadow:
+    0 0 12px rgba(84,158,220,.22);
+
+  opacity: 0;
+
+  animation:
+    aboutScanLine
+    7s ease-in-out infinite;
+}
+
+@keyframes aboutScanLine {
+  0%, 14% {
+    opacity: 0;
+    transform: translateY(-80px);
+  }
+
+  23% {
+    opacity: .75;
+  }
+
+  68% {
+    opacity: .38;
+  }
+
+  82%, 100% {
+    opacity: 0;
+    transform: translateY(330px);
+  }
+}
+
+.about-wow-badge {
+  position: absolute;
+  z-index: 12;
+
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  min-width: 135px;
+  padding: 9px 12px;
+
+  border-radius: 15px;
+
+  background:
+    rgba(255,255,255,.83);
+
+  border:
+    1px solid rgba(255,255,255,.92);
+
+  box-shadow:
+    0 15px 34px rgba(18,48,79,.13),
+    inset 0 1px 0 rgba(255,255,255,.98);
+
+  -webkit-backdrop-filter:
+    blur(15px)
+    saturate(145%);
+  backdrop-filter:
+    blur(15px)
+    saturate(145%);
+
+  animation:
+    aboutBadgeFloat
+    5.6s ease-in-out infinite;
+}
+
+.about-badge-years {
+  left: -28px;
+  top: 45px;
+}
+
+.about-badge-guarantee {
+  right: -22px;
+  bottom: 38px;
+
+  animation-delay: -2.4s;
+}
+
+.about-badge-icon {
+  width: 31px;
+  height: 31px;
+
+  display: grid;
+  place-items: center;
+
+  flex: 0 0 31px;
+
+  border-radius: 10px;
+
+  color: #075899;
+
+  background: rgba(7,88,153,.08);
+}
+
+.about-badge-icon.red {
+  color: #F51F4B;
+  background: rgba(245,31,75,.08);
+}
+
+.about-badge-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.about-wow-badge strong {
+  display: block;
+  color: #07346F;
+
+  font:
+    800 11px/1.05
+    Montserrat, sans-serif;
+}
+
+.about-wow-badge small {
+  display: block;
+  margin-top: 3px;
+
+  color: #7890AA;
+
+  font-size: 8px;
+}
+
+@keyframes aboutBadgeFloat {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+/* =========================================================
+   PROOF STRIP
+   ========================================================= */
+
+.about-wow-proof {
+  position: relative;
+
+  display: grid;
+  grid-template-columns: 1.35fr repeat(4, 1fr);
+  align-items: stretch;
+
+  margin-top: 58px;
+
+  overflow: hidden;
+
+  border-radius: 25px;
+
+  border: 1px solid rgba(255,255,255,.90);
+
+  background:
+    linear-gradient(
+      115deg,
+      #0A417A 0%,
+      #143C83 35%,
+      #24419A 100%
+    );
+
+  box-shadow:
+    0 24px 56px rgba(15,45,83,.18),
+    inset 0 1px 0 rgba(255,255,255,.12);
+}
+
+.about-wow-proof::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+
+  width: 350px;
+  height: 350px;
+
+  right: -160px;
+  top: -175px;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(255,255,255,.14),
+      transparent 68%
+    );
+}
+
+.about-proof-head,
+.about-proof-stat {
+  position: relative;
+  z-index: 2;
+}
+
+.about-proof-head {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  padding: 25px 27px;
+
+  color: #fff;
+
+  border-right: 1px solid rgba(255,255,255,.13);
+}
+
+.about-proof-head span {
+  margin-bottom: 7px;
+
+  color: #9DCCEF;
+
+  font:
+    800 7.5px/1
+    Montserrat, sans-serif;
+
+  letter-spacing: 1.5px;
+}
+
+.about-proof-head strong {
+  max-width: 230px;
+
+  font:
+    800 16px/1.25
+    Montserrat, sans-serif;
+}
+
+.about-proof-stat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 23px 18px;
+
+  color: #fff;
+
+  border-right: 1px solid rgba(255,255,255,.10);
+
+  transition:
+    background .28s ease,
+    transform .28s cubic-bezier(.16,1,.3,1);
+}
+
+.about-proof-stat:last-child {
+  border-right: 0;
+}
+
+.about-proof-stat:hover {
+  background: rgba(255,255,255,.06);
+  transform: translateY(-2px);
+}
+
+.proof-icon {
+  width: 34px;
+  height: 34px;
+
+  display: grid;
+  place-items: center;
+
+  flex: 0 0 34px;
+
+  border-radius: 11px;
+
+  color: #CDE9FF;
+
+  background: rgba(255,255,255,.08);
+
+  border: 1px solid rgba(255,255,255,.10);
+}
+
+.proof-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.about-proof-stat strong {
+  display: block;
+
+  font:
+    800 clamp(16px,1.5vw,22px)/1
+    Montserrat, sans-serif;
+}
+
+.about-proof-stat small {
+  display: block;
+  margin-top: 5px;
+
+  color: rgba(232,244,255,.68);
+
+  font-size: 8px;
+  line-height: 1.2;
+}
+
+.about-proof-guarantee .proof-icon {
+  color: #FFDCE4;
+  background: rgba(245,31,75,.16);
+}
+
+.about-proof-guarantee strong {
+  color: #fff;
+  font-size: 13px;
+  letter-spacing: .7px;
+}
+
+/* =========================================================
+   STATEMENT
+   ========================================================= */
+
+.about-wow-statement {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 14px;
+
+  margin: 68px 0 38px;
+}
+
+.about-statement-dot {
+  width: 8px;
+  height: 8px;
+
+  border-radius: 50%;
+
+  background: #F51F4B;
+
+  box-shadow:
+    0 0 0 5px rgba(245,31,75,.07),
+    0 0 15px rgba(245,31,75,.12);
+}
+
+.about-wow-statement p {
+  margin: 0;
+
+  color: #214C78;
+
+  font:
+    600 clamp(16px,1.7vw,24px)/1.35
+    Montserrat, sans-serif;
+
+  letter-spacing: -.5px;
+}
+
+.about-wow-statement strong {
+  color: #07346F;
+}
+
+.about-statement-line {
+  height: 1px;
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(7,88,153,.16),
+      transparent
+    );
+}
+
+/* =========================================================
+   BOTTOM GRID
+   ========================================================= */
+
+.about-wow-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.08fr;
+  gap: 18px;
+}
+
+.about-wow-card,
+.about-wow-location {
+  position: relative;
+  overflow: hidden;
+
+  min-height: 265px;
+  padding: 26px;
+
+  border-radius: 24px;
+
+  border: 1px solid rgba(255,255,255,.94);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.96),
+      rgba(239,246,251,.88)
+    );
+
+  box-shadow:
+    0 18px 42px rgba(18,48,79,.08),
+    inset 0 1px 0 rgba(255,255,255,.98);
+
+  transition:
+    transform .38s cubic-bezier(.16,1,.3,1),
+    box-shadow .34s ease,
+    border-color .34s ease;
+}
+
+.about-wow-card::before {
+  content: "";
+  position: absolute;
+
+  left: 24px;
+  right: 24px;
+  bottom: 0;
+
+  height: 3px;
+
+  border-radius: 999px 999px 0 0;
+}
+
+.about-wow-card-blue::before {
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      #075899,
+      transparent
+    );
+}
+
+.about-wow-card-red::before {
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      #F51F4B,
+      transparent
+    );
+}
+
+.about-wow-card::after,
+.about-wow-location::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+
+  width: 160px;
+  height: 160px;
+
+  right: -60px;
+  top: -70px;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(7,88,153,.06),
+      transparent 68%
+    );
+}
+
+.about-wow-card-red::after {
+  background:
+    radial-gradient(
+      circle,
+      rgba(245,31,75,.06),
+      transparent 68%
+    );
+}
+
+.about-wow-card:hover,
+.about-wow-location:hover {
+  transform: translateY(-7px);
+
+  border-color: rgba(7,88,153,.11);
+
+  box-shadow:
+    0 27px 55px rgba(18,48,79,.13),
+    inset 0 1px 0 rgba(255,255,255,.98);
+}
+
+.about-wow-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 25px;
+}
+
+.about-wow-card-icon {
+  width: 49px;
+  height: 49px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 15px;
+
+  color: #075899;
+
+  background: rgba(7,88,153,.075);
+
+  box-shadow:
+    0 0 0 6px rgba(7,88,153,.025);
+}
+
+.about-wow-card-red .about-wow-card-icon {
+  color: #F51F4B;
+  background: rgba(245,31,75,.075);
+
+  box-shadow:
+    0 0 0 6px rgba(245,31,75,.025);
+}
+
+.about-wow-card-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.about-wow-card-number {
+  color: rgba(7,88,153,.13);
+
+  font:
+    900 34px/1
+    Montserrat, sans-serif;
+
+  letter-spacing: -2px;
+}
+
+.about-wow-card-red .about-wow-card-number {
+  color: rgba(245,31,75,.12);
+}
+
+.about-wow-card-kicker {
+  display: block;
+  margin-bottom: 8px;
+
+  color: #075899;
+
+  font:
+    800 7px/1
+    Montserrat, sans-serif;
+
+  letter-spacing: 1.5px;
+}
+
+.about-wow-card-red .about-wow-card-kicker {
+  color: #F51F4B;
+}
+
+.about-wow-card h3,
+.about-location-copy h3 {
+  margin: 0 0 12px;
+
+  color: #07346F;
+
+  font:
+    800 20px/1.15
+    Montserrat, sans-serif;
+
+  letter-spacing: -.5px;
+}
+
+.about-wow-card p,
+.about-location-copy p {
+  margin: 0;
+
+  color: #64798E;
+
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.about-wow-card-footer {
+  position: absolute;
+  left: 26px;
+  right: 26px;
+  bottom: 21px;
+
+  color: #7890AA;
+
+  font:
+    700 7.5px/1
+    Montserrat, sans-serif;
+
+  letter-spacing: .6px;
+}
+
+/* =========================================================
+   LOCATION
+   ========================================================= */
+
+.about-wow-location {
+  display: grid;
+  grid-template-columns: .92fr 1.08fr;
+  gap: 20px;
+
+  padding: 20px;
+}
+
+.about-location-map {
+  position: relative;
+
+  min-height: 220px;
+
+  overflow: hidden;
+
+  border-radius: 18px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(221,236,248,.86),
+      rgba(244,249,253,.94)
+    );
+}
+
+.about-map-shape {
+  position: absolute;
+
+  width: 125px;
+  height: 165px;
+
+  left: 50%;
+  top: 50%;
+
+  transform:
+    translate(-50%,-50%)
+    rotate(-4deg);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(7,88,153,.12),
+      rgba(7,88,153,.035)
+    );
+
+  clip-path:
+    polygon(
+      29% 0%,
+      56% 4%,
+      61% 16%,
+      83% 22%,
+      72% 38%,
+      89% 52%,
+      70% 65%,
+      72% 88%,
+      51% 100%,
+      36% 82%,
+      19% 74%,
+      23% 54%,
+      6% 43%,
+      17% 28%,
+      14% 13%
+    );
+
+  border:
+    1px solid
+    rgba(7,88,153,.08);
+}
+
+.about-map-pin {
+  position: absolute;
+  z-index: 4;
+
+  width: 28px;
+  height: 28px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 50%;
+
+  color: #fff;
+
+  box-shadow:
+    0 0 0 5px rgba(255,255,255,.70),
+    0 8px 18px rgba(18,48,79,.15);
+}
+
+.about-map-pin svg {
+  width: 13px;
+  height: 13px;
+}
+
+.about-map-pin-main {
+  left: 50%;
+  top: 44%;
+
+  background: #075899;
+
+  animation:
+    aboutPinPulse
+    2.7s ease-in-out infinite;
+}
+
+.about-map-pin-west {
+  left: 32%;
+  top: 61%;
+
+  background: #F51F4B;
+
+  animation:
+    aboutPinPulse
+    2.7s ease-in-out
+    -1.35s infinite;
+}
+
+@keyframes aboutPinPulse {
+  0%,100% {
+    box-shadow:
+      0 0 0 5px rgba(255,255,255,.70),
+      0 8px 18px rgba(18,48,79,.15);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 10px rgba(7,88,153,.045),
+      0 8px 22px rgba(18,48,79,.18);
+  }
+}
+
+.about-map-route {
+  position: absolute;
+  z-index: 3;
+
+  left: 38%;
+  top: 51%;
+
+  width: 47px;
+  height: 28px;
+
+  border:
+    1px dashed
+    rgba(7,88,153,.30);
+
+  border-left: 0;
+  border-bottom: 0;
+
+  border-radius:
+    0 18px 0 0;
+
+  transform: rotate(15deg);
+}
+
+.about-location-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.about-location-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  margin-top: 11px;
+}
+
+.location-dot {
+  width: 8px;
+  height: 8px;
+
+  flex: 0 0 8px;
+
+  border-radius: 50%;
+}
+
+.location-dot.blue {
+  background: #075899;
+  box-shadow: 0 0 0 4px rgba(7,88,153,.055);
+}
+
+.location-dot.red {
+  background: #F51F4B;
+  box-shadow: 0 0 0 4px rgba(245,31,75,.055);
+}
+
+.about-location-item small,
+.about-location-item strong {
+  display: block;
+}
+
+.about-location-item small {
+  margin-bottom: 2px;
+
+  color: #8A9CAF;
+
+  font-size: 7px;
+}
+
+.about-location-item strong {
+  color: #214C78;
+
+  font:
+    700 9px/1.2
+    Montserrat, sans-serif;
+}
+
+.about-location-copy p {
+  margin-top: 15px;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1180px) {
+  .about-wow-top {
+    grid-template-columns: 1fr 1.1fr;
+    gap: 38px;
+  }
+
+  .about-wow-visual {
+    min-height: 410px;
+  }
+
+  .about-wow-main {
+    min-height: 390px;
+  }
+
+  .about-wow-stack figure {
+    min-height: 190px;
+  }
+
+  .about-wow-proof {
+    grid-template-columns: 1.15fr repeat(4,1fr);
+  }
+
+  .about-wow-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .about-wow-location {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 820px) {
+  .about-wow-section {
+    padding-top: 92px;
+    padding-bottom: 90px;
+  }
+
+  .about-wow-section::after {
+    display: none;
+  }
+
+  .about-wow-top {
+    grid-template-columns: 1fr;
+  }
+
+  .about-wow-title {
+    font-size: clamp(44px, 12vw, 68px);
+  }
+
+  .about-wow-visual {
+    min-height: 470px;
+  }
+
+  .about-wow-frame {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1.25fr .75fr;
+  }
+
+  .about-wow-main {
+    min-height: 265px;
+  }
+
+  .about-wow-stack {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+  }
+
+  .about-wow-stack figure {
+    min-height: 165px;
+  }
+
+  .about-badge-years {
+    left: 10px;
+    top: 20px;
+  }
+
+  .about-badge-guarantee {
+    right: 10px;
+    bottom: 16px;
+  }
+
+  .about-wow-proof {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .about-proof-head {
+    grid-column: 1 / -1;
+    border-right: 0;
+    border-bottom: 1px solid rgba(255,255,255,.11);
+  }
+
+  .about-proof-stat {
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+
+  .about-wow-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .about-wow-location {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .about-location-map {
+    min-height: 190px;
+  }
+
+  .about-wow-statement {
+    grid-template-columns: auto 1fr;
+  }
+
+  .about-statement-line {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .about-wow-shell {
+    width: calc(100% - 24px);
+  }
+
+  .about-wow-proof {
+    grid-template-columns: 1fr;
+  }
+
+  .about-proof-head {
+    grid-column: auto;
+  }
+
+  .about-proof-stat {
+    border-right: 0;
+  }
+
+  .about-wow-visual {
+    min-height: 530px;
+  }
+
+  .about-wow-stack {
+    grid-template-columns: 1fr;
+  }
+
+  .about-wow-badge {
+    min-width: 120px;
+  }
+
+  .about-wow-card {
+    min-height: 285px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about-wow-scan,
+  .about-wow-badge,
+  .about-map-pin {
+    animation: none !important;
+  }
+
+  .about-wow-frame {
+    transform: none !important;
+    transition: none !important;
+  }
+}

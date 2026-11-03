@@ -1,0 +1,77 @@
+<!-- =========================================================
+     TRABAJOS — GALERÍA PREMIUM SEPRIGUA
+     Reemplaza tu sección actual completa de TRABAJOS por esto.
+     ========================================================= -->
+<section class="section seprigua-work-gallery" id="trabajos" aria-label="Galería de trabajos realizados por SEPRIGUA">
+    <div class="swg-shell" id="sepriguaWorkGallery">
+
+        <div class="swg-ambient" aria-hidden="true">
+            <div class="swg-ambient-image" id="swgAmbientImage"></div>
+            <div class="swg-ambient-shade"></div>
+            <div class="swg-ambient-grid"></div>
+        </div>
+
+        <div class="swg-toolbar swg-toolbar-top" aria-label="Controles de galería">
+            <button class="swg-glass-button" id="swgPrevTop" type="button" aria-label="Imagen anterior">
+                <i data-lucide="chevron-left"></i>
+            </button>
+
+            <button class="swg-glass-button swg-expand-button" id="swgExpand" type="button" aria-label="Ver imagen a pantalla completa">
+                <i data-lucide="maximize-2"></i>
+            </button>
+
+            <button class="swg-glass-button" id="swgNextTop" type="button" aria-label="Imagen siguiente">
+                <i data-lucide="chevron-right"></i>
+            </button>
+        </div>
+
+        <div class="swg-stage" id="swgStage">
+            <button class="swg-side-hit swg-side-hit-left" id="swgPrevArea" type="button" aria-label="Anterior"></button>
+
+            <div class="swg-deck" id="swgDeck" aria-live="polite"></div>
+
+            <button class="swg-side-hit swg-side-hit-right" id="swgNextArea" type="button" aria-label="Siguiente"></button>
+        </div>
+
+        <div class="swg-toolbar swg-toolbar-bottom">
+            <button class="swg-glass-button" id="swgPrev" type="button" aria-label="Imagen anterior">
+                <i data-lucide="arrow-left"></i>
+            </button>
+
+            <div class="swg-progress" aria-hidden="true">
+                <span class="swg-progress-dot"></span>
+                <span class="swg-progress-line"><i id="swgProgressFill"></i></span>
+            </div>
+
+            <button class="swg-glass-button" id="swgNext" type="button" aria-label="Imagen siguiente">
+                <i data-lucide="arrow-right"></i>
+            </button>
+        </div>
+
+        <div class="swg-loading" id="swgLoading">
+            <span></span>
+        </div>
+    </div>
+
+    <div class="swg-lightbox" id="swgLightbox" aria-hidden="true">
+        <div class="swg-lightbox-backdrop" data-close-lightbox></div>
+
+        <div class="swg-lightbox-panel">
+            <button class="swg-lightbox-close" type="button" data-close-lightbox aria-label="Cerrar galería">
+                <i data-lucide="x"></i>
+            </button>
+
+            <button class="swg-lightbox-nav swg-lightbox-prev" id="swgLightboxPrev" type="button" aria-label="Anterior">
+                <i data-lucide="chevron-left"></i>
+            </button>
+
+            <div class="swg-lightbox-image-wrap" id="swgLightboxImageWrap">
+                <img id="swgLightboxImage" alt="Trabajo realizado por SEPRIGUA">
+            </div>
+
+            <button class="swg-lightbox-nav swg-lightbox-next" id="swgLightboxNext" type="button" aria-label="Siguiente">
+                <i data-lucide="chevron-right"></i>
+            </button>
+        </div>
+    </div>
+</section>
