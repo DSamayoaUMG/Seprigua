@@ -1,0 +1,114 @@
+/* Logo original y etiqueta de rol compacta en el sidebar. */
+
+body.seprigua-hoja-v4 .system-sidebar .sidebar-role-row {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  min-height: 44px;
+  padding: 5px 6px 5px 7px;
+  border: 1px solid rgba(151, 201, 238, .22);
+  border-radius: 12px;
+  background: rgba(2, 38, 82, .68);
+  box-shadow: none;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+body.seprigua-hoja-v4 .system-sidebar .sidebar-role-row:hover {
+  border-color: rgba(151, 201, 238, .32);
+  background: rgba(3, 48, 100, .74);
+}
+
+body.seprigua-hoja-v4 .system-sidebar .role-chip {
+  display: flex;
+  min-width: 0;
+  width: max-content;
+  max-width: 100%;
+  height: 32px;
+  min-height: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 0 17px 0 10px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 8px 0 0 8px;
+  background: #1265a8;
+  box-shadow: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%);
+}
+
+body.seprigua-hoja-v4 .system-sidebar .role-chip::before {
+  content: "";
+  flex: 0 0 15px;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  border-radius: 0;
+  background: #ffc744;
+  box-shadow: none;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M2 7.2 6.8 11l5.2-6 5.2 6L22 7.2l-2 11.3H4L2 7.2Zm2.5 12.5h15v2h-15v-2Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M2 7.2 6.8 11l5.2-6 5.2 6L22 7.2l-2 11.3H4L2 7.2Zm2.5 12.5h15v2h-15v-2Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+body.seprigua-hoja-v4 .system-sidebar .sidebar-collapse-button {
+  box-sizing: border-box;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  min-height: 0;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(160, 212, 247, .28);
+  border-radius: 8px;
+  background: rgba(28, 110, 180, .34);
+  box-shadow: none;
+  color: #dcefff;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+body.seprigua-hoja-v4 .system-sidebar .sidebar-collapse-button:hover {
+  border-color: rgba(186, 226, 255, .46);
+  background: rgba(43, 130, 202, .48);
+}
+
+body.seprigua-hoja-v4 .system-sidebar .sidebar-collapse-button:focus-visible {
+  outline: 2px solid #b9e2ff;
+  outline-offset: 2px;
+}
+
+body.seprigua-hoja-v4 .system-sidebar .sidebar-collapse-button svg { width: 16px; height: 16px; }
+
+/* En el rail reducido solo queda visible el botón para abrir el menú. */
+body.seprigua-hoja-v4.sidebar-collapsed .system-sidebar:not(.open) .sidebar-role-row {
+  display: flex;
+  height: auto;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+body.seprigua-hoja-v4.sidebar-collapsed .system-sidebar:not(.open) .role-chip {
+  display: none;
+}
+
+body.seprigua-hoja-v4.sidebar-collapsed .system-sidebar:not(.open) .sidebar-collapse-button {
+  width: 30px;
+  height: 30px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.seprigua-hoja-v4 .system-sidebar :is(.sidebar-role-row, .sidebar-collapse-button) { transition: none; }
+}

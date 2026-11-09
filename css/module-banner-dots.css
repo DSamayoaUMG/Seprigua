@@ -59,3 +59,250 @@ body.seprigua-hoja-v4:not(.center-control-mode) .app-content .se-module-static-h
     opacity: .48;
   }
 }
+
+/* Banners operativos: misma composición de Órdenes, sin iconos en recuadros. */
+body.seprigua-hoja-v4 .app-content .se-module-static-hero:is(
+  [data-module="agenda"], [data-module="equipos"], [data-module="mantenimientos"],
+  [data-module="documentos"], [data-module="garantia"], [data-module="notificaciones"],
+  [data-module="roles"]
+) {
+  position: relative;
+  min-height: 150px;
+  padding: 24px 32px !important;
+  overflow: hidden;
+  align-items: center;
+  gap: 22px;
+}
+
+body.seprigua-hoja-v4 .app-content .se-module-static-generic.se-module-static-hero:is(
+  [data-module="equipos"], [data-module="mantenimientos"],
+  [data-module="garantia"], [data-module="notificaciones"]
+) {
+  display: flex !important;
+  grid-template-columns: none !important;
+}
+
+body.seprigua-hoja-v4 .app-content .se-module-static-hero:is(
+  [data-module="equipos"], [data-module="mantenimientos"],
+  [data-module="garantia"], [data-module="notificaciones"]
+) > .se-module-static-icon {
+  display: none !important;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .agenda-command, .document-hub, .roles-access-hero
+).se-module-static-hero {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .se-module-static-copy, .agenda-command-copy, .document-hub-copy, .roles-access-hero-main
+) {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+body.seprigua-hoja-v4 .app-content .agenda-command-copy,
+body.seprigua-hoja-v4 .app-content .document-hub-copy,
+body.seprigua-hoja-v4 .app-content .roles-access-hero-main {
+  display: block;
+}
+
+body.seprigua-hoja-v4 .app-content .se-module-static-hero:is(
+  [data-module="agenda"], [data-module="equipos"], [data-module="mantenimientos"],
+  [data-module="documentos"], [data-module="garantia"], [data-module="notificaciones"],
+  [data-module="roles"]
+) h2 {
+  margin: 0 0 7px;
+  font-size: clamp(26px, 2.2vw, 32px) !important;
+  line-height: 1.14;
+}
+
+body.seprigua-hoja-v4 .app-content .se-module-static-hero:is(
+  [data-module="agenda"], [data-module="equipos"], [data-module="mantenimientos"],
+  [data-module="documentos"], [data-module="garantia"], [data-module="notificaciones"],
+  [data-module="roles"]
+) p {
+  max-width: 710px;
+  margin: 0;
+  font-size: 14px !important;
+  line-height: 1.45;
+}
+
+body.seprigua-hoja-v4 .app-content .se-module-static-hero .se-banner-art {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  right: 24%;
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+  color: rgba(232, 247, 255, .36);
+  transform: translateY(-50%) rotate(-8deg);
+  pointer-events: none;
+}
+
+body.seprigua-hoja-v4 .app-content .se-module-static-hero .se-banner-art svg {
+  width: 76px;
+  height: 76px;
+  stroke-width: 1.15;
+}
+
+/* Las acciones de Agenda permanecen en una fila clara y con tamaños consistentes. */
+body.seprigua-hoja-v4 .app-content .agenda-command.se-module-static-hero .agenda-command-actions {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 82px 132px 188px;
+  align-items: stretch;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+body.seprigua-hoja-v4 .app-content .agenda-command.se-module-static-hero .agenda-command-actions .btn {
+  display: inline-flex;
+  width: 100%;
+  min-height: 44px;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 10px;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+body.seprigua-hoja-v4 .app-content .agenda-command.se-module-static-hero .agenda-command-actions .agenda-save {
+  border-color: rgba(220, 244, 255, .36) !important;
+  background: #2180c4 !important;
+  color: #fff !important;
+}
+
+body.seprigua-hoja-v4 .app-content .agenda-command.se-module-static-hero .agenda-command-actions .btn:disabled {
+  opacity: .63;
+}
+
+/* Dos opciones de Documentos con la misma altura y lectura sencilla. */
+body.seprigua-hoja-v4 .app-content .document-hub.se-module-static-hero .document-hub-tabs {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(205px, 1fr));
+  gap: 8px;
+  overflow: visible;
+}
+
+body.seprigua-hoja-v4 .app-content .document-hub.se-module-static-hero .document-hub-tab {
+  display: grid;
+  grid-template-columns: 19px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  text-align: left;
+}
+
+body.seprigua-hoja-v4 .app-content .document-hub.se-module-static-hero .document-hub-tab svg {
+  width: 18px;
+  height: 18px;
+}
+
+body.seprigua-hoja-v4 .app-content .document-hub.se-module-static-hero .document-hub-tab span {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+body.seprigua-hoja-v4 .app-content .document-hub.se-module-static-hero .document-hub-tab :is(strong, small) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.seprigua-hoja-v4 .app-content .document-hub.se-module-static-hero .document-hub-tab.active {
+  border-color: rgba(220, 244, 255, .36) !important;
+  background: #2180c4 !important;
+  color: #fff !important;
+}
+
+body.seprigua-hoja-v4 .app-content .document-hub.se-module-static-hero .document-hub-tab.active :is(strong, small, svg) {
+  color: #fff !important;
+}
+
+body.seprigua-hoja-v4 .app-content .roles-access-hero.se-module-static-hero .roles-create-button {
+  position: relative;
+  z-index: 1;
+  min-width: 144px;
+  min-height: 44px;
+  justify-content: center;
+}
+
+@media (max-width: 1240px) {
+  body.seprigua-hoja-v4 .app-content .agenda-command.se-module-static-hero {
+    grid-template-columns: 1fr;
+  }
+  body.seprigua-hoja-v4 .app-content .agenda-command.se-module-static-hero .agenda-command-actions {
+    grid-template-columns: 82px 132px 188px;
+    justify-content: start;
+  }
+}
+
+@media (max-width: 900px) {
+  body.seprigua-hoja-v4 .app-content :is(.document-hub, .roles-access-hero).se-module-static-hero {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  body.seprigua-hoja-v4 .app-content .document-hub.se-module-static-hero .document-hub-tabs {
+    justify-self: stretch;
+    width: 100%;
+  }
+  body.seprigua-hoja-v4 .app-content .se-module-static-hero .se-banner-art {
+    right: 26px;
+    opacity: .45;
+  }
+}
+
+@media (max-width: 600px) {
+  body.seprigua-hoja-v4 .app-content .se-module-static-hero:is(
+    [data-module="agenda"], [data-module="equipos"], [data-module="mantenimientos"],
+    [data-module="documentos"], [data-module="garantia"], [data-module="notificaciones"],
+    [data-module="roles"]
+  ) {
+    min-height: 120px;
+    padding: 19px 18px !important;
+    gap: 16px;
+  }
+  body.seprigua-hoja-v4 .app-content .se-module-static-hero .se-banner-art {
+    width: 75px;
+    height: 75px;
+  }
+  body.seprigua-hoja-v4 .app-content .se-module-static-hero .se-banner-art svg {
+    width: 37px;
+    height: 37px;
+  }
+  body.seprigua-hoja-v4 .app-content .document-hub.se-module-static-hero .document-hub-tabs {
+    grid-template-columns: 1fr;
+  }
+  body.seprigua-hoja-v4 .app-content .agenda-command.se-module-static-hero .agenda-command-actions {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  body.seprigua-hoja-v4 .app-content .agenda-command.se-module-static-hero .agenda-command-actions .agenda-save {
+    grid-column: 1 / -1;
+  }
+  body.seprigua-hoja-v4 .app-content .roles-access-hero.se-module-static-hero .roles-create-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  body.seprigua-hoja-v4 .app-content .document-hub.se-module-static-hero .document-hub-tab :is(strong, small) {
+    overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere;
+  }
+}

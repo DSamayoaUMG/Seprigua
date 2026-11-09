@@ -1,0 +1,24 @@
+/* Labels y acciones del acceso, sobre la identidad visual existente. */
+.brand-separator small,
+.recovery-kicker {
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: none;
+}
+
+.field-group label,
+.recovery-form label {
+  font-weight: 500;
+  letter-spacing: .01em;
+  text-transform: none;
+}
+
+.field-control input,
+.recovery-control input { font-weight: 400; }
+
+.login-submit,
+.recovery-primary { font-weight: 600; letter-spacing: 0; }
+.remember-option,
+.forgot-link,
+.recovery-tab { font-weight: 500; }
+.recovery-tab[aria-selected="true"] { font-weight: 600; }

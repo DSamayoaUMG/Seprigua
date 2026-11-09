@@ -11,6 +11,7 @@
     if (active) active.cancel();
 
     return new Promise((resolve, reject) => {
+      const returnFocus = document.activeElement;
       const url = URL.createObjectURL(file);
       const photo = new Image();
       const editor = {cancel: () => finish(null)};
@@ -28,6 +29,7 @@
         finished = true;
         document.removeEventListener("keydown", onKeydown);
         overlay?.remove();
+        if (returnFocus?.isConnected) returnFocus.focus({preventScroll:true});
         URL.revokeObjectURL(url);
         if (active === editor) active = null;
         if (error) reject(error);
@@ -50,6 +52,12 @@
 
       function onKeydown(event) {
         if (event.key === "Escape") { event.stopPropagation(); finish(null); }
+        if (event.key !== "Tab" || !overlay) return;
+        const controls = [...overlay.querySelectorAll('button:not(:disabled), input:not(:disabled)')].filter(element => element.getClientRects().length);
+        if (!controls.length) return;
+        const first = controls[0], last = controls.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
       }
 
       photo.onerror = () => finish(null, new Error("No se pudo abrir esa fotografía."));
@@ -58,7 +66,7 @@
         overlay = document.createElement("div");
         overlay.className = "se-photo-backdrop";
         overlay.innerHTML = `<section role="dialog" aria-modal="true" aria-labelledby="sePhotoEditorTitle" class="se-photo-dialog">
-          <header><div><span class="se-photo-kicker">MI CUENTA</span><h2 id="sePhotoEditorTitle">Ajustar fotografía</h2><p>Arrastra la imagen y ajusta el tamaño antes de aplicarla.</p></div><button class="se-photo-close" type="button" data-se-crop="cancel" aria-label="Cerrar"><i data-lucide="x"></i></button></header>
+          <header><span class="se-photo-header-icon" aria-hidden="true"><i data-lucide="image"></i></span><div><span class="se-photo-kicker">MI CUENTA</span><h2 id="sePhotoEditorTitle">Ajustar fotografía</h2><p>Arrastra la imagen y ajusta el tamaño antes de aplicarla.</p></div><button class="se-photo-close" type="button" data-se-crop="cancel" aria-label="Cerrar"><i data-lucide="x"></i></button></header>
           <div class="se-photo-editor-content"><canvas width="600" height="600" role="img" aria-label="Vista previa del recorte"></canvas><label class="se-photo-zoom"><i data-lucide="zoom-in"></i> Acercar <input type="range" min="1" max="3" step="0.05" value="1" aria-label="Zoom de la fotografía"></label></div>
           <footer><button class="btn" type="button" data-se-crop="cancel">Cancelar</button><button class="btn primary" type="button" data-se-crop="apply"><i data-lucide="check"></i> Aplicar recorte</button></footer>
           <p class="se-photo-editor-note">Después de aplicar el recorte, pulsa «Guardar fotografía» para subirla a tu cuenta.</p>

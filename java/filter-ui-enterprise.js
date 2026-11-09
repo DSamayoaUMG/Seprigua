@@ -7,25 +7,23 @@
   let opened = null;
   let updateScheduled = false;
   let menu = null;
-  const isSmall = () => window.matchMedia('(max-width: 820px)').matches;
-  function hideMenu() {
+  function hideMenu(refocus = false) {
     if (!menu) return;
     menu.remove();
     menu = null;
-    if (opened) { opened.button.setAttribute('aria-expanded','false'); opened = null; }
+    if (opened) { opened.button.setAttribute('aria-expanded','false'); if (refocus) opened.button.focus(); opened = null; }
   }
   function onOptionPress(select, option) {
     select.value = option.value;
     select.dispatchEvent(new Event('change', {bubbles:true}));
-    hideMenu();
+    hideMenu(true);
   }
   function showMenu(instance) {
-    if (isSmall()) { instance.select.focus(); instance.select.click(); return; }
     if (opened?.select === instance.select) { hideMenu(); return; }
     hideMenu();
     const {select,button} = instance;
     const rect = button.getBoundingClientRect();
-    const width = Math.max(184,rect.width);
+    const width = Math.min(window.innerWidth - 16, Math.max(184,rect.width));
     const maxHeight = Math.min(300,Math.max(140,window.innerHeight * .42));
     const left = Math.max(8,Math.min(rect.left,window.innerWidth - width - 8));
     const bottomRoom = window.innerHeight - rect.bottom - 12;
@@ -47,7 +45,7 @@
       row.addEventListener('click',() => onOptionPress(select,opt));
       list.appendChild(row);
     });
-    document.body.appendChild(list);
+    (button.closest('#modalBackdrop') || document.body).appendChild(list);
     menu=list;
     opened=instance;
     button.setAttribute('aria-expanded','true');
@@ -120,6 +118,8 @@
     const host=document.getElementById('appContent');
     if (!host) return;
     host.querySelectorAll(`${FILTER_ROOTS.split(', ').map(parent=>`${parent} select`).join(', ')}`).forEach(enhanceOne);
+    const modal = document.getElementById('modalBody');
+    modal?.querySelectorAll('select:not([multiple]):not([size])').forEach(enhanceOne);
     harmonizeStateBadges(host);
   }
   function requestUpdate() {
@@ -132,7 +132,7 @@
   },true);
   document.addEventListener('keydown',ev=>{
     if (!menu) return;
-    if (ev.key==='Escape') {hideMenu();opened?.button?.focus();}
+    if (ev.key==='Escape') {ev.preventDefault();hideMenu(true);return;}
     const options=[...menu.querySelectorAll('button:not([disabled])')];
     if (!options.length) return;
     if (['ArrowDown','ArrowUp'].includes(ev.key)) {
@@ -150,6 +150,8 @@
     const host=document.getElementById('appContent');
     if (!host) return;
     new MutationObserver(requestUpdate).observe(host,{childList:true,subtree:true});
+    const modal = document.getElementById('modalBody');
+    if (modal) new MutationObserver(requestUpdate).observe(modal,{childList:true,subtree:true});
     requestUpdate();
   };
   if (document.readyState==='loading') document.addEventListener('DOMContentLoaded',start,{once:true}); else start();

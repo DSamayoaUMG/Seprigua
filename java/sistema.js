@@ -148,9 +148,7 @@
       ["equipo_mantenimiento", "wrench", "Equipo y mantenimiento"],
       ["documentos", "files", "Documentos"],
       ["garantia", "shield-check", "Garantías"],
-      ["notificaciones", "bell", "Notificaciones"],
       ["roles", "shield-user", "Roles y accesos"],
-      ["auditoria", "shield-check", "Auditoría"],
       ["cuenta", "user-cog", "Mi cuenta"]
     ],
     TECNICO: [
@@ -160,10 +158,9 @@
       ["equipo_mantenimiento", "wrench", "Equipo y mantenimiento"],
       ["vacaciones", "calendar-days", "Vacaciones"],
       ["documentos", "files", "Mis documentos"],
-      ["notificaciones", "bell", "Notificaciones"],
       ["cuenta", "user-cog", "Mi cuenta"]
     ],
-    CLIENTE: modules.CLIENTE.filter(([key])=>key!=="cancelaciones")
+    CLIENTE: modules.CLIENTE.filter(([key])=>key!=="cancelaciones"&&key!=="notificaciones")
   };
 
   const modulePermissionParent = {
@@ -242,7 +239,7 @@
     content.insertAdjacentHTML("afterbegin", `
       <section class="module-context-switcher" data-group="${esc(groupKey)}" aria-label="${esc(group.label)}">
         <div class="module-context-copy">
-          <span class="module-context-kicker">ACCESO RÁPIDO</span>
+          <span class="module-context-kicker">Acceso rápido</span>
           <strong>${esc(group.label)}</strong>
           <small>Elegí lo que querés administrar.</small>
         </div>
@@ -256,11 +253,43 @@
   function toLocalInput(v) { if (!v) return ""; const d=new Date(v); if(Number.isNaN(d.getTime())) return ""; const z=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`; }
   function money(v, cur = "GTQ") { const n = Number(v || 0); return new Intl.NumberFormat("es-GT", { style: "currency", currency: cur || "GTQ" }).format(n); }
   function normalizeNumber(v) { return v === null || v === undefined || Number.isNaN(Number(v)) ? 0 : Number(v); }
+  const displayEnumWords = new Set([
+      "PENDIENTE", "EN PROCESO", "PROGRAMADA", "FINALIZADA", "APROBADA", "RECHAZADA", "CANCELADA", "COMPLETADA",
+      "ACTIVO", "ACTIVA", "INACTIVO", "INACTIVA", "BLOQUEADO", "DISPONIBLE", "ASIGNADO", "RETIRADO", "ARCHIVADO",
+      "BORRADOR", "OBSERVADA", "CONFIRMADA", "ENVIADA", "ACEPTADA", "ANULADA", "POR CONFIRMAR", "EN REVISIÓN",
+      "REGISTRADA", "SOLICITUD REGISTRADA", "OT CREADA", "SIN ESTADO", "SIN PRIORIDAD", "SIN CLASE", "FUERA DE USO",
+      "CRITICA", "CRÍTICA", "ALTA", "MEDIA", "BAJA", "EMERGENCIA", "PROGRAMADO", "FINALIZADO", "CANCELADO",
+      "OPERARIO", "SUPERVISOR", "COORDINADOR", "TECNICO", "TECNICO RESPONSABLE", "CLIENTE", "DURANTE", "DESPUES",
+      "ANTES", "LLAMADA", "MENSAJE", "CORREO", "OTRO", "OTRA", "ACCESO", "RETRASO", "SEGURIDAD", "EQUIPO",
+      "PERSONAL", "SERVICIO", "DOCUMENTO", "AUTORIZADO", "RECHAZADO", "ALTERNATIVA", "EN VERIFICACION",
+      "PENDIENTE AUTORIZACION", "CORRECCION", "DIAGNOSTICO", "REPORTADA", "CORREGIDA", "FUNCIONA",
+      "CON OBSERVACIONES", "FALLA CONTINUA", "POR REVISAR", "EN MANTENIMIENTO", "SOLICITUD PENDIENTE"
+  ]);
+  const displayEnumAccents = {
+    CRITICA: "Crítica", TECNICO: "Técnico", DESPUES: "Después", DIAGNOSTICO: "Diagnóstico",
+    CORRECCION: "Corrección", "EN VERIFICACION": "En verificación", "PENDIENTE AUTORIZACION": "Pendiente de autorización"
+  };
+  function displayEnumText(value) {
+    const source = String(value ?? "").trim();
+    const raw = source.replaceAll("_", " ");
+    if (!raw || !/^[A-ZÁÉÍÓÚÜÑ0-9 /.-]+$/.test(raw)) return raw;
+    if (/^(SEPRIGUA|OT|OC|PDF|NIT|IVA|IP|GTQ|DPI)$/.test(raw) || /\b[A-Z]{2,}-\d/.test(raw)) return raw;
+    if (!displayEnumWords.has(raw) && !source.includes("_")) return raw;
+    if (displayEnumAccents[raw]) return displayEnumAccents[raw];
+    return raw.toLocaleLowerCase("es-GT").replace(/^\p{L}/u, initial => initial.toLocaleUpperCase("es-GT"))
+      .replace(/\b(ot|oc|pdf|nit|iva|ip|gtq|dpi)\b/gi, acronym => acronym.toLocaleUpperCase("es-GT"));
+  }
   function badge(v) {
     const x = String(v ?? "—").toUpperCase();
     const cls = /COMPLET|FINAL|ACEPT|DISPONIBLE|CONFORME|ACTIVO|LEID/.test(x) ? "green" : /CANCEL|RECHAZ|FALLA|NO_CONFORME|CRITICA/.test(x) ? "red" : /PEND|PROCESO|MANTEN|ALTA|EMERGEN/.test(x) ? "orange" : "";
-    const label = x === "COMPLETADA" ? "FINALIZADA" : (x === "POR_CONFIRMAR" ? "LISTA PARA FINALIZAR" : x.replaceAll("_", " "));
+    const label = x === "COMPLETADA" ? "Finalizada" : (x === "POR_CONFIRMAR" ? "Lista para finalizar" : displayEnumText(v ?? "—"));
     return `<span class="badge ${cls}">${esc(label)}</span>`;
+  }
+  function managementBadge(value) {
+    const code=String(value||"").toUpperCase();
+    const tone=/VENCID|RECHAZ|FUERA_DE_USO|ANULAD|ELIMINAD/.test(code)?"red":/PEND|MANTEN|PROCESO|CONFIGUR|REVISION|AUTORIZACION|ASIGNAD/.test(code)?"orange":/^(ACTIVO|ACTIVA|DISPONIBLE|GARANTIA_APROBADA|APROBADA|FINALIZADA|COMPLETADA|VERIFICADO)$/.test(code)?"green":"muted";
+    const label=({PENDIENTE_CONFIGURACION:"Por configurar",GARANTIA_APROBADA:"Garantía aprobada",EN_REVISION:"En revisión",PENDIENTE_AUTORIZACION:"Pendiente de autorización"})[code]||displayEnumText(value||"—");
+    return `<span class="badge management-status ${tone}">${esc(label)}</span>`;
   }
   function button(label, action, id = "", cls = "") { return `<button class="btn small ${cls}" type="button" data-action="${esc(action)}" ${id ? `data-id="${esc(id)}"` : ""}>${esc(label)}</button>`; }
   function iconButton(icon, action, id = "", label = "", cls = "") { return `<button class="${cls}" type="button" data-action="${esc(action)}" ${id ? `data-id="${esc(id)}"` : ""} ${label ? `aria-label="${esc(label)}" title="${esc(label)}"` : ""}><i data-lucide="${esc(icon)}"></i><span class="sr-only">${esc(label || action)}</span></button>`; }
@@ -278,7 +307,7 @@
       /(<td[^>]*data-label="Acci(?:ón|ones)"[^>]*>)([\s\S]*?)(<\/td>)/g,
       (_match, open, body, close) => `${open}<details class="mobile-row-actions" ${wideActions ? "open" : ""}><summary>Acciones</summary><div class="mobile-row-actions-body">${body}</div></details>${close}`
     ));
-    return `<div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${compactActions.join("")}</tbody></table></div>`;
+    return `<div class="table-wrap se-table-responsive-scope"><table class="data-table ${headers.length > 5 ? "se-wide-table" : ""}"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${compactActions.join("")}</tbody></table></div>`;
   }
   const mobileActionQuery = window.matchMedia("(max-width: 600px)");
   const syncRowActionDisclosure = () => {
@@ -297,12 +326,87 @@
     clearTimeout(showToast.t); showToast.t = setTimeout(() => { toast.hidden = true; }, 3500);
   }
   let modalProtection = { locked: false, reason: "" };
+  let modalReturnFocus = null;
+
+  function modalVisualIcon(name) {
+    const title = String(name || "").toLowerCase();
+    if (title === "nueva solicitud") return "file-plus-2";
+    if (/solicitud|cancelaci[oó]n/.test(title)) return "inbox";
+    if (/orden|\bot\b|trabajo/.test(title)) return "clipboard-list";
+    if (/cotizaci[oó]n|precio/.test(title)) return "file-text";
+    if (/cliente|sede|empresa/.test(title)) return "building-2";
+    if (/personal|t[eé]cnico|usuario|perfil|contrase[nñ]a|correo/.test(title)) return "user-round";
+    if (/equipo|mantenimiento|falla|inspecci[oó]n|repuesto/.test(title)) return "wrench";
+    if (/garant[ií]a/.test(title)) return "shield-check";
+    if (/documento|archivo|evidencia/.test(title)) return "file-check-2";
+    if (/rol|acceso|permiso/.test(title)) return "shield-user";
+    if (/auditor[ií]a/.test(title)) return "scan-search";
+    return currentModuleIcon();
+  }
+
+  function modalFieldIcon(label, control) {
+    const text = String(label || "").toLowerCase();
+    if (/urgencia|emergencia|critic/.test(text)) return "triangle-alert";
+    if (/cliente|persona|colaborador|empleado/.test(text)) return "users-round";
+    if (/sede|ubicaci[oó]n|direcci[oó]n|municipio|departamento/.test(text)) return "map-pin";
+    if (/servicio|mantenimiento|equipo|trabajo|repuesto/.test(text)) return "wrench";
+    if (/clasificaci[oó]n|categor[ií]a|tipo|estado|prioridad/.test(text)) return "tag";
+    if (/canal|contacto|tel[eé]fono|correo/.test(text)) return "headset";
+    if (/fecha|hora|programaci[oó]n|vigencia/.test(text)) return "calendar-days";
+    if (/descripci[oó]n|observaci[oó]n|detalle|motivo|nota/.test(text)) return "file-text";
+    if (/archivo|imagen|foto|evidencia|documento|pdf/.test(text)) return "paperclip";
+    if (/precio|costo|monto|total|pago/.test(text)) return "badge-dollar-sign";
+    if (/nombre|usuario/.test(text)) return "user-round";
+    if (control?.type === "date" || control?.type === "datetime-local") return "calendar-days";
+    if (control?.tagName === "TEXTAREA") return "file-text";
+    if (control?.tagName === "SELECT") return "list-filter";
+    return "text-cursor-input";
+  }
+
+  function decorateModalVisuals(name) {
+    const shell = modalBackdrop.querySelector(".modal-seprigua");
+    if (!shell) return;
+    const icon = $("#modalIcon");
+    icon.innerHTML = `<i data-lucide="${modalVisualIcon(name)}"></i>`;
+    const subtitle = $("#modalSubtitle");
+    subtitle.textContent = name === "Nueva solicitud" ? "Registra una nueva solicitud de servicio, mantenimiento o soporte." : "";
+    subtitle.hidden = !subtitle.textContent;
+    const form = modalBody.querySelector("form");
+    const hasTables = !!modalBody.querySelector("table, .table-wrap, .modal-list-shell");
+    const controls = modalBody.querySelectorAll("input:not([type=hidden]), select, textarea").length;
+    const isConfirm = !!modalBody.querySelector(".confirm-state-card") ||
+      (!form && !hasTables && /^(eliminar|desactivar|activar|cerrar sesi[oó]n|confirmar|retirar|archivar)/i.test(name));
+    const size = isConfirm ? "sm" : hasTables ? "xl" : form && controls >= 5 ? "lg" : "md";
+    shell.dataset.modalSize = size;
+    shell.dataset.modalKind = isConfirm ? "confirm" : form ? "form" : "detail";
+    modalBody.querySelectorAll(".field").forEach(field => {
+      const label = field.querySelector(":scope > label");
+      const control = field.querySelector(":scope > input, :scope > select, :scope > textarea");
+      if (!label || !control || control.type === "checkbox" || control.type === "radio") return;
+      field.classList.add("modal-seprigua__field");
+      if (/urgencia|emergencia|critic/i.test(label.textContent)) field.classList.add("modal-seprigua__field--urgent");
+      field.insertAdjacentHTML("afterbegin", `<span class="modal-seprigua__field-icon" aria-hidden="true"><i data-lucide="${modalFieldIcon(label.textContent, control)}"></i></span>`);
+    });
+    modalBody.querySelectorAll("form").forEach(item => {
+      const actionItems = [...item.querySelectorAll(".form-actions")];
+      const actions = actionItems[actionItems.length - 1];
+      if (!actions) return;
+      let footer = actions;
+      while (footer.parentElement && footer.parentElement !== item) footer = footer.parentElement;
+      if (footer.parentElement === item && footer === item.lastElementChild) {
+        footer.classList.add("modal-seprigua__footer");
+      }
+    });
+  }
 
   function openModal(name, html, options = {}) {
+    if (modalBackdrop.hidden) modalReturnFocus = document.activeElement;
     modalTitle.textContent = name;
     modalBody.innerHTML = html;
     modalBackdrop.classList.toggle("user-editor-open", !!modalBody.querySelector("#userAdminForm"));
     modalBackdrop.classList.toggle("document-share-open", !!modalBody.querySelector("#documentShareForm"));
+    modalBody.scrollTop = 0;
+    decorateModalVisuals(name);
 
     // Los modales con formularios se consideran principales por defecto.
     // No se cierran por clic accidental fuera ni con Escape.
@@ -313,6 +417,11 @@
 
     modalBackdrop.hidden = false;
     window.lucide?.createIcons();
+    requestAnimationFrame(() => {
+      if (modalBackdrop.hidden) return;
+      const firstField = modalBody.querySelector('input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled)');
+      (firstField && firstField.getClientRects().length ? firstField : $("#modalClose")).focus({preventScroll:true});
+    });
   }
 
   function closeModal() {
@@ -322,6 +431,8 @@
     modalBackdrop.classList.remove("document-share-open");
     modalProtection = { locked: false, reason: "" };
     delete modalBackdrop.dataset.protected;
+    if (modalReturnFocus?.isConnected) modalReturnFocus.focus({preventScroll:true});
+    modalReturnFocus = null;
   }
 
   function warnProtectedModal() {
@@ -358,12 +469,12 @@
       if (dayName) dayName.textContent = weekday.charAt(0).toUpperCase() + weekday.slice(1);
     }
     if (topUser) topUser.textContent = state.user?.nombre || state.user?.usuario || "Usuario SEPRIGUA";
-    if (topRole) topRole.textContent = String(state.roleName || state.role || "Portal operativo").replaceAll("_", " ");
+    if (topRole) topRole.textContent = displayEnumText(state.roleName || state.role || "Portal operativo");
     if (userPopoverName) userPopoverName.textContent = state.user?.nombre || state.user?.usuario || "Usuario SEPRIGUA";
     if (userPopoverEmail) userPopoverEmail.textContent = state.user?.correo || "Cuenta del sistema";
-    if (userPopoverRole) userPopoverRole.textContent = String(state.roleName || state.role || "Portal operativo").replaceAll("_", " ");
+    if (userPopoverRole) userPopoverRole.textContent = displayEnumText(state.roleName || state.role || "Portal operativo");
     if (sidebarUserName) sidebarUserName.textContent = state.user?.nombre || state.user?.usuario || "Usuario SEPRIGUA";
-    if (sidebarUserRole) sidebarUserRole.textContent = String(state.roleName || state.role || "Portal operativo").replaceAll("_", " ");
+    if (sidebarUserRole) sidebarUserRole.textContent = displayEnumText(state.roleName || state.role || "Portal operativo");
     const photoUrl = state.user?.foto_url || "";
     [document.querySelector(".sidebar-user-avatar"), ...document.querySelectorAll(".prototype-avatar")].filter(Boolean).forEach(node => {
       let image = node.querySelector("img.profile-avatar-photo");
@@ -554,6 +665,11 @@
     host.classList.add("se-module-static-hero");
     host.dataset.module = state.current;
     host.dataset.role = String(state.role || "").toLowerCase();
+    const bannerIcons = {agenda:"calendar-range",equipos:"wrench",mantenimientos:"settings-2",documentos:"folders",garantia:"shield-check",notificaciones:"bell-ring",roles:"shield-user"};
+    const bannerIcon = bannerIcons[state.current];
+    if (bannerIcon && !host.querySelector(":scope > .se-banner-art")) {
+      host.insertAdjacentHTML("beforeend", `<span class="se-banner-art" aria-hidden="true"><i data-lucide="${bannerIcon}"></i></span>`);
+    }
   }
 
   function decorateModuleHeader() {
@@ -617,6 +733,33 @@
     return `<strong>${esc(name || options.fallbackName || "Sin nombre")}</strong>`;
   }
 
+  function entityDetailButton(label, action, id, className = "") {
+    if (id === null || id === undefined || String(id) === "") return `<strong>${esc(label || "Sin nombre")}</strong>`;
+    return `<button class="se-entity-link ${className}" type="button" data-action="${esc(action)}" data-id="${esc(id)}" aria-label="Ver información de ${esc(label || "registro")}">${esc(label || "Sin nombre")}</button>`;
+  }
+
+  function entityAvatarLink(name, options, action, id) {
+    const identity = renderAvatarIdentity(name, options);
+    if (id === null || id === undefined || String(id) === "") return identity;
+    return `<button class="se-entity-avatar-link" type="button" data-action="${esc(action)}" data-id="${esc(id)}" aria-label="Ver información de ${esc(name)}">${identity}</button>`;
+  }
+
+  function vacationPeriod(value, end, days) {
+    const shortDate = date => {
+      if (!date) return "—";
+      const parsed = new Date(date);
+      return Number.isNaN(parsed.getTime()) ? String(date) : parsed.toLocaleDateString("es-GT", {day:"2-digit", month:"2-digit", year:"numeric"});
+    };
+    return `<div class="vacation-period" title="${esc(`${fmt(value)} – ${fmt(end)}`)}"><span><small>Desde</small><strong>${esc(shortDate(value))}</strong></span><i data-lucide="arrow-right" aria-hidden="true"></i><span><small>Hasta</small><strong>${esc(shortDate(end))}</strong></span><em>${esc(days)} ${Number(days) === 1 ? "día" : "días"}</em></div>`;
+  }
+
+  function formatDisplayLabel(value) {
+    const normalized = displayEnumText(value);
+    if (/^[A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ ]+$/.test(normalized)) {
+      return normalized.toLocaleLowerCase("es-GT").replace(/^\p{L}/u, letter => letter.toLocaleUpperCase("es-GT"));
+    }
+    return normalized;
+  }
   function formatGTTime(value = new Date()) {
     const d = value instanceof Date ? value : new Date(value);
     return new Intl.DateTimeFormat("es-GT", { timeZone: "America/Guatemala", hour: "numeric", minute: "2-digit" }).format(d);
@@ -817,7 +960,7 @@
 
   function requestDisplayText(value, fallback = "—") {
     const raw = String(value ?? "").trim();
-    return raw ? raw.replaceAll("_", " ") : fallback;
+    return raw ? displayEnumText(raw) : fallback;
   }
 
 
@@ -947,7 +1090,11 @@
     const secondarySource = item?.orden_id
       ? requestDisplayText(item.orden_estado || item.orden_estado_codigo || "Orden generada correctamente", "Orden generada correctamente")
       : requestDisplayText(item.Estado || item.estado || "Solicitud registrada", "Solicitud registrada");
-    return `<div class="request-followup"><span class="request-followup-badge ${tone}">${esc(label)}</span><strong class="mono">${esc(primary)}</strong><span>${esc(secondarySource)}</span></div>`;
+    const normalized = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replaceAll("_", " ").trim().toUpperCase();
+    const summary = normalized(displayEnumText(label));
+    const detail = normalized(secondarySource);
+    const repeated = summary === detail || (/FINALIZ|COMPLET/.test(summary) && /FINALIZ|COMPLET/.test(detail));
+    return `<div class="request-followup"><span class="request-followup-badge ${tone}">${esc(displayEnumText(label))}</span><strong class="mono">${esc(primary)}</strong>${repeated ? "" : `<span>${esc(secondarySource)}</span>`}</div>`;
   }
 
 
@@ -1206,13 +1353,13 @@
     if (!crew.length) return `<span class="order-unassigned-pill"><i data-lucide="triangle-alert"></i><span>Sin asignar</span></span>`;
     const first = crew[0];
     const subtitle = crew.length > 1 ? `+${crew.length - 1} técnico${crew.length - 1 === 1 ? "" : "s"}` : requestDisplayText(first.funcion, "Técnico");
-    return renderAvatarIdentity(first.nombre || "Técnico asignado", { entity:first, subtitle, className:"order-tech-identity" });
+    return entityAvatarLink(first.nombre || "Técnico asignado", { entity:first, subtitle, className:"order-tech-identity" }, "detalle-personal", state.role === "COORDINADOR" ? first.empleado_id : null);
   }
 
 
   function orderSupervisorCell(detail) {
     const supervisor = orderCrewRows(detail).find(t => String(t.funcion || "").toUpperCase().includes("SUPERV"));
-    return supervisor ? `<span class="order-secondary-value">${esc(supervisor.nombre)}</span>` : `<span class="order-secondary-value muted">—</span>`;
+    return supervisor ? `<span class="order-secondary-value">${entityDetailButton(supervisor.nombre,"detalle-personal",state.role === "COORDINADOR" ? supervisor.empleado_id : null)}</span>` : `<span class="order-secondary-value muted">—</span>`;
   }
 
 
@@ -1333,7 +1480,7 @@
 
 
   function peopleTableShell(title,result,headers,rows,pager,key){
-    const body=rows.length?`<div class="people-table-scroll"><table class="people-table"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`:`<div class="people-empty"><i data-lucide="search-x"></i><h3>No encontramos registros con estos filtros.</h3><p>Prueba cambiando los filtros o limpia la búsqueda.</p><button class="btn small" type="button" data-action="smart-reset" data-list-key="${esc(key)}"><i data-lucide="rotate-ccw"></i><span>Limpiar filtros</span></button></div>`;
+    const body=rows.length?`<div class="people-table-scroll se-table-responsive-scope"><table class="people-table ${headers.length > 5 ? "se-wide-table" : ""}"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`:`<div class="people-empty"><i data-lucide="search-x"></i><h3>No encontramos registros con estos filtros.</h3><p>Prueba cambiando los filtros o limpia la búsqueda.</p><button class="btn small" type="button" data-action="smart-reset" data-list-key="${esc(key)}"><i data-lucide="rotate-ccw"></i><span>Limpiar filtros</span></button></div>`;
     return `<section class="people-table-section"><div class="people-table-toolbar"><div><h3>${esc(title)}</h3><span>${normalizeNumber(result.total)} resultados</span></div></div>${body}${pager}</section>`;
   }
 
@@ -2028,7 +2175,7 @@
     const normalizedSelected = Array.isArray(selected)
       ? (selected.length === 1 ? String(selected[0]) : "TODOS")
       : String(selected || "TODOS");
-    return rows.map(([value,label]) => `<option value="${esc(value)}" ${normalizedSelected===String(value)?"selected":""}>${esc(label)}</option>`).join("");
+    return rows.map(([value,label]) => `<option value="${esc(value)}" ${normalizedSelected===String(value)?"selected":""}>${esc(displayEnumText(label))}</option>`).join("");
   }
 
   function normalizeSmartQuickValues(value) {
@@ -2446,6 +2593,7 @@
     try {
       const me = await api("/api/auth/me");
       state.user = me.user;
+      window.SEPRIGUACursors?.setUser(me.user);
       state.role = String(me.user.rol || "").toUpperCase();
       state.roleName = String(me.user.rol_nombre || me.user.rol || "").toUpperCase();
       state.isMasterCoordinator = state.roleName === "COORDINADOR";
@@ -2456,7 +2604,7 @@
       // Todas las rutas de rol sirven la misma interfaz. Ajustar la URL con History API evita
       // una recarga completa adicional al entrar y elimina el salto visual al panel inicial.
       if (location.pathname !== expected) history.replaceState(null, "", expected + location.search);
-      roleChip.textContent = state.roleName || state.role;
+      roleChip.textContent = displayEnumText(state.roleName || state.role);
       syncPrototypeChrome();
       renderNav();
       const [cats, health] = await Promise.all([api("/api/catalogos"), api("/api/db/health")]);
@@ -3719,8 +3867,16 @@
         filters:{estado:x=>String(x.Estado||x.estado||"").toUpperCase(),clase:x=>String(x.Clasificacion||x.clasificacion||"").toUpperCase(),urgencia:x=>String(x.urgencia||"").toUpperCase()},
         sort:{creada:x=>smartDateValue(x.creada),cliente:x=>x.cliente||"",estado:x=>String(x.Estado||x.estado||""),tipo:x=>x.tipo||""}
       });
-      const rows=result.items.map(x => `<tr><td class="mono">#${x.id}</td><td>${esc(x.cliente)}</td><td>${esc(x.sede)}</td><td>${esc(x.tipo)}</td><td>${badge(x.Clasificacion||x.clasificacion)}</td><td>${x.urgencia?badge(x.urgencia):"—"}</td><td>${esc(x.descripcion)}</td><td>${requestStatusView(x)}</td><td>${fmt(x.creada)}</td><td>${button("Ver seguimiento","ver-solicitud",x.id,"primary")+(state.role==="CLIENTE"&&!x.orden_id&&String(x.estado||x.Estado)!=="CANCELADA"?button("Solicitar cancelación","solicitar-cancelacion","SolicitudServicio:"+x.id):"")}</td></tr>`);
-      content.innerHTML = `<div class="toolbar"><div class="toolbar-left"><h2>Solicitudes</h2><p class="muted">Búsqueda y filtros disponibles para ${state.role==="CLIENTE"?"tus solicitudes":"todas las solicitudes visibles"}.</p></div><div class="toolbar-right">${button("Nueva solicitud","nueva-solicitud","","primary")}</div></div><section class="panel smart-list-panel"><div class="panel-body">${smartControls("solicitudes",{placeholder:"ID, cliente, sede, servicio o descripción",filters:[{name:"estado",label:"Estado",options:states},{name:"clase",label:"Clase",options:classes},{name:"urgencia",label:"Urgencia",options:urgencies}],sorts:[["creada","Fecha"],["cliente","Cliente"],["tipo","Servicio"],["estado","Estado"]]})}${smartResultsMeta(result,"solicitudes")}</div>${table(["ID","Cliente","Sede","Tipo","Clase","Urgencia","Descripción","Seguimiento","Creada","Acción"], rows,"No hay solicitudes que coincidan con los filtros.")}${smartPager("solicitudes",result)}</section>`;
+      const rows=result.items.map(x => `<tr>
+        <td><div class="se-cell-stack"><strong class="mono">#${esc(x.id)}</strong><span class="se-cell-muted">${fmt(x.creada)}</span></div></td>
+        <td><div class="se-cell-stack"><strong>${esc(x.cliente || "Sin cliente")}</strong><span class="se-cell-muted">${esc(x.sede || "Sin sede")}</span></div></td>
+        <td><div class="se-description" title="${esc(requestDescriptionPreview(x.descripcion))}">${esc(requestDescriptionPreview(x.descripcion))}</div></td>
+        <td><div class="se-cell-stack"><strong>${esc(x.tipo || "—")}</strong>${requestClassBadge(x.Clasificacion||x.clasificacion)}</div></td>
+        <td>${x.urgencia?requestUrgencyBadge(x.urgencia):"—"}</td>
+        <td>${requestStatusView(x)}</td>
+        <td class="se-table-actions">${button("Ver seguimiento","ver-solicitud",x.id,"primary")+(state.role==="CLIENTE"&&!x.orden_id&&String(x.estado||x.Estado)!=="CANCELADA"?button("Solicitar cancelación","solicitar-cancelacion","SolicitudServicio:"+x.id):"")}</td>
+      </tr>`);
+      content.innerHTML = `<div class="toolbar"><div class="toolbar-left"><h2>Solicitudes</h2><p class="muted">Búsqueda y filtros disponibles para ${state.role==="CLIENTE"?"tus solicitudes":"todas las solicitudes visibles"}.</p></div><div class="toolbar-right">${button("Nueva solicitud","nueva-solicitud","","primary")}</div></div><section class="panel smart-list-panel"><div class="panel-body">${smartControls("solicitudes",{placeholder:"ID, cliente, sede, servicio o descripción",filters:[{name:"estado",label:"Estado",options:states},{name:"clase",label:"Clase",options:classes},{name:"urgencia",label:"Urgencia",options:urgencies}],sorts:[["creada","Fecha"],["cliente","Cliente"],["tipo","Servicio"],["estado","Estado"]]})}${smartResultsMeta(result,"solicitudes")}</div>${table(["Solicitud","Cliente / sede","Descripción","Servicio","Urgencia","Estado y seguimiento","Acción"], rows,"No hay solicitudes que coincidan con los filtros.")}${smartPager("solicitudes",result)}</section>`;
       window.lucide?.createIcons();
       return;
     }
@@ -3776,16 +3932,13 @@
 
     const rows=result.items.map(x => `
       <tr>
-        <td class="mono request-id-cell">#${esc(x.id)}</td>
-        <td>${requestDateMarkup(x.creada)}</td>
-        <td><div class="request-client-cell">${renderAvatarIdentity(x.cliente || "Sin cliente",{entity:x,subtitle:x.sede || "Sin sede"})}</div></td>
-        <td><div class="request-description-cell" title="${esc(requestDescriptionPreview(x.descripcion))}">${esc(requestDescriptionPreview(x.descripcion))}</div></td>
-        <td><div class="request-service-cell">${esc(x.tipo || "—")}</div></td>
-        <td>${requestClassBadge(x.Clasificacion || x.clasificacion)}</td>
+        <td class="request-identity-cell"><div class="se-cell-stack"><strong class="mono request-id-cell">#${esc(x.id)}</strong>${requestDateMarkup(x.creada)}</div></td>
+        <td><div class="request-client-cell">${entityAvatarLink(x.cliente || "Sin cliente",{entity:x,subtitle:x.sede || "Sin sede"},"ver-solicitud",x.id)}</div></td>
+        <td><div class="request-description-cell se-description" title="${esc(requestDescriptionPreview(x.descripcion))}">${esc(requestDescriptionPreview(x.descripcion))}</div></td>
+        <td><div class="request-service-cell se-cell-stack"><strong>${esc(x.tipo || "—")}</strong></div></td>
         <td>${x.urgencia ? requestUrgencyBadge(x.urgencia) : `<span class="request-empty-pill">No aplica</span>`}</td>
-        <td>${requestStateBadge(x)}</td>
-        <td>${requestFollowupMarkup(x)}</td>
-        <td><button class="request-follow-button" type="button" data-action="ver-solicitud" data-id="${esc(x.id)}"><i data-lucide="eye"></i><span>Ver seguimiento</span></button></td>
+        <td><div class="se-cell-stack">${requestFollowupMarkup(x)}</div></td>
+        <td class="se-table-actions"><button class="request-follow-button" type="button" data-action="ver-solicitud" data-id="${esc(x.id)}" aria-label="Ver seguimiento de solicitud #${esc(x.id)}"><i data-lucide="eye"></i><span>Ver</span></button></td>
       </tr>`);
 
     const filtersPanel = `
@@ -3818,8 +3971,8 @@
       </div>`;
 
     const empty = "No hay solicitudes que coincidan con los filtros seleccionados.";
-    const tableHtml = table(["No. solicitud","Fecha y hora","Cliente / Sede","Descripción","Tipo de servicio","Clase","Urgencia","Estado","Seguimiento","Acciones"], rows, empty);
-    const warrantyPanel=warrantyRequests.length?`<section class="request-warranty-panel"><div class="request-warranty-head"><div><span class="solicitudes-eyebrow">GARANTÍAS</span><h3>Solicitudes de garantía pendientes</h3><p>Estas revisiones también requieren coordinación operativa y asignación de personal.</p></div><button class="btn" type="button" data-action="dashboard-ver-garantias">Ver módulo de garantías <i data-lucide="arrow-right"></i></button></div><div class="request-warranty-list">${warrantyRequests.slice(0,5).map(x=>`<article><span class="request-warranty-icon"><i data-lucide="shield-alert"></i></span><div><strong>${esc(x.numero_orden)} · ${esc(x.cliente)}</strong><span>${esc(x.sede||'Sede')} · ${esc(x.tipo_servicio||'Servicio')}</span><small>${esc(x.descripcion||'')}</small></div>${badge(x.estado)}<button class="btn small primary" type="button" data-action="estado-solicitud-garantia" data-id="${esc(x.solicitud_garantia_id)}">Gestionar</button></article>`).join('')}</div>${warrantyRequests.length>5?`<div class="request-warranty-more">+ ${warrantyRequests.length-5} solicitud(es) adicionales en el módulo de Garantías.</div>`:''}</section>`:'';
+    const tableHtml = table(["Solicitud","Cliente / sede","Descripción","Servicio","Urgencia","Seguimiento","Acción"], rows, empty);
+    const warrantyPanel=warrantyRequests.length?`<section class="request-warranty-panel"><div class="request-warranty-head"><div><span class="solicitudes-eyebrow">Garantías</span><h3>Solicitudes de garantía pendientes</h3><p>Estas revisiones también requieren coordinación operativa y asignación de personal.</p></div><button class="btn" type="button" data-action="dashboard-ver-garantias">Ver módulo de garantías <i data-lucide="arrow-right"></i></button></div><div class="request-warranty-list">${warrantyRequests.slice(0,5).map(x=>`<article><span class="request-warranty-icon"><i data-lucide="shield-alert"></i></span><div><strong>${esc(x.numero_orden)} · ${esc(x.cliente)}</strong><span>${esc(x.sede||'Sede')} · ${esc(x.tipo_servicio||'Servicio')}</span><small>${esc(x.descripcion||'')}</small></div>${badge(x.estado)}<button class="btn small primary" type="button" data-action="estado-solicitud-garantia" data-id="${esc(x.solicitud_garantia_id)}">Gestionar</button></article>`).join('')}</div>${warrantyRequests.length>5?`<div class="request-warranty-more">+ ${warrantyRequests.length-5} solicitud(es) adicionales en el módulo de Garantías.</div>`:''}</section>`:'';
 
     content.innerHTML = `
       <section class="solicitudes-workspace">
@@ -4031,8 +4184,15 @@
         filters:{estado:x=>String(x.estado||"").toUpperCase(),prioridad:x=>String(x.Prioridad||x.prioridad||"").toUpperCase(),servicio:x=>String(x.tipo||"")},
         sort:{cola:x=>techQueueRank(x),programada:x=>smartDateValue(x.programada||x.creada),numero:x=>x.numero||"",cliente:x=>x.cliente||"",estado:x=>x.estado||"",prioridad:x=>x.Prioridad||x.prioridad||""}
       });
-      const rows=result.items.map(x => {const q=queuePositions.get(String(x.id));const qlabel=state.role==="TECNICO"&&q?`<div class="muted" style="margin-top:.25rem;font-size:.72rem;font-weight:800">${esc(q.label)}${String(x.clasificacion||"").toUpperCase()==="EMERGENCIA"?" · EMERGENCIA":""}</div>`:"";return `<tr><td class="mono">${esc(x.numero)}</td><td>${esc(x.cliente)}</td><td>${esc(x.sede)}</td><td>${esc(x.tipo)}</td><td>${badge(x.suspendida?"SUSPENDIDA · EN REVISIÓN":x.estado)}${qlabel}</td><td>${badge(x.Prioridad||x.prioridad)}</td><td>${fmt(x.programada)}</td><td>${button("Ver","ver-orden",x.id,"primary")}</td></tr>`;});
-      content.innerHTML = `<div class="toolbar"><div class="toolbar-left"><h2>${state.role==="TECNICO"?"Mis órdenes":"Mis servicios"}</h2><p class="muted">Filtra por estado, prioridad o servicio sin recargar la página.</p></div>${state.role==="CLIENTE"&&moduleAllowed("cancelaciones")?`<div class="orders-page-actions"><button class="btn orders-cancellations-button" type="button" data-context-module="cancelaciones"><i data-lucide="circle-x"></i><span>Solicitudes de cancelación</span></button></div>`:""}</div><section class="panel smart-list-panel"><div class="panel-body">${smartControls("ordenes",{placeholder:"Orden, cliente, sede o servicio",filters:[{name:"estado",label:"Estado",options:states},{name:"prioridad",label:"Prioridad",options:priorities},{name:"servicio",label:"Servicio",options:services}],sorts:[...(state.role==="TECNICO"?[["cola","Cola operativa"]]:[]),["programada","Fecha / programación"],["numero","Número de OT"],["cliente","Cliente"],["estado","Estado"],["prioridad","Prioridad"]]})}${smartResultsMeta(result,"órdenes")}</div>${table(["Orden","Cliente","Sede","Servicio","Estado","Prioridad","Atención aproximada","Acción"],rows,"No hay órdenes que coincidan con los filtros.")}${smartPager("ordenes",result)}</section>`;
+      const rows=result.items.map(x => {const q=queuePositions.get(String(x.id));const qlabel=state.role==="TECNICO"&&q?`<div class="muted" style="margin-top:.25rem;font-size:.72rem;font-weight:800">${esc(q.label)}${String(x.clasificacion||"").toUpperCase()==="EMERGENCIA"?" · EMERGENCIA":""}</div>`:"";return `<tr>
+        <td class="mono">${esc(x.numero)}</td>
+        <td><div class="se-cell-stack"><strong>${esc(x.cliente || "Sin cliente")}</strong><span class="se-cell-muted">${esc(x.sede || "Sin sede")}</span></div></td>
+        <td>${esc(x.tipo)}</td>
+        <td><div class="se-cell-stack">${badge(x.suspendida?"SUSPENDIDA · EN REVISIÓN":x.estado)}${badge(x.Prioridad||x.prioridad)}${qlabel}</div></td>
+        <td>${fmt(x.programada)}</td>
+        <td class="se-table-actions">${button("Ver","ver-orden",x.id,"primary")}</td>
+      </tr>`;});
+      content.innerHTML = `<div class="toolbar"><div class="toolbar-left"><h2>${state.role==="TECNICO"?"Mis órdenes":"Mis servicios"}</h2><p class="muted">Filtra por estado, prioridad o servicio sin recargar la página.</p></div>${state.role==="CLIENTE"&&moduleAllowed("cancelaciones")?`<div class="orders-page-actions"><button class="btn orders-cancellations-button" type="button" data-context-module="cancelaciones"><i data-lucide="circle-x"></i><span>Solicitudes de cancelación</span></button></div>`:""}</div><section class="panel smart-list-panel"><div class="panel-body">${smartControls("ordenes",{placeholder:"Orden, cliente, sede o servicio",filters:[{name:"estado",label:"Estado",options:states},{name:"prioridad",label:"Prioridad",options:priorities},{name:"servicio",label:"Servicio",options:services}],sorts:[...(state.role==="TECNICO"?[["cola","Cola operativa"]]:[]),["programada","Fecha / programación"],["numero","Número de OT"],["cliente","Cliente"],["estado","Estado"],["prioridad","Prioridad"]]})}${smartResultsMeta(result,"órdenes")}</div>${table(["Orden","Cliente / sede","Servicio","Estado y prioridad","Atención aproximada","Acción"],rows,"No hay órdenes que coincidan con los filtros.")}${smartPager("ordenes",result)}</section>`;
       window.lucide?.createIcons();
       return;
     }
@@ -4115,7 +4275,7 @@
     const rows = result.items.map(item => {
       const detail = details.get(String(item.id));
       const clientName = String(item.cliente || "Sin cliente").trim() || "Sin cliente";
-      const clientIdentity = renderAvatarIdentity(clientName, { entity:item, className:"order-client-identity" });
+      const clientIdentity = entityAvatarLink(clientName, { entity:item, className:"order-client-identity" }, "ver-orden", item.id);
       const extraCells = optionalHeaders.map(([,key]) => {
         if (key === "supervisor") return `<td>${orderSupervisorCell(detail)}</td>`;
         if (key === "programada") return `<td>${orderDateMarkup(item.programada)}</td>`;
@@ -4123,21 +4283,18 @@
         return `<td>—</td>`;
       }).join("");
       return `<tr>
-        <td class="order-number-cell mono">${esc(item.numero || `OT-${item.id}`)}</td>
-        <td>${orderDateMarkup(orderDateForList(item))}</td>
-        <td class="order-client-cell">${clientIdentity}</td>
-        <td class="order-site-cell">${esc(item.sede || "Sin sede")}</td>
+        <td class="order-number-cell"><div class="se-cell-stack"><strong class="mono">${esc(item.numero || `OT-${item.id}`)}</strong>${orderDateMarkup(orderDateForList(item))}</div></td>
+        <td class="order-client-cell"><div class="se-cell-stack">${clientIdentity}${entityDetailButton(item.sede || "Sin sede","ver-orden",item.id,"se-entity-secondary")}</div></td>
         <td class="order-service-cell"><span>${esc(item.tipo || "Sin servicio")}</span></td>
         <td>${orderCrewCell(detail)}</td>
-        <td>${item.suspendida?badge("SUSPENDIDA · EN REVISIÓN"):orderStatePill(item.estado)}</td>
-        <td>${orderPriorityPill(item.Prioridad || item.prioridad)}</td>
+        <td><div class="se-cell-stack">${item.suspendida?badge("SUSPENDIDA · EN REVISIÓN"):orderStatePill(item.estado)}${orderPriorityPill(item.Prioridad || item.prioridad)}</div></td>
         ${extraCells}
-        <td class="order-action-cell"><button class="order-view-button" type="button" data-action="ver-orden" data-id="${esc(item.id)}"><i data-lucide="eye"></i><span>Ver detalle</span></button></td>
+        <td class="order-action-cell se-table-actions"><button class="order-view-button" type="button" data-action="ver-orden" data-id="${esc(item.id)}"><i data-lucide="eye"></i><span>Ver</span></button></td>
       </tr>`;
     }).join("");
 
-    const tableHeaders = ["Orden","Fecha","Cliente","Sede","Servicio","Técnico asignado","Estado","Prioridad",...optionalHeaders.map(([label])=>label),"Acción"];
-    const tableMarkup = result.total ? `<div class="order-table-scroll"><table class="order-table ${prefs.densidad === "COMPACTA" ? "is-compact" : "is-comfortable"}"><thead><tr>${tableHeaders.map((label,index)=>`<th class="${index===0?"order-sticky-first":""}">${esc(label)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="order-empty-state"><span class="order-empty-icon"><i data-lucide="clipboard-list"></i></span><h3>No encontramos órdenes con estos filtros.</h3><p>Prueba cambiando Estado, Técnico, Prioridad o Fecha.</p><button class="order-clear-button" type="button" data-action="smart-reset" data-list-key="ordenes"><i data-lucide="rotate-ccw"></i><span>Limpiar filtros</span></button></div>`;
+    const tableHeaders = ["Orden","Cliente / sede","Servicio","Técnico asignado","Estado y prioridad",...optionalHeaders.map(([label])=>label),"Acción"];
+    const tableMarkup = result.total ? `<div class="order-table-scroll se-table-responsive-scope"><table class="order-table order-compact-table ${optionalHeaders.length ? "has-extra-columns" : ""} ${prefs.densidad === "COMPACTA" ? "is-compact" : "is-comfortable"}"><thead><tr>${tableHeaders.map((label,index)=>`<th class="${index===0?"order-sticky-first":""}">${esc(label)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="order-empty-state"><span class="order-empty-icon"><i data-lucide="clipboard-list"></i></span><h3>No encontramos órdenes con estos filtros.</h3><p>Prueba cambiando Estado, Técnico, Prioridad o Fecha.</p><button class="order-clear-button" type="button" data-action="smart-reset" data-list-key="ordenes"><i data-lucide="rotate-ccw"></i><span>Limpiar filtros</span></button></div>`;
 
     const customDateMarkup = String(prefs.filtros.fecha||"").toUpperCase()==="PERSONALIZADO" ? `<div class="order-custom-date-row"><label><span>Desde</span><input type="date" data-order-date-from value="${esc(prefs.fechaDesde||"")}"></label><label><span>Hasta</span><input type="date" data-order-date-to value="${esc(prefs.fechaHasta||"")}"></label></div>` : "";
     const technicianOptions = [["TODOS","Todos"],["SIN_ASIGNAR","Sin asignar"],...technicianNames.map(name=>[name,name])];
@@ -4666,10 +4823,9 @@
         {label:active?"Desactivar":"Reactivar",icon:active?"user-round-x":"user-round-check",action:"toggle-cliente",id:x.id,danger:active,attrs:`data-active="${active?0:1}" data-name="${esc(x.nombre||"")}"`}
       ]);
       return `<tr>
-        <td><div class="people-primary-cell"><strong>${esc(x.nombre||"Cliente")}</strong><span>${esc(x.codigo||"Sin código")}${x.nit?` · NIT ${esc(x.nit)}`:""}</span></div></td>
-        <td><div class="people-number-cell"><strong>${normalizeNumber(x.sedes)}</strong><span>${normalizeNumber(x.sedes)===1?"sede":"sedes"}</span></div></td>
-        <td><span class="people-date-cell">${x.creado_en?fmt(x.creado_en):"—"}</span></td>
-        <td><div class="people-contact-cell">${contact.length?`<strong>${esc(x.contacto_principal_nombre||"Contacto")}</strong>${x.contacto_principal_correo?`<span>${esc(x.contacto_principal_correo)}</span>`:""}${x.contacto_principal_telefono?`<span>${esc(x.contacto_principal_telefono)}</span>`:""}`:`<span class="people-muted">Sin contacto principal</span>`}</div></td>
+        <td><div class="people-primary-cell">${entityDetailButton(x.nombre||"Cliente","ver-cliente",x.id)}<span>${esc(x.codigo||"Sin código")}${x.nit?` · NIT ${esc(x.nit)}`:""}</span></div></td>
+        <td><button class="people-number-cell se-entity-link-block" type="button" data-action="ver-sedes" data-id="${esc(x.id)}" aria-label="Ver sedes de ${esc(x.nombre||"cliente")}"><strong>${normalizeNumber(x.sedes)}</strong><span>${normalizeNumber(x.sedes)===1?"sede":"sedes"}</span></button></td>
+        <td><div class="people-contact-cell">${contact.length?`${entityDetailButton(x.contacto_principal_nombre||"Contacto","ver-cliente",x.id)}${x.contacto_principal_correo?`<span class="people-contact-detail" title="${esc(x.contacto_principal_correo)}">${esc(x.contacto_principal_correo)}</span>`:""}${x.contacto_principal_telefono?`<span class="people-contact-detail">${esc(x.contacto_principal_telefono)}</span>`:""}`:`<span class="people-muted">Sin contacto principal</span>`}</div></td>
         <td>${peopleStatusBadge(active?"ACTIVO":"INACTIVO")}</td>
         <td><div class="people-row-actions"><button class="people-outline-action" type="button" data-action="ver-cliente" data-id="${esc(x.id)}"><i data-lucide="eye"></i><span>Ver perfil</span></button>${menu}</div></td>
       </tr>`;
@@ -4708,7 +4864,7 @@
       <section class="people-metrics">${peopleMetric("Clientes activos",activeCount,"Con servicio habilitado")}${peopleMetric("Sedes registradas",siteCount,"Ubicaciones vinculadas")}${peopleMetric("Clientes inactivos",inactiveCount,"Historial conservado")}</section>
       <section class="people-context"><div><h2>Clientes y sedes</h2><p>Consulta empresas, contactos y ubicaciones registradas.</p></div></section>
       ${filters}
-      ${peopleTableShell("Clientes",result,["Cliente","Sedes","Fecha de registro","Contacto principal","Estado","Acciones"],rows,smartPager("clientes",result),"clientes")}
+      ${peopleTableShell("Clientes",result,["Cliente","Sedes","Contacto principal","Estado","Acciones"],rows,smartPager("clientes",result),"clientes")}
     </div>`;
     window.lucide?.createIcons();
   }
@@ -4804,7 +4960,7 @@
         const stats=result.resumen||{};
         const invalid=(result.items||[]).filter(x=>x.estado!=="NUEVA");
         const shown=(invalid.length?invalid:(result.items||[])).slice(0,25);
-        const rows=shown.map(x=>`<tr><td>${esc(x.fila)}</td><td>${esc(x.codigo||"—")}</td><td>${esc(x.nombre||"—")}</td><td>${esc(x.estado)}</td><td>${esc((x.errores||[]).join("; ")||"—")}</td></tr>`);
+        const rows=shown.map(x=>`<tr><td>${esc(x.fila)}</td><td>${esc(x.codigo||"—")}</td><td>${esc(x.nombre||"—")}</td><td>${esc(displayEnumText(x.estado))}</td><td>${esc((x.errores||[]).join("; ")||"—")}</td></tr>`);
         view.innerHTML=`<div class="notice-card"><strong>Resultado de la revisión: ${esc(stats.total||0)} filas</strong><p>Nuevas: ${esc(stats.nuevas||0)} · Duplicadas: ${esc(stats.duplicadas||0)} · Errores: ${esc(stats.errores||0)}</p></div>${rows.length?`<div style="max-height:250px;overflow:auto;margin-top:8px">${table(["Fila","Código","Sucursal","Resultado","Observaciones"],rows,"")}</div>`:""}<p class="muted">${invalid.length?"Se muestran primero las incidencias.":"Se muestran hasta 25 registros."} Solo se agregarán las filas nuevas.</p>`;
         confirmedFile=file;
         confirmButton.style.display="";
@@ -4935,10 +5091,10 @@
         {label:"Detalle",icon:"user-round",action:"detalle-personal",id:x.id},{label:"Historial de trabajos",icon:"history",action:"historial-personal",id:x.id},{label:"Guardar disponibilidad",icon:"save",action:"guardar-disponibilidad",id:x.id}
       ]);
       return `<tr>
-        <td>${renderAvatarIdentity(x.nombre||"Empleado",{entity:x,subtitle:x.codigo||"Empleado",className:"people-employee-identity"})}</td>
-        <td><div class="people-primary-cell"><strong>${esc(x.puesto||"Sin cargo registrado")}</strong></div></td>
-        <td><div class="people-contact-cell">${x.telefono?`<strong>${esc(x.telefono)}</strong>`:""}${x.correo?`<span>${esc(x.correo)}</span>`:""}${!x.telefono&&!x.correo?`<span class="people-muted">Sin contacto registrado</span>`:""}</div></td>
-        <td><select class="people-availability availability" data-id="${esc(x.id)}" aria-label="Disponibilidad de ${esc(x.nombre||"empleado")}">${["DISPONIBLE","ASIGNADO","VACACIONES","INACTIVO"].map(v=>`<option ${String(x.disponibilidad||"").toUpperCase()===v?"selected":""}>${v.replaceAll("_"," ")}</option>`).join("")}</select></td>
+        <td>${entityAvatarLink(x.nombre||"Empleado",{entity:x,subtitle:x.codigo||"Empleado",className:"people-employee-identity"},"detalle-personal",x.id)}</td>
+        <td><div class="people-primary-cell"><strong>${esc(formatDisplayLabel(x.puesto||"Sin cargo registrado"))}</strong></div></td>
+        <td><div class="people-contact-cell">${x.telefono?`<strong>${esc(x.telefono)}</strong>`:""}${x.correo?`<span class="people-contact-detail" title="${esc(x.correo)}">${esc(x.correo)}</span>`:""}${!x.telefono&&!x.correo?`<span class="people-muted">Sin contacto registrado</span>`:""}</div></td>
+        <td><select class="people-availability availability" data-id="${esc(x.id)}" aria-label="Disponibilidad de ${esc(x.nombre||"empleado")}">${["DISPONIBLE","ASIGNADO","VACACIONES","INACTIVO"].map(v=>`<option value="${v}" ${String(x.disponibilidad||"").toUpperCase()===v?"selected":""}>${esc(formatDisplayLabel(v))}</option>`).join("")}</select></td>
         <td>${peopleStatusBadge(x.estado||"INACTIVO")}</td>
         <td><div class="people-row-actions">${menu}</div></td>
       </tr>`;
@@ -5051,9 +5207,9 @@
         {label:x.activo?"Desactivar acceso":"Activar acceso",icon:x.activo?"user-round-x":"user-round-check",action:"cambiar-estado-usuario",id:x.id,danger:!!x.activo,attrs:`data-active="${x.activo?"0":"1"}" data-name="${esc(x.usuario||"")}"`}
       ]);
       return `<tr>
-        <td>${renderAvatarIdentity(x.nombre||x.usuario||"Usuario",{entity:x,subtitle:x.usuario?`@${x.usuario}`:"Usuario del sistema",className:"people-user-identity"})}</td>
-        <td><span class="people-role-badge">${esc(x.rol||"—")}</span></td>
-        <td><div class="people-contact-cell"><strong>${esc(x.correo||"Sin correo registrado")}</strong></div></td>
+        <td>${entityAvatarLink(x.nombre||x.usuario||"Usuario",{entity:x,subtitle:x.usuario?`@${x.usuario}`:"Usuario del sistema",className:"people-user-identity"},"ver-usuario",x.id)}</td>
+        <td><span class="people-role-badge">${esc(formatDisplayLabel(x.rol||"—"))}</span></td>
+        <td><div class="people-contact-cell"><span class="people-contact-detail" title="${esc(x.correo||"Sin correo registrado")}">${esc(x.correo||"Sin correo registrado")}</span></div></td>
         <td><div class="people-date-cell">${x.ultimo_acceso?fmt(x.ultimo_acceso):`<span class="people-muted">Sin acceso reciente</span>`}</div></td>
         <td>${userStatusView(x)}</td>
         <td><div class="people-row-actions"><button class="people-outline-action" type="button" data-action="ver-usuario" data-id="${esc(x.id)}"><i data-lucide="eye"></i><span>Ver detalle</span></button>${menu}</div></td>
@@ -5078,7 +5234,7 @@
       <section class="people-metrics">${peopleMetric("Usuarios activos",s.activos,"Acceso habilitado")}${peopleMetric("Bloqueados",s.bloqueados,"Requieren revisión")}${peopleMetric("Acceso reciente",s.acceso_30_dias,"Últimos 30 días")}</section>
       <section class="people-context"><div><h2>Usuarios del sistema</h2><p>Gestiona credenciales, roles y acceso al portal.</p></div></section>
       ${portalNote}${filters}${alert}
-      <section class="people-table-section"><div class="people-table-toolbar"><div><h3>Usuarios</h3><span>${normalizeNumber(d.pagination?.total)} resultados</span></div></div>${rows.length?`<div class="people-table-scroll"><table class="people-table"><thead><tr><th>Usuario</th><th>Rol</th><th>Correo electrónico</th><th>Último acceso</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`:`<div class="people-empty"><i data-lucide="users-round"></i><h3>No encontramos usuarios con estos filtros.</h3><p>Prueba cambiando Estado, Rol o el rango de fechas.</p><button class="btn small" type="button" data-action="usuarios-limpiar"><i data-lucide="rotate-ccw"></i><span>Limpiar filtros</span></button></div>`}${userPagination(d.pagination||{})}</section>
+      <section class="people-table-section"><div class="people-table-toolbar"><div><h3>Usuarios</h3><span>${normalizeNumber(d.pagination?.total)} resultados</span></div></div>${rows.length?`<div class="people-table-scroll se-table-responsive-scope"><table class="people-table se-wide-table"><thead><tr><th>Usuario</th><th>Rol</th><th>Correo electrónico</th><th>Último acceso</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`:`<div class="people-empty"><i data-lucide="users-round"></i><h3>No encontramos usuarios con estos filtros.</h3><p>Prueba cambiando Estado, Rol o el rango de fechas.</p><button class="btn small" type="button" data-action="usuarios-limpiar"><i data-lucide="rotate-ccw"></i><span>Limpiar filtros</span></button></div>`}${userPagination(d.pagination||{})}</section>
     </div>`;
     window.lucide?.createIcons();
     const form=$("#userReportFilters");
@@ -5248,9 +5404,15 @@
       const current=String(x.Estado||x.estado||"DISPONIBLE").toUpperCase();
       const detail=`<button class="equipment-action-button equipment-detail-action" type="button" data-action="detalle-equipo" data-id="${esc(x.id)}"><i data-lucide="eye"></i><span>Ver detalle</span></button>`;
       const manage=canManageEquipment?`<button class="equipment-action-button equipment-save-action" type="button" data-action="editar-equipo" data-id="${esc(x.id)}"><i data-lucide="pencil"></i><span>Editar</span></button>`:"";
-      return `<tr><td class="mono">${esc(x.codigo||x.CodigoEquipo||"—")}</td><td><div class="equipment-name-cell"><strong>${esc(x.Nombre||x.nombre||"—")}</strong>${x.Modelo||x.modelo?`<small class="table-subline">${esc(x.Modelo||x.modelo)}</small>`:""}</div></td><td>${esc(x.Categoria||x.categoria||"—")}</td><td>${esc(x.Marca||x.marca||"—")}</td><td>${badge(current)}</td><td>${esc(x.ubicacion||"Por definir")}</td><td>${normalizeNumber(x.fallas_abiertas)}</td><td><div class="equipment-row-actions">${detail}${manage}</div></td></tr>`;
+      return `<tr>
+        <td><div class="se-cell-stack"><strong>${esc(x.Nombre||x.nombre||"—")}</strong><span class="mono se-cell-muted">${esc(x.codigo||x.CodigoEquipo||"—")}</span>${x.Modelo||x.modelo?`<small class="se-cell-muted">${esc(x.Modelo||x.modelo)}</small>`:""}</div></td>
+        <td><div class="se-cell-stack"><strong>${esc(x.Categoria||x.categoria||"—")}</strong><span class="se-cell-muted">${esc(x.Marca||x.marca||"—")}</span></div></td>
+        <td><div class="se-cell-stack">${managementBadge(current)}<span class="se-cell-muted">${normalizeNumber(x.fallas_abiertas)} ${normalizeNumber(x.fallas_abiertas)===1?"falla abierta":"fallas abiertas"}</span></div></td>
+        <td>${esc(x.ubicacion||"Por definir")}</td>
+        <td class="se-table-actions"><div class="equipment-row-actions">${detail}${manage}</div></td>
+      </tr>`;
     });
-    const equipmentHeaders=["Código","Equipo","Categoría","Marca","Estado","Resguardo habitual","Fallas","Acciones"];
+    const equipmentHeaders=["Equipo / código","Categoría / marca","Estado / fallas","Resguardo habitual","Acciones"];
     content.innerHTML=`${equipmentMaintenanceTabs("equipos")}${summary}<section class="panel smart-list-panel equipment-panel coord-data-surface"><div class="panel-header equipment-heading"><div><span class="coord-section-kicker">INVENTARIO</span><h2>Equipo</h2><p class="muted">Estado operativo y resguardo habitual por separado. Los equipos permanecen en su bodega o vehículo registrado hasta que cambies su ficha.</p></div>${canManageEquipment?`<button class="btn primary" type="button" data-action="nuevo-equipo"><i data-lucide="circle-plus"></i> Registrar equipo</button>`:""}</div><div class="panel-body">${smartControls("equipos",{placeholder:"Código, equipo, vehículo, bodega, marca o serie",filters:[{name:"estado",label:"Estado",options:states},{name:"categoria",label:"Categoría",options:categories},{name:"resguardo",label:"Resguardo",options:[["BODEGA","Bodega"],["VEHICULO","Vehículo"],["SIN_DEFINIR","Por definir"]]}],sorts:[["nombre","Equipo"],["codigo","Código"],["estado","Estado"],["ubicacion","Resguardo"],["fallas","Fallas abiertas"]]})}${smartResultsMeta(result,"equipos")}</div>${table(equipmentHeaders,rows,"No hay equipos que coincidan con los filtros.")}${smartPager("equipos",result)}</section>`;
     window.lucide?.createIcons();
   }
@@ -5272,8 +5434,14 @@
       {label:"Finalizados",value:listCount("mantenimientos","finalizados",0),icon:"circle-check-big",tone:"green"},
       {label:"Pendientes / vencidos",value:listCount("mantenimientos","pendientes",0),icon:"triangle-alert",tone:"red"}
     ],"maintenance-summary");
-    const rows=result.items.map(x=>`<tr><td class="mono">#${x.id}</td><td><strong>${esc(x.equipo||"Equipo")}</strong><small class="table-subline">${esc(x.codigo_equipo||"—")}</small></td><td>${badge(x.tipo)}</td><td>${badge(x.Estado||x.estado)}</td><td>${fmt(x.programada)}</td><td>${esc(x.Diagnostico||x.diagnostico||"—")}</td><td>${esc(x.Resultado||x.resultado||"—")}</td><td>${button("Abrir","detalle-mantenimiento",x.id)}</td></tr>`);
-    content.innerHTML=`${equipmentMaintenanceTabs("mantenimientos")}${summary}<section class="panel smart-list-panel maintenance-panel coord-data-surface"><div class="panel-header"><div><span class="coord-section-kicker">MANTENIMIENTO</span><h2>Mantenimiento</h2><p class="muted">Programa y da seguimiento al mantenimiento preventivo y correctivo.</p></div>${state.role==="COORDINADOR"?`<button class="btn primary" type="button" data-action="nuevo-mantenimiento"><i data-lucide="calendar-plus"></i> Programar mantenimiento</button>`:""}</div><div class="panel-body">${smartControls("mantenimientos",{placeholder:"Registro, equipo, diagnóstico o trabajo requerido",filters:[{name:"tipo",label:"Tipo",options:types},{name:"estado",label:"Estado",options:states}],sorts:[["programada","Fecha programada"],["equipo","Equipo"],["tipo","Tipo"],["estado","Estado"]]})}${smartResultsMeta(result,"mantenimientos")}</div>${table(["Registro","Equipo","Tipo","Estado","Fecha programada","Diagnóstico","Resultado","Acción"],rows,"No hay mantenimientos que coincidan con los filtros.")}${smartPager("mantenimientos",result)}</section>`;
+    const rows=result.items.map(x=>`<tr>
+      <td><div class="se-cell-stack"><strong class="mono">#${esc(x.id)}</strong><span class="se-cell-muted">${fmt(x.programada)}</span></div></td>
+      <td><div class="se-cell-stack"><strong>${esc(x.equipo||"Equipo")}</strong><span class="mono se-cell-muted">${esc(x.codigo_equipo||"—")}</span></div></td>
+      <td><div class="se-cell-stack"><span class="se-cell-muted">${esc(displayEnumText(x.tipo||"—"))}</span>${managementBadge(x.Estado||x.estado)}</div></td>
+      <td><div class="se-cell-stack"><span class="se-cell-caption">Diagnóstico</span><span class="se-description" title="${esc(x.Diagnostico||x.diagnostico||"—")}">${esc(x.Diagnostico||x.diagnostico||"—")}</span><span class="se-cell-caption">Resultado</span><span class="se-description" title="${esc(x.Resultado||x.resultado||"—")}">${esc(x.Resultado||x.resultado||"—")}</span></div></td>
+      <td class="se-table-actions">${button("Ver detalle","detalle-mantenimiento",x.id)}</td>
+    </tr>`);
+    content.innerHTML=`${equipmentMaintenanceTabs("mantenimientos")}${summary}<section class="panel smart-list-panel maintenance-panel coord-data-surface"><div class="panel-header"><div><span class="coord-section-kicker">Mantenimiento</span><h2>Mantenimiento</h2><p class="muted">Programa y da seguimiento al mantenimiento preventivo y correctivo.</p></div>${state.role==="COORDINADOR"?`<button class="btn primary" type="button" data-action="nuevo-mantenimiento"><i data-lucide="calendar-plus"></i> Programar mantenimiento</button>`:""}</div><div class="panel-body">${smartControls("mantenimientos",{placeholder:"Registro, equipo, diagnóstico o trabajo requerido",filters:[{name:"tipo",label:"Tipo",options:types},{name:"estado",label:"Estado",options:states}],sorts:[["programada","Fecha programada"],["equipo","Equipo"],["tipo","Tipo"],["estado","Estado"]]})}${smartResultsMeta(result,"mantenimientos")}</div>${table(["Registro / fecha","Equipo","Tipo / estado","Diagnóstico / resultado","Acción"],rows,"No hay mantenimientos que coincidan con los filtros.")}${smartPager("mantenimientos",result)}</section>`;
     window.lucide?.createIcons();
   }
 
@@ -5290,8 +5458,14 @@
       filters:{estado:x=>String(x.Estado||x.estado||"").toUpperCase()},
       sort:{solicitada:x=>smartDateValue(x.solicitada),inicio:x=>smartDateValue(x.inicio),empleado:x=>x.empleado||"",estado:x=>x.Estado||x.estado||""}
     });
-    const rows=result.items.map(x=>`<tr><td>${esc(x.empleado)}</td><td>${fmt(x.solicitada)}</td><td>${fmt(x.inicio)}</td><td>${fmt(x.fin)}</td><td>${esc(x.dias)}</td><td>${badge(x.Estado||x.estado)}</td><td>${esc(x.Motivo||x.motivo||"—")}</td><td>${button("Abrir","detalle-vacacion",x.id)}</td></tr>`);
-    content.innerHTML=`<section class="panel smart-list-panel"><div class="panel-header"><div><h2>${state.role==="TECNICO"?"Mis solicitudes de vacaciones":"Solicitudes de vacaciones"}</h2><p class="muted">Busca por empleado o motivo y filtra por estado.</p></div>${button("Solicitar vacaciones","nueva-vacacion")}</div><div class="panel-body">${smartControls("vacaciones",{placeholder:"Empleado, motivo u observaciones",filters:[{name:"estado",label:"Estado",options:states}],sorts:[["solicitada","Fecha de solicitud"],["inicio","Inicio"],["empleado","Empleado"],["estado","Estado"]]})}${smartResultsMeta(result,"solicitudes")}</div>${table(["Empleado","Solicitada","Inicio","Fin","Días","Estado","Motivo","Acción"],rows,"No hay vacaciones que coincidan con los filtros.")}${smartPager("vacaciones",result)}</section>`;
+    const rows=result.items.map(x=>`<tr>
+      <td><div class="se-cell-stack"><strong>${esc(x.empleado||"Empleado")}</strong><span class="se-cell-muted">Solicitada: ${fmt(x.solicitada)}</span></div></td>
+      <td>${vacationPeriod(x.inicio,x.fin,x.dias)}</td>
+      <td>${badge(x.Estado||x.estado)}</td>
+      <td><div class="se-description" title="${esc(x.Motivo||x.motivo||"—")}">${esc(x.Motivo||x.motivo||"—")}</div></td>
+      <td class="se-table-actions">${button("Abrir","detalle-vacacion",x.id)}</td>
+    </tr>`);
+    content.innerHTML=`<section class="panel smart-list-panel"><div class="panel-header"><div><h2>${state.role==="TECNICO"?"Mis solicitudes de vacaciones":"Solicitudes de vacaciones"}</h2><p class="muted">Busca por empleado o motivo y filtra por estado.</p></div>${button("Solicitar vacaciones","nueva-vacacion")}</div><div class="panel-body">${smartControls("vacaciones",{placeholder:"Empleado, motivo u observaciones",filters:[{name:"estado",label:"Estado",options:states.map(value=>[value,formatDisplayLabel(value)])}],sorts:[["solicitada","Fecha de solicitud"],["inicio","Inicio"],["empleado","Empleado"],["estado","Estado"]]})}${smartResultsMeta(result,"solicitudes")}</div>${table(["Empleado / solicitud","Período","Estado","Motivo","Acción"],rows,"No hay vacaciones que coincidan con los filtros.")}${smartPager("vacaciones",result)}</section>`;
     window.lucide?.createIcons();
   }
 
@@ -5317,16 +5491,13 @@
     if (!host) return;
     const result = catalogFilteredItems();
     const rows = result.items.map(x => `<tr>
-      <td class="mono">${esc(x.codigo)}</td>
-      <td><strong>${esc(x.nombre)}</strong>${x.descripcion ? `<small class="table-subline">${esc(x.descripcion)}</small>` : ""}</td>
+      <td><div class="se-cell-stack"><strong>${esc(x.nombre)}</strong><span class="mono se-cell-muted">${esc(x.codigo)}</span>${x.descripcion ? `<small class="se-description" title="${esc(x.descripcion)}">${esc(x.descripcion)}</small>` : ""}</div></td>
       <td>${esc(x.categoria || "General")}</td>
-      <td class="catalog-price-cell">${catalogPriceView(x.precio)}</td>
-      <td>${esc(x.unidad || "servicio")}</td>
-      <td>${badge(x.activo ? "ACTIVO" : "INACTIVO")}</td>
-      <td><span class="catalog-origin ${x.origen === "SISTEMA" ? "db" : "custom"}">${x.origen === "SISTEMA" ? "Servicio base" : "Personalizado"}</span></td>
-      <td><div class="actions">${button("Editar", "editar-catalogo", x.id)}${button(x.activo ? "Desactivar" : "Activar", "toggle-catalogo", x.id, x.activo ? "danger" : "")}</div></td>
+      <td class="catalog-price-cell"><div class="se-cell-stack">${catalogPriceView(x.precio)}<span class="se-cell-muted">Por ${esc(x.unidad || "servicio")}</span></div></td>
+      <td><div class="se-cell-stack">${badge(x.activo ? "ACTIVO" : "INACTIVO")}<span class="catalog-origin ${x.origen === "SISTEMA" ? "db" : "custom"}">${x.origen === "SISTEMA" ? "Servicio base" : "Personalizado"}</span></div></td>
+      <td class="se-table-actions"><div class="actions">${button("Editar", "editar-catalogo", x.id)}${button(x.activo ? "Desactivar" : "Activar", "toggle-catalogo", x.id, x.activo ? "danger" : "")}</div></td>
     </tr>`);
-    host.innerHTML = `${table(["Código","Trabajo / servicio","Categoría","Precio base","Unidad","Estado","Origen","Acciones"], rows, "No hay trabajos que coincidan con los filtros.")}${smartPager("catalogo",result)}`;
+    host.innerHTML = `${table(["Trabajo / código","Categoría","Precio / unidad","Estado / origen","Acciones"], rows, "No hay trabajos que coincidan con los filtros.")}${smartPager("catalogo",result)}`;
     const count = $("#catalogVisibleCount"); if (count) count.textContent = String(result.total);
     window.lucide?.createIcons();
   }
@@ -5830,13 +6001,18 @@
     if(state.role==="CLIENTE"){
       const rows=result.items.map(x=>{
         const own=String(x.origen||"").toUpperCase()==="CLIENTE";
-        return `<tr><td><div class="document-name-cell"><strong>${esc(x.numero||`Documento #${x.id}`)}</strong><small>${esc(x.descripcion||x.formato||x.categoria||"Documento")}</small></div></td><td><span class="document-origin-badge ${own?"client":"seprigua"}"><i data-lucide="${own?"user-round":"building-2"}"></i>${own?"Enviado por ti":"Compartido por SEPRIGUA"}</span></td><td>${esc(x.orden||"—")}</td><td>${badge(x.Estado||x.estado)}</td><td>${fmt(x.generado||x.entregado)}</td><td><div class="actions compact">${documentDownloadLink(x)}${documentServiceActions(x)}</div></td></tr>`;
+        return `<tr><td><div class="document-name-cell"><strong>${esc(x.numero||`Documento #${x.id}`)}</strong><small>${esc(x.descripcion||x.formato||x.categoria||"Documento")}</small></div></td><td><span class="document-origin-badge ${own?"client":"seprigua"}"><i data-lucide="${own?"user-round":"building-2"}"></i>${own?"Enviado por ti":"Compartido por SEPRIGUA"}</span></td><td>${esc(x.orden||"—")}</td><td>${managementBadge(x.Estado||x.estado)}</td><td>${fmt(x.generado||x.entregado)}</td><td><div class="actions compact">${documentDownloadLink(x)}${documentServiceActions(x)}</div></td></tr>`;
       });
       return `<section class="panel smart-list-panel client-documents-panel"><div class="panel-header"><div><h2>Archivos disponibles</h2><p class="muted">Aquí solo aparecen tus archivos y los documentos de SEPRIGUA habilitados para tu empresa.</p></div></div><div class="panel-body">${smartControls("documentos",{placeholder:"Documento, servicio o formato",filters:[{name:"origen",label:"Origen",options:origins},{name:"estado",label:"Estado",options:states}],sorts:[["generado","Fecha"],["documento","Documento"],["formato","Formato"],["estado","Estado"]]})}${smartResultsMeta(result,"documentos")}</div>${table(["Documento","Origen","Servicio","Estado","Fecha","Acciones"],rows,"No hay documentos que coincidan con los filtros.")}${smartPager("documentos",result)}</section>`;
     }
 
-    const rows=result.items.map(x=>`<tr><td><div class="document-name-cell"><strong>${esc(x.numero||`#${x.id}`)}</strong><small>${esc(x.descripcion||x.formato||"Documento")}</small></div></td><td><span class="document-origin-badge ${String(x.origen||"").toUpperCase()==="CLIENTE"?"client":"seprigua"}">${esc(String(x.origen||"SEPRIGUA").replaceAll("_"," "))}</span></td><td>${esc(x.orden)}</td><td>${esc(x.cliente)}</td><td>${badge(x.Estado||x.estado)}</td><td>${fmt(x.generado)}</td><td><div class="actions compact">${documentDownloadLink(x)}${documentServiceActions(x)}</div></td></tr>`);
-    return `<section class="panel smart-list-panel"><div class="panel-header"><div><h2>Documentos del servicio</h2><p class="muted">Documentos emitidos por SEPRIGUA y archivos enviados por clientes.</p></div></div><div class="panel-body">${smartControls("documentos",{placeholder:"Documento, formato, OT o cliente",filters:[{name:"origen",label:"Origen",options:origins},{name:"estado",label:"Estado",options:states},{name:"categoria",label:"Categoría",options:categories}],sorts:[["generado","Fecha"],["documento","Documento"],["cliente","Cliente"],["formato","Formato"],["estado","Estado"]]})}${smartResultsMeta(result,"documentos")}</div>${table(["Documento","Origen","Orden","Cliente","Estado","Generado","Acciones"],rows,"No hay documentos que coincidan con los filtros.")}${smartPager("documentos",result)}</section>`;
+    const rows=result.items.map(x=>`<tr>
+      <td><div class="se-cell-stack"><div class="document-name-cell"><strong>${esc(x.numero||`#${x.id}`)}</strong><small>${esc(x.descripcion||x.formato||"Documento")}</small></div><span class="document-origin-badge ${String(x.origen||"").toUpperCase()==="CLIENTE"?"client":"seprigua"}">${esc(String(x.origen||"SEPRIGUA").replaceAll("_"," "))}</span></div></td>
+      <td><div class="se-cell-stack"><strong class="mono">${esc(x.orden)}</strong><span class="se-cell-muted">${esc(x.cliente)}</span></div></td>
+      <td><div class="se-cell-stack">${managementBadge(x.Estado||x.estado)}<span class="se-cell-muted">${fmt(x.generado)}</span></div></td>
+      <td class="se-table-actions"><div class="actions compact">${documentDownloadLink(x)}${documentServiceActions(x)}</div></td>
+    </tr>`);
+    return `<section class="panel smart-list-panel"><div class="panel-header"><div><h2>Documentos del servicio</h2><p class="muted">Documentos emitidos por SEPRIGUA y archivos enviados por clientes.</p></div></div><div class="panel-body">${smartControls("documentos",{placeholder:"Documento, formato, OT o cliente",filters:[{name:"origen",label:"Origen",options:origins},{name:"estado",label:"Estado",options:states},{name:"categoria",label:"Categoría",options:categories}],sorts:[["generado","Fecha"],["documento","Documento"],["cliente","Cliente"],["formato","Formato"],["estado","Estado"]]})}${smartResultsMeta(result,"documentos")}</div>${table(["Documento / origen","Orden / cliente","Estado / fecha","Acciones"],rows,"No hay documentos que coincidan con los filtros.",true)}${smartPager("documentos",result)}</section>`;
   }
 
 
@@ -6109,15 +6285,29 @@
     content.innerHTML=`
       <section class="account-hero-card"><div class="account-avatar${p.foto_url?" has-profile-photo":""}">${p.foto_url?`<img class="account-profile-photo" src="${esc(p.foto_url)}" alt="Fotografía de perfil">`:`<i data-lucide="user-round"></i>`}</div><div class="account-hero-copy"><span>${esc(({COORDINADOR:"Coordinador",TECNICO:"Técnico",CLIENTE:"Cliente"})[state.role] || state.role.replaceAll("_"," "))}</span><h2>${esc(p.nombre||state.user.nombre||state.user.usuario)}</h2><p>${esc(p.usuario||state.user.usuario)}${p.cliente?` · ${esc(p.cliente)}`:""}</p></div><div class="account-status"><span></span> Cuenta activa</div></section>
       <div class="account-grid">
-        <section class="panel account-panel photo-profile-panel"><div class="panel-header"><div><h2>Fotografía de perfil</h2><p class="muted">La imagen se guarda en la base de datos y se comparte en tus avatares.</p></div></div><div class="panel-body profile-photo-controls"><div class="profile-photo-preview-frame"><img class="account-profile-photo profile-photo-preview" src="${esc(p.foto_url||"")}" alt="Vista previa de tu fotografía" ${p.foto_url?"":"hidden"}><div class="profile-photo-placeholder" ${p.foto_url?"hidden":""}><i data-lucide="camera"></i><strong>Mi perfil</strong></div></div><div class="profile-photo-form"><label for="profilePhotoInput">Selecciona una imagen JPG, PNG o WEBP</label><input id="profilePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" ${p.foto_cambio_bloqueado?"disabled":""}><small class="profile-photo-help">Recorta y ajusta tu imagen antes de guardarla. Primera carga libre; después, un cambio cada 30 días. Máximo 5 MB.</small>${p.foto_cambio_bloqueado?`<small class="profile-photo-cooldown">Podrás cambiarla nuevamente el ${esc(new Date(p.foto_cambio_disponible_en).toLocaleDateString("es-GT"))}.</small>`:""}<button class="btn primary small" type="button" data-action="subir-foto-perfil" ${p.foto_cambio_bloqueado?"disabled":""}>Guardar fotografía</button></div></div></section>
+        <section class="panel account-panel photo-profile-panel"><div class="panel-header"><div><h2>Fotografía de perfil</h2><p class="muted">La imagen se guarda en la base de datos y se comparte en tus avatares.</p></div></div><div class="panel-body profile-photo-controls"><div class="profile-photo-preview-frame"><img class="account-profile-photo profile-photo-preview" src="${esc(p.foto_url||"")}" alt="Vista previa de tu fotografía" ${p.foto_url?"":"hidden"}><div class="profile-photo-placeholder" ${p.foto_url?"hidden":""}><i data-lucide="camera"></i><strong>Mi perfil</strong></div></div><div class="profile-photo-form"><label for="profilePhotoInput">Selecciona una imagen JPG, PNG o WEBP</label><input id="profilePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" ${p.foto_cambio_bloqueado?"disabled":""}><small class="profile-photo-help">Recorta y ajusta tu imagen antes de guardarla. Primera carga libre; después, un cambio cada minuto. Máximo 5 MB.</small>${p.foto_cambio_bloqueado?`<small class="profile-photo-cooldown">Podrás cambiarla nuevamente a las ${esc(new Date(p.foto_cambio_disponible_en).toLocaleTimeString("es-GT",{hour:"numeric",minute:"2-digit",second:"2-digit"}))}.</small>`:""}<button class="btn primary small" type="button" data-action="subir-foto-perfil" ${p.foto_cambio_bloqueado?"disabled":""}>Guardar fotografía</button></div></div></section>
         <section class="panel account-panel"><div class="panel-header account-profile-header"><div><h2>Información del perfil</h2><p class="muted">Tus datos personales y de contacto.</p></div><button class="btn small account-edit-button" type="button" data-action="editar-mi-perfil"><i data-lucide="pencil"></i><span>Editar mi información</span></button></div><div class="panel-body"><div class="account-data-grid">${accountValue("Nombre",p.nombre,"user-round")}${accountValue("Usuario",p.usuario,"at-sign")}${accountValue("Rol",state.role.replaceAll("_"," "),"shield-check")}${accountValue("Último acceso",fmt(p.ultimo_acceso),"clock-3")}${roleDetails}</div></div></section>
         <section class="panel account-panel"><div class="panel-header account-profile-header"><div><h2>Acceso al portal</h2><p class="muted">Tu correo de acceso se puede actualizar aquí.</p></div><button class="btn small account-edit-button" type="button" data-action="editar-correo-acceso"><i data-lucide="pencil"></i><span>Editar correo</span></button></div><div class="panel-body"><div class="account-data-grid">${accountValue("Correo de acceso",p.correo_acceso,"mail")}${accountValue("Usuario",p.usuario,"at-sign")}</div><div class="private-account-note"><i data-lucide="shield-check"></i><span>Solo el correo de acceso es editable en esta sección. El nombre de usuario, rol, permisos y estado de la cuenta continúan bajo administración de Coordinación.</span></div></div></section>
         <section class="panel account-panel password-panel"><div class="panel-header"><div><h2>Seguridad y contraseña</h2><p class="muted">Para cambiarla debes confirmar primero tu contraseña actual.</p></div></div><div class="panel-body"><form id="passwordForm" class="account-form"><div class="field"><label>Contraseña actual</label><div class="password-control"><input type="password" name="actual" autocomplete="current-password" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div></div><div class="field"><label>Nueva contraseña</label><div class="password-control"><input type="password" name="nueva" autocomplete="new-password" minlength="8" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div><small>Mínimo 8 caracteres, con mayúscula, minúscula y número.</small></div><div class="field"><label>Confirmar nueva contraseña</label><div class="password-control"><input type="password" name="confirmacion" autocomplete="new-password" minlength="8" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div></div><div class="form-actions"><button class="btn primary" type="submit">Cambiar contraseña</button></div></form></div></section>
         <section class="panel account-panel"><div class="panel-header"><div><h2>Recuperación personal</h2><p class="muted">${recoveryData.configured?"Tu código de seguridad está configurado.":"Configura un código para restablecer tu contraseña sin ayuda del Coordinador."}</p></div></div><div class="panel-body"><form id="recoverySetupForm" class="account-form"><div class="field"><label>Confirma tu contraseña actual</label><div class="password-control"><input type="password" name="password" autocomplete="current-password" required></div></div><div class="form-actions"><button class="btn primary" type="submit">${recoveryData.configured?"Reemplazar código":"Generar código de seguridad"}</button></div></form><div id="recoveryCodeResult" hidden role="status" aria-live="polite" class="private-account-note" style="margin-top:16px;overflow-wrap:anywhere;flex-direction:column;align-items:flex-start"><strong>Guarda este código en un lugar privado. Solo se muestra ahora y se usa una vez.</strong><p id="recoveryCodeValue" style="font-family:monospace;font-size:1.2rem;letter-spacing:.08em;margin:4px 0"></p><button type="button" class="btn small" id="copyRecoveryCode">Copiar código</button></div></div></section>
         ${pushStatusMarkup(pushDevices.items||[], pushConfig||{})}
+        <section class="panel account-panel cursor-preference-panel"><div class="panel-header"><div><h2>Preferencias</h2><p class="muted">Ajustes visuales en este navegador.</p></div></div><div class="panel-body"><label class="se-cursor-preference" for="personalCursorToggle"><span><strong>Cursor personalizado</strong><small>Cursores SEPRIGUA al usar mouse. En pantallas táctiles se conserva el control normal.</small></span><input id="personalCursorToggle" type="checkbox" role="switch" ${window.SEPRIGUACursors?.isEnabled()!==false?"checked":""}></label></div></section>
         <section class="panel account-panel sessions-panel"><div class="panel-header"><div><h2>Sesiones activas</h2><p class="muted">Revisa desde dónde está abierta tu cuenta.</p></div><button class="btn small danger" type="button" data-action="cerrar-otras-sesiones" ${(sessionsData.items||[]).filter(x=>!x.actual).length?"":"disabled"}>Cerrar otras sesiones</button></div><div class="panel-body"><div class="session-list">${sessions}</div></div></section>
       </div>`;
     window.lucide?.createIcons();
+    if(p.foto_cambio_bloqueado && p.foto_cambio_disponible_en){
+      const espera=Math.max(0,new Date(p.foto_cambio_disponible_en).getTime()-Date.now()+750);
+      setTimeout(()=>{
+        if(state.current!=="cuenta")return;
+        const foto=$("#profilePhotoInput"),guardar=$('[data-action="subir-foto-perfil"]');
+        if(foto)foto.disabled=false;
+        if(guardar)guardar.disabled=false;
+        const aviso=$(".profile-photo-cooldown");
+        if(aviso)aviso.textContent="Ya puedes cambiar tu fotografía.";
+        if(state.account)state.account.foto_cambio_bloqueado=false;
+      },Math.min(espera,2147483647));
+    }
+    $("#personalCursorToggle")?.addEventListener("change", event => window.SEPRIGUACursors?.setEnabled(event.currentTarget.checked));
 
     const photoInput = $("#profilePhotoInput");
     let pendingPhotoFile = null;
@@ -6150,7 +6340,7 @@
         if (me?.user) state.user = me.user;
         syncPrototypeChrome();
         invalidateViewCache("cuenta");
-        showToast("Fotografía guardada. Podrás cambiarla nuevamente en 30 días.");
+        showToast("Fotografía guardada. Podrás cambiarla nuevamente en un minuto.");
         const preview = $(".profile-photo-preview");
         if (preview?.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
         await renderCuenta();
@@ -6382,8 +6572,14 @@
     if(coord){
       const reqKey="garantiaSolicitudes";const reqStates=smartUnique(state.warrantyRequests,x=>String(x.estado||"").toUpperCase());
       const reqResult=smartListData(reqKey,state.warrantyRequests,{defaults:{orden:"fecha",direccion:"DESC"},search:x=>[x.numero_orden,x.cliente,x.sede,x.tipo_servicio,x.estado,x.descripcion],filters:{estado:x=>String(x.estado||"").toUpperCase()},sort:{fecha:x=>smartDateValue(x.creado_en),orden:x=>x.numero_orden||"",cliente:x=>x.cliente||"",estado:x=>x.estado||""}});
-      const requestRows=reqResult.items.map(x=>`<tr><td>${esc(x.numero_orden)}</td><td>${esc(x.cliente)}</td><td>${esc(x.sede||'—')}</td><td>${esc(x.tipo_servicio)}</td><td>${badge(x.estado)}</td><td>${fmt(x.creado_en)}</td><td><button class="btn small" data-action="estado-solicitud-garantia" data-id="${esc(x.solicitud_garantia_id)}">Gestionar</button></td></tr>`);
-      requests=`<section class="panel warranty-requests-panel smart-list-panel"><div class="panel-header"><div><h2>Solicitudes de revisión</h2><p class="muted">Reclamos vinculados a una garantía y a su OT original.</p></div></div><div class="panel-body">${smartControls(reqKey,{placeholder:"OT, cliente, sede o servicio",filters:[{name:"estado",label:"Estado",options:reqStates}],sorts:[["fecha","Fecha"],["orden","OT"],["cliente","Cliente"],["estado","Estado"]]})}${smartResultsMeta(reqResult,"solicitudes")}</div>${table(['OT','Cliente','Sede','Servicio','Estado','Solicitada','Acción'],requestRows,'No hay solicitudes de revisión que coincidan con los filtros.')}${smartPager(reqKey,reqResult)}</section>`;
+      const requestRows=reqResult.items.map(x=>`<tr>
+        <td><div class="se-cell-stack"><strong class="mono">${esc(x.numero_orden)}</strong><span class="se-cell-muted">${fmt(x.creado_en)}</span></div></td>
+        <td><div class="se-cell-stack"><strong>${esc(x.cliente)}</strong><span class="se-cell-muted">${esc(x.sede||'—')}</span></div></td>
+        <td>${esc(x.tipo_servicio)}</td>
+        <td>${managementBadge(x.estado)}</td>
+        <td class="se-table-actions"><button class="btn small" data-action="estado-solicitud-garantia" data-id="${esc(x.solicitud_garantia_id)}">Gestionar</button></td>
+      </tr>`);
+      requests=`<section class="panel warranty-requests-panel smart-list-panel"><div class="panel-header"><div><h2>Solicitudes de revisión</h2><p class="muted">Reclamos vinculados a una garantía y a su OT original.</p></div></div><div class="panel-body">${smartControls(reqKey,{placeholder:"OT, cliente, sede o servicio",filters:[{name:"estado",label:"Estado",options:reqStates}],sorts:[["fecha","Fecha"],["orden","OT"],["cliente","Cliente"],["estado","Estado"]]})}${smartResultsMeta(reqResult,"solicitudes")}</div>${table(['OT / solicitada','Cliente / sede','Servicio','Estado','Acción'],requestRows,'No hay solicitudes de revisión que coincidan con los filtros.')}${smartPager(reqKey,reqResult)}</section>`;
     }
     content.innerHTML=`<div class="warranty-workspace ${coord?"warranty-workspace-coord":"warranty-workspace-client"}">${stats}<section class="panel warranty-explainer"><div class="panel-body"><div class="warranty-explainer-icon"><i data-lucide="refresh-ccw"></i></div><div><h2>La garantía continúa desde la OT original</h2><p>${coord?'No se crea un registro desde cero. Selecciona una OT COMPLETADA, define su plazo y el sistema calcula el vencimiento usando la fecha real de finalización.':'Cada tarjeta corresponde a un trabajo ya finalizado. Si la garantía está activa, el contador muestra exactamente cuánto tiempo queda para solicitar revisión de ese mismo trabajo.'}</p></div><button class="btn small" data-action="refrescar-garantias"><i data-lucide="refresh-cw"></i> Actualizar</button></div></section><section class="panel smart-list-panel warranty-filter-panel"><div class="panel-body">${smartControls("garantia",{placeholder:"OT, cliente, sede o servicio",filters:[{name:"estado",label:"Estado garantía",options:warrantyStates}],sorts:[["finalizada","Fecha finalización"],["orden","OT"],["cliente","Cliente"],["estado","Estado"]]})}${smartResultsMeta(warrantyResult,"garantías")}</div></section><div class="warranty-grid">${cards}</div>${smartPager("garantia",warrantyResult)}${requests}</div>`;
     window.lucide?.createIcons();startWarrantyCountdowns();
@@ -6688,6 +6884,7 @@
       }
       if(a==="alternar-leidas"){state.hideReadNotifications=!state.hideReadNotifications;return renderNotificaciones();}
       if(a==="refrescar-notificaciones"){resetNotificationViews();return renderNotificaciones();}
+      if(a==="ver-todas-notificaciones"){closeTopPopovers();return navigate("notificaciones");}
       if(a==="refrescar-preview-notificaciones"){resetNotificationViews();return refreshNotificationBadge(true);}
       if(a==="alternar-sonido-notificaciones"){
         notificationSoundEnabled=!notificationSoundEnabled;
@@ -6697,7 +6894,6 @@
         if(notificationSoundEnabled){unlockNotificationAudio();playNotificationSound();}
         return;
       }
-      if(a==="ver-todas-notificaciones"){closeTopPopovers();return navigate("notificaciones");}
       if(a==="abrir-notificacion") return openNotificationTarget(b.dataset.entity,b.dataset.entityId,id);
       if(a==="abrir-cuenta"){closeTopPopovers();return navigate("cuenta");}
       if(a==="editar-mi-perfil") return openOwnProfileEditor();

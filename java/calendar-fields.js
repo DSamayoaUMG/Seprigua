@@ -77,7 +77,8 @@
       ? picker.classList.contains("is-compact") ? shortDayFormatter.format(selected) : contextFormatter.format(selected)
       : "Selecciona un día";
     const start = new Date(viewYear, viewMonth, 1 - ((month.getDay() + 6) % 7));
-    const today = dateKey(new Date());
+    const todayDate = new Date();
+    const today = dateKey(todayDate);
     const grid = picker.querySelector(".se-date-days");
     grid.replaceChildren();
     for (let index = 0; index < 42; index++) {
@@ -90,6 +91,7 @@
       button.className = "se-date-day";
       if (date.getMonth() !== viewMonth) button.classList.add("is-outside");
       if (key === today) button.classList.add("is-today");
+      if (key === today) button.setAttribute("aria-current", "date");
       if (selected && key === dateKey(selected)) button.classList.add("is-selected");
       button.disabled = !allowed(date);
       button.setAttribute("aria-label", dayFormatter.format(date));
@@ -99,26 +101,67 @@
     const hasTime = active.type === "datetime-local";
     picker.querySelector(".se-date-time").hidden = !hasTime;
     picker.querySelector("[data-cal-clear]").hidden = active.required;
+    const todayButton = picker.querySelector("[data-cal-today]");
+    todayButton.hidden = !allowed(todayDate) || (
+      viewYear === todayDate.getFullYear() &&
+      viewMonth === todayDate.getMonth() &&
+      (!selected || dateKey(selected) === today)
+    );
+    picker.querySelector(".se-date-picker-foot").hidden = todayButton.hidden && active.required;
     if (hasTime) {
       picker.querySelector("[data-cal-hour]").value = pad(selectedTime.hour);
       picker.querySelector("[data-cal-minute]").value = pad(selectedTime.minute);
     }
   }
 
+  function sizePicker() {
+    if (!active || !picker) return;
+    const fieldWidth = active.getBoundingClientRect().width;
+    const viewportWidth = document.documentElement.clientWidth;
+    const modal = active.closest(".modal-seprigua");
+    const availableWidth = Math.min(viewportWidth - 16, modal ? modal.getBoundingClientRect().width - 16 : 340);
+    const pickerWidth = Math.min(availableWidth, Math.max(280, Math.min(340, Math.round(fieldWidth * 1.25))));
+    picker.style.setProperty("--se-date-picker-width", `${pickerWidth}px`);
+    picker.classList.toggle("is-compact", pickerWidth < 280);
+  }
+
   function position() {
     if (!active || !picker || picker.hidden) return;
+    sizePicker();
     const rect = active.getBoundingClientRect();
+    const modal = active.closest(".modal-seprigua");
+    const modalBody = active.closest(".modal-seprigua__body");
+    const modalRect = modal?.getBoundingClientRect();
+    const bodyRect = modalBody?.getBoundingClientRect();
+    if (bodyRect && (rect.bottom <= bodyRect.top || rect.top >= bodyRect.bottom)) return close();
+    picker.style.removeProperty("max-height");
     const width = picker.getBoundingClientRect().width;
-    const height = picker.getBoundingClientRect().height;
+    const fullHeight = picker.getBoundingClientRect().height;
     const viewportWidth = document.documentElement.clientWidth;
     const viewportHeight = document.documentElement.clientHeight;
-    const left = Math.max(8, Math.min(rect.left + (rect.width - width) / 2, viewportWidth - width - 8));
-    const below = viewportHeight - rect.bottom;
-    const top = below >= Math.min(height + 8, 320) || below >= rect.top
-      ? Math.min(rect.bottom + 7, viewportHeight - height - 8)
-      : Math.max(8, rect.top - height - 7);
+    const leftEdge = modalRect ? Math.max(8, modalRect.left + 8) : 8;
+    const rightEdge = modalRect ? Math.min(viewportWidth - 8, modalRect.right - 8) : viewportWidth - 8;
+    const left = Math.max(leftEdge, Math.min(rect.left, rightEdge - width));
+    const topEdge = bodyRect ? Math.max(8, bodyRect.top + 6) : 8;
+    let bottomEdge = bodyRect ? Math.min(viewportHeight - 8, bodyRect.bottom - 6) : viewportHeight - 8;
+    const footer = modalBody?.querySelector(".modal-seprigua__footer");
+    const footerRect = footer?.getBoundingClientRect();
+    if (footerRect && footerRect.top > topEdge && footerRect.top < bottomEdge) {
+      bottomEdge = footerRect.top - 6;
+    }
+    const gap = 7;
+    const below = Math.max(0, bottomEdge - rect.bottom - gap);
+    const above = Math.max(0, rect.top - topEdge - gap);
+    // Si ninguna dirección admite el calendario completo, se mantiene junto al
+    // campo y se limita su altura; nunca se invade la cabecera del modal.
+    const openAbove = below < fullHeight && (above >= fullHeight || (below < 160 && above > below));
+    const available = openAbove ? above : below;
+    picker.style.maxHeight = `${Math.floor(available)}px`;
+    const height = picker.getBoundingClientRect().height;
+    const preferredTop = openAbove ? rect.top - height - gap : rect.bottom + gap;
+    const top = Math.max(topEdge, Math.min(preferredTop, bottomEdge - height));
     picker.style.left = `${left}px`;
-    picker.style.top = `${Math.max(8, top)}px`;
+    picker.style.top = `${top}px`;
   }
 
   function close() {
@@ -139,10 +182,7 @@
     viewYear = start.getFullYear();
     viewMonth = start.getMonth();
     ensurePicker();
-    const fieldWidth = input.getBoundingClientRect().width;
-    const pickerWidth = Math.max(216, Math.min(288, Math.round(fieldWidth * .85)));
-    picker.style.setProperty("--se-date-picker-width", `${pickerWidth}px`);
-    picker.classList.toggle("is-compact", pickerWidth < 250);
+    sizePicker();
     input.setAttribute("aria-haspopup", "dialog");
     input.setAttribute("aria-controls", picker.id);
     input.setAttribute("aria-expanded", "true");
@@ -170,6 +210,7 @@
     viewYear = date.getFullYear();
     viewMonth = date.getMonth();
     render();
+    position();
   }
 
   document.addEventListener("click", event => {
@@ -188,6 +229,7 @@
       viewYear = next.getFullYear();
       viewMonth = next.getMonth();
       render();
+      position();
       return;
     }
     const day = event.target.closest("[data-cal-day]");
@@ -197,7 +239,7 @@
       if (allowed(today)) applyDate(today);
       else {
         const limit = parseDate(active.min || active.max);
-        if (limit) { viewYear = limit.getFullYear(); viewMonth = limit.getMonth(); render(); }
+        if (limit) { viewYear = limit.getFullYear(); viewMonth = limit.getMonth(); render(); position(); }
       }
       return;
     }

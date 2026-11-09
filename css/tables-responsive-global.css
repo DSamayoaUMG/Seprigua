@@ -1,0 +1,240 @@
+/* Distribución compartida para tablas extensas; conserva todos los datos y controles. */
+.app-content .se-table-responsive-scope {
+  container-type: inline-size;
+  max-width: 100%;
+}
+.app-content .se-table-responsive-scope table {
+  width: 100%;
+}
+.app-content .se-table-responsive-scope table.data-table.se-wide-table {
+  table-layout: fixed;
+}
+.app-content .se-table-responsive-scope td,
+.app-content .se-table-responsive-scope th {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
+}
+.app-content .se-cell-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+  line-height: 1.4;
+}
+.app-content .se-cell-stack > strong {
+  color: var(--se-text-strong, #0b2e59);
+  font-weight: 700;
+}
+.app-content .se-cell-muted {
+  color: var(--se-muted, #526d82);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.app-content .se-cell-caption {
+  color: var(--se-muted, #526d82);
+  font-size: 11px;
+  font-weight: 700;
+}
+.app-content .se-description,
+.app-content .request-description-cell.se-description {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: normal;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.45;
+}
+.app-content .se-table-actions {
+  text-align: right;
+  white-space: normal;
+}
+.app-content .se-table-actions :is(.request-follow-button, .order-view-button, .btn) {
+  max-width: 100%;
+  justify-content: center;
+  white-space: normal;
+}
+
+/* Solicitudes: siete grupos estables en lugar de diez columnas independientes. */
+body.solicitudes-mode .solicitudes-table-panel .data-table {
+  table-layout: fixed;
+}
+body.solicitudes-mode .solicitudes-table-panel .data-table :is(th, td) {
+  padding-inline: 10px;
+  font-size: 13px;
+}
+body.solicitudes-mode .solicitudes-table-panel .data-table :is(th, td):nth-child(1) { width: 12%; }
+body.solicitudes-mode .solicitudes-table-panel .data-table :is(th, td):nth-child(2) { width: 17%; }
+body.solicitudes-mode .solicitudes-table-panel .data-table :is(th, td):nth-child(3) { width: 18%; }
+body.solicitudes-mode .solicitudes-table-panel .data-table :is(th, td):nth-child(4) { width: 16%; }
+body.solicitudes-mode .solicitudes-table-panel .data-table :is(th, td):nth-child(5) { width: 10%; }
+body.solicitudes-mode .solicitudes-table-panel .data-table :is(th, td):nth-child(6) { width: 18%; }
+body.solicitudes-mode .solicitudes-table-panel .data-table :is(th, td):nth-child(7) { width: 9%; }
+body.solicitudes-mode .request-identity-cell .request-date-cell,
+body.ordenes-list-mode .order-number-cell .order-date-cell {
+  gap: 1px;
+}
+body.solicitudes-mode .request-identity-cell .request-date-cell strong,
+body.ordenes-list-mode .order-number-cell .order-date-cell strong {
+  color: var(--se-muted, #526d82);
+  font-weight: 500;
+}
+body.solicitudes-mode .request-followup {
+  min-width: 0;
+}
+body.solicitudes-mode .request-followup strong {
+  overflow-wrap: anywhere;
+}
+body.solicitudes-mode .request-service-cell .request-class-pill {
+  max-width: 100%;
+}
+
+/* Órdenes: número/fecha, cliente/sede y estado/prioridad comparten celda. */
+body.ordenes-list-mode .order-compact-table {
+  table-layout: fixed;
+}
+body.ordenes-list-mode .order-compact-table:not(.has-extra-columns) :is(th, td):nth-child(1) { width: 17%; }
+body.ordenes-list-mode .order-compact-table:not(.has-extra-columns) :is(th, td):nth-child(2) { width: 19%; }
+body.ordenes-list-mode .order-compact-table:not(.has-extra-columns) :is(th, td):nth-child(3) { width: 17%; }
+body.ordenes-list-mode .order-compact-table:not(.has-extra-columns) :is(th, td):nth-child(4) { width: 24%; }
+body.ordenes-list-mode .order-compact-table:not(.has-extra-columns) :is(th, td):nth-child(5) { width: 15%; }
+body.ordenes-list-mode .order-compact-table:not(.has-extra-columns) :is(th, td):nth-child(6) { width: 8%; }
+body.ordenes-list-mode .order-compact-table :is(th, td) {
+  padding-inline: 10px;
+}
+body.ordenes-list-mode .order-compact-table.has-extra-columns {
+  table-layout: auto;
+  min-width: 1100px;
+}
+body.ordenes-list-mode .order-compact-table.has-extra-columns :is(th:first-child, td:first-child) {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--se-surface, #fff);
+}
+body.ordenes-list-mode .order-compact-table.has-extra-columns :is(th:last-child, td:last-child) {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: var(--se-surface, #fff);
+  box-shadow: -2px 0 4px rgba(8, 47, 91, .05);
+}
+body.ordenes-list-mode .order-compact-table.has-extra-columns :is(th:first-child, th:last-child) {
+  z-index: 3;
+  background: var(--se-table-head, #edf4fb);
+}
+
+/* Laptop y tablet: filas estructuradas, con la acción siempre visible. */
+@container (max-width: 1050px) {
+  .se-table-responsive-scope table.se-wide-table,
+  .se-table-responsive-scope table.order-compact-table {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    background: transparent !important;
+  }
+  .se-table-responsive-scope table.se-wide-table thead,
+  .se-table-responsive-scope table.order-compact-table thead { display: none !important; }
+  .se-table-responsive-scope table.se-wide-table tbody,
+  .se-table-responsive-scope table.order-compact-table tbody {
+    display: grid !important;
+    gap: 12px !important;
+    padding: 12px !important;
+  }
+  .se-table-responsive-scope table.se-wide-table tr,
+  .se-table-responsive-scope table.order-compact-table tr {
+    display: grid !important;
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+    gap: 13px 16px !important;
+    padding: 16px !important;
+    border: 1px solid var(--se-border, #d8e6f2) !important;
+    border-radius: 12px !important;
+    background: var(--se-surface, #fff) !important;
+  }
+  .se-table-responsive-scope table.se-wide-table td,
+  .se-table-responsive-scope table.order-compact-table td {
+    position: static !important;
+    display: block !important;
+    width: auto !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    font-size: 13px !important;
+  }
+  .se-table-responsive-scope table.se-wide-table td::before,
+  .se-table-responsive-scope table.order-compact-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 5px;
+    color: var(--se-muted, #526d82);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+  }
+  .se-table-responsive-scope table.se-wide-table td { grid-column: span 4; }
+  .se-table-responsive-scope table.se-wide-table td:last-child,
+  .se-table-responsive-scope table.order-compact-table td:last-child { grid-column: 1 / -1; }
+  .se-table-responsive-scope table.order-compact-table td { grid-column: span 3; }
+  .se-table-responsive-scope table.order-compact-table td:first-child,
+  .se-table-responsive-scope table.order-compact-table td:nth-child(2) { grid-column: span 3; }
+  .se-table-responsive-scope table.order-compact-table td:nth-child(4) { grid-column: span 4; }
+  .se-table-responsive-scope table.order-compact-table td:nth-child(5) { grid-column: span 3; }
+  .se-table-responsive-scope table.order-compact-table td:last-child { text-align: left; }
+  .se-table-responsive-scope table.se-wide-table td:last-child :is(button, .btn),
+  .se-table-responsive-scope table.order-compact-table td:last-child :is(button, .btn) {
+    width: auto;
+    min-width: 90px;
+    min-height: 38px;
+  }
+  .se-table-responsive-scope { overflow-x: visible !important; }
+}
+
+@container (max-width: 780px) {
+  .se-table-responsive-scope table.se-wide-table tr,
+  .se-table-responsive-scope table.order-compact-table tr {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .se-table-responsive-scope table.se-wide-table td,
+  .se-table-responsive-scope table.order-compact-table td {
+    grid-column: auto !important;
+  }
+  .se-table-responsive-scope table.se-wide-table td:nth-child(3),
+  .se-table-responsive-scope table.order-compact-table td:nth-child(3),
+  .se-table-responsive-scope table.se-wide-table td:last-child,
+  .se-table-responsive-scope table.order-compact-table td:last-child {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@container (max-width: 490px) {
+  .se-table-responsive-scope table.se-wide-table tr,
+  .se-table-responsive-scope table.order-compact-table tr {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .se-table-responsive-scope table.se-wide-table td,
+  .se-table-responsive-scope table.order-compact-table td { grid-column: 1 !important; }
+  .se-table-responsive-scope table.se-wide-table td:last-child :is(button, .btn),
+  .se-table-responsive-scope table.order-compact-table td:last-child :is(button, .btn) {
+    width: 100%;
+  }
+}
+
+/* El patrón de fichas existente también sirve a tablas de menos columnas en móvil. */
+@media (max-width: 820px) {
+  .app-content :is(.table-wrap, .people-table-scroll, .order-table-scroll, .quote-table-scroll) {
+    overflow-x: visible !important;
+  }
+  .app-content table.se-responsive-table:not(.se-wide-table):not(.order-compact-table) tr {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .app-content table.se-responsive-table:not(.se-wide-table):not(.order-compact-table) td {
+    grid-column: 1 !important;
+  }
+}

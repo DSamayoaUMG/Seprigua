@@ -1,0 +1,209 @@
+/* Ajustes limitados a los cuatro módulos de Gestión. */
+body.seprigua-hoja-v4[data-module="clientes"] .app-content .people-table thead th:nth-child(1) { width: 29%; }
+body.seprigua-hoja-v4[data-module="clientes"] .app-content .people-table thead th:nth-child(2) { width: 11%; }
+body.seprigua-hoja-v4[data-module="clientes"] .app-content .people-table thead th:nth-child(3) { width: 30%; }
+body.seprigua-hoja-v4[data-module="clientes"] .app-content .people-table thead th:nth-child(4) { width: 12%; }
+body.seprigua-hoja-v4[data-module="clientes"] .app-content .people-table thead th:nth-child(5) { width: 18%; }
+body[data-module="clientes"] .people-table :is(.people-primary-cell, .people-contact-cell) { overflow-wrap: anywhere; }
+body[data-module="clientes"] .people-table .people-row-actions { display: flex; align-items: center; gap: 8px; }
+body[data-module="clientes"] .people-table .people-outline-action { white-space: nowrap; }
+
+body:is([data-module="clientes"],[data-module="personal"],[data-module="usuarios"],[data-module="equipos"],[data-module="mantenimientos"],[data-module="documentos"],[data-module="garantia"]) .app-content :is(.people-table,.data-table) tbody tr:nth-child(odd) td { background: var(--se-surface, #fff); }
+body:is([data-module="clientes"],[data-module="personal"],[data-module="usuarios"],[data-module="equipos"],[data-module="mantenimientos"],[data-module="documentos"],[data-module="garantia"]) .app-content :is(.people-table,.data-table) tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--se-brand-3, #1e78c5) 5%, var(--se-surface, #fff)); }
+
+body:is([data-module="equipos"],[data-module="mantenimientos"],[data-module="documentos"],[data-module="garantia"]) .app-content .management-status { display: inline-flex; align-items: center; width: max-content; max-width: 100%; border: 1px solid transparent; font-size: 12px; font-weight: 650; text-transform: none; }
+body:is([data-module="equipos"],[data-module="mantenimientos"],[data-module="documentos"],[data-module="garantia"]) .app-content .management-status.green { background: color-mix(in srgb, var(--se-green) 12%, var(--se-surface)); border-color: color-mix(in srgb, var(--se-green) 22%, var(--se-surface)); color: #0b7040; }
+body:is([data-module="equipos"],[data-module="mantenimientos"],[data-module="documentos"],[data-module="garantia"]) .app-content .management-status.orange { background: color-mix(in srgb, var(--se-amber) 13%, var(--se-surface)); border-color: color-mix(in srgb, var(--se-amber) 26%, var(--se-surface)); color: #895706; }
+body:is([data-module="equipos"],[data-module="mantenimientos"],[data-module="documentos"],[data-module="garantia"]) .app-content .management-status.red { background: color-mix(in srgb, var(--se-danger) 11%, var(--se-surface)); border-color: color-mix(in srgb, var(--se-danger) 23%, var(--se-surface)); color: #b72c39; }
+body:is([data-module="equipos"],[data-module="mantenimientos"],[data-module="documentos"],[data-module="garantia"]) .app-content .management-status.muted { background: var(--se-surface-3); border-color: var(--se-border); color: var(--se-text-2); }
+
+body[data-module="equipos"] .equipment-panel .equipment-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+body[data-module="equipos"] .equipment-panel .equipment-detail-action { border-color: var(--se-brand-2); color: var(--se-brand-2); background: var(--se-surface); white-space: nowrap; }
+body[data-module="equipos"] .equipment-panel .equipment-state-editor { display: flex; align-items: center; gap: 6px; min-width: 0; }
+body[data-module="equipos"] .equipment-panel .equipment-state { min-width: 130px; max-width: 165px; }
+body[data-module="equipos"] .equipment-panel .equipment-save-action { background: var(--se-brand-2); color: #fff; border-color: var(--se-brand-2); }
+
+body[data-module="documentos"] .app-content :is(.document-hub,.smart-list-panel) { box-shadow: var(--se-shadow-sm); }
+body[data-module="documentos"] .app-content .document-hub { padding-block: 16px; }
+body[data-module="documentos"] .app-content :is(.document-hub-copy p,.panel-header p) { max-width: 66ch; }
+body[data-module="documentos"] .app-content :is(.personal-documents-panel,.client-documents-panel) .actions.compact,
+body[data-module="garantia"] .app-content .management-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
+body[data-module="documentos"] .app-content .document-download-button { min-height: 34px; background: var(--se-brand-2); border-color: var(--se-brand-2); color: #fff; }
+body[data-module="documentos"] .app-content .document-download-button:hover { background: var(--se-brand); border-color: var(--se-brand); }
+
+body:is([data-module="documentos"],[data-module="garantia"]) .app-content .management-more { display: inline-block; min-width: 34px; }
+body:is([data-module="documentos"],[data-module="garantia"]) .app-content .management-more > summary { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--se-border-strong); border-radius: 9px; background: var(--se-surface); color: var(--se-text-2); cursor: pointer; list-style: none; }
+body:is([data-module="documentos"],[data-module="garantia"]) .app-content .management-more > summary::-webkit-details-marker { display: none; }
+body:is([data-module="documentos"],[data-module="garantia"]) .app-content .management-more > summary:hover { background: var(--se-hover); color: var(--se-brand-2); }
+body:is([data-module="documentos"],[data-module="garantia"]) .app-content .management-more > summary:focus-visible { outline: 2px solid var(--se-focus); outline-offset: 2px; }
+body:is([data-module="documentos"],[data-module="garantia"]) .app-content .management-more > summary svg { width: 17px; height: 17px; }
+body:is([data-module="documentos"],[data-module="garantia"]) .app-content .management-more[open] { flex-basis: 100%; }
+body:is([data-module="documentos"],[data-module="garantia"]) .app-content .management-more-list { display: grid; gap: 2px; min-width: 145px; padding: 5px; border: 1px solid var(--se-border); border-radius: 9px; background: var(--se-surface); }
+body:is([data-module="documentos"],[data-module="garantia"]) .app-content .management-more-list button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 32px; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--se-text); text-align: left; white-space: nowrap; }
+body:is([data-module="documentos"],[data-module="garantia"]) .app-content .management-more-list button:hover { background: var(--se-hover); }
+body:is([data-module="documentos"],[data-module="garantia"]) .app-content .management-more-list button.danger { color: var(--se-danger); }
+body:is([data-module="documentos"],[data-module="garantia"]) .app-content .management-more-list button.danger:hover { background: color-mix(in srgb, var(--se-danger) 10%, var(--se-surface)); }
+body:is([data-module="documentos"],[data-module="garantia"]) .app-content .management-more-list svg { width: 15px; height: 15px; }
+
+body[data-module="garantia"] .app-content .warranty-workspace { min-width: 0; }
+body[data-module="garantia"] .app-content .warranty-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+body[data-module="garantia"] .warranty-stats .stat-card { min-height: 88px; border: 1px solid var(--se-border); border-left: 3px solid var(--se-brand-2); background: var(--se-surface); box-shadow: var(--se-shadow-sm); }
+body[data-module="garantia"] .warranty-stats .stat-card.stat-green { border-left-color: var(--se-green); }
+body[data-module="garantia"] .warranty-stats .stat-card.stat-amber { border-left-color: var(--se-amber); }
+body[data-module="garantia"] .warranty-stats .stat-card.stat-red { border-left-color: var(--se-danger); }
+body[data-module="garantia"] .warranty-filter-panel .panel-header { align-items: center; }
+body[data-module="garantia"] .management-quick-filters { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 12px; }
+body[data-module="garantia"] .management-filter-chip { min-height: 34px; padding: 6px 12px; border: 1px solid var(--se-border-strong); border-radius: 999px; background: var(--se-surface); color: var(--se-text-2); font-weight: 650; }
+body[data-module="garantia"] .management-filter-chip.active { border-color: var(--se-brand-2); background: color-mix(in srgb, var(--se-brand-2) 10%, var(--se-surface)); color: var(--se-brand); }
+body[data-module="garantia"] .management-filter-chip:focus-visible { outline: 2px solid var(--se-focus); outline-offset: 2px; }
+body[data-module="garantia"] .app-content :is(.warranty-filter-panel,.warranty-requests-panel) { width: 100%; min-width: 0; }
+body[data-module="garantia"] .app-content :is(.warranty-filter-panel,.warranty-requests-panel) .table-wrap { width: 100%; }
+body[data-module="garantia"] .app-content :is(.warranty-filter-panel,.warranty-requests-panel) .data-table { width: 100%; table-layout: fixed; }
+body[data-module="garantia"] .warranty-filter-panel .data-table th:nth-child(1) { width: 21%; }
+body[data-module="garantia"] .warranty-filter-panel .data-table th:nth-child(2) { width: 23%; }
+body[data-module="garantia"] .warranty-filter-panel .data-table th:nth-child(3) { width: 20%; }
+body[data-module="garantia"] .warranty-filter-panel .data-table th:nth-child(4) { width: 21%; }
+body[data-module="garantia"] .warranty-filter-panel .data-table th:nth-child(5) { width: 15%; }
+body[data-module="garantia"] .warranty-requests-panel .data-table th:nth-child(1) { width: 23%; }
+body[data-module="garantia"] .warranty-requests-panel .data-table th:nth-child(2) { width: 23%; }
+body[data-module="garantia"] .warranty-requests-panel .data-table th:nth-child(3) { width: 24%; }
+body[data-module="garantia"] .warranty-requests-panel .data-table th:nth-child(4) { width: 20%; }
+body[data-module="garantia"] .warranty-requests-panel .data-table th:nth-child(5) { width: 10%; }
+body[data-module="garantia"] .app-content .warranty-requests-panel .smart-quick-pill,
+body[data-module="garantia"] .app-content .se-table-responsive-scope td::before { text-transform: none; letter-spacing: 0; }
+
+html[data-theme="dark"] body:is([data-module="equipos"],[data-module="mantenimientos"],[data-module="documentos"],[data-module="garantia"]) .app-content .management-status.green { color: #89e5b4; }
+html[data-theme="dark"] body:is([data-module="equipos"],[data-module="mantenimientos"],[data-module="documentos"],[data-module="garantia"]) .app-content .management-status.orange { color: #f4ca78; }
+html[data-theme="dark"] body:is([data-module="equipos"],[data-module="mantenimientos"],[data-module="documentos"],[data-module="garantia"]) .app-content .management-status.red { color: #ff9ca7; }
+
+@media (max-width: 820px) {
+  body[data-module="clientes"] .people-table thead th { width: auto !important; }
+  body[data-module="equipos"] .equipment-panel .equipment-row-actions { justify-content: flex-start; }
+  body[data-module="garantia"] .app-content :is(.warranty-filter-panel,.warranty-requests-panel) .data-table { table-layout: auto; }
+  body[data-module="garantia"] .app-content :is(.warranty-filter-panel,.warranty-requests-panel) .data-table th { width: auto !important; }
+}
+@media (max-width: 1100px) {
+  body[data-module="garantia"] .app-content .warranty-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  body[data-module="garantia"] .app-content .warranty-stats { grid-template-columns: 1fr; }
+}
+
+/* Clientes y personal: los datos de contacto se leen por líneas independientes. */
+body.seprigua-hoja-v4 .app-content .people-table .people-contact-cell {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  max-width: 100%;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+body.seprigua-hoja-v4 .app-content .people-table .people-contact-cell > * {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+body.seprigua-hoja-v4 .app-content .people-table .people-contact-detail {
+  color: var(--se-text-2, #526d82);
+  font-size: 12px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+body.seprigua-hoja-v4[data-module="clientes"] .app-content .people-table { table-layout: fixed; }
+body.seprigua-hoja-v4[data-module="clientes"] .app-content .people-table thead th:nth-child(1) { width: 23%; }
+body.seprigua-hoja-v4[data-module="clientes"] .app-content .people-table thead th:nth-child(2) { width: 10%; }
+body.seprigua-hoja-v4[data-module="clientes"] .app-content .people-table thead th:nth-child(3) { width: 36%; }
+body.seprigua-hoja-v4[data-module="clientes"] .app-content .people-table thead th:nth-child(4) { width: 11%; }
+body.seprigua-hoja-v4[data-module="clientes"] .app-content .people-table thead th:nth-child(5) { width: 20%; }
+body.seprigua-hoja-v4[data-module="personal"] .app-content .people-table { table-layout: fixed; }
+body.seprigua-hoja-v4[data-module="personal"] .app-content .people-table thead th:nth-child(1) { width: 19%; }
+body.seprigua-hoja-v4[data-module="personal"] .app-content .people-table thead th:nth-child(2) { width: 13%; }
+body.seprigua-hoja-v4[data-module="personal"] .app-content .people-table thead th:nth-child(3) { width: 29%; }
+body.seprigua-hoja-v4[data-module="personal"] .app-content .people-table thead th:nth-child(4) { width: 17%; }
+body.seprigua-hoja-v4[data-module="personal"] .app-content .people-table thead th:nth-child(5) { width: 12%; }
+body.seprigua-hoja-v4[data-module="personal"] .app-content .people-table thead th:nth-child(6) { width: 10%; }
+
+/* Los nombres y referencias abren las vistas de detalle que ya ofrece el sistema. */
+body.seprigua-hoja-v4 .app-content .se-entity-link,
+body.seprigua-hoja-v4 .app-content .se-entity-avatar-link,
+body.seprigua-hoja-v4 .app-content .se-entity-link-block {
+  color: var(--se-text-strong, #123b68);
+  font: inherit;
+  text-align: left;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+body.seprigua-hoja-v4 .app-content .se-entity-link { font-weight: 650; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; }
+body.seprigua-hoja-v4 .app-content :is(.se-entity-link,.se-entity-avatar-link,.se-entity-link-block):is(:hover,:focus-visible) { color: var(--se-brand-3, #1769aa); }
+body.seprigua-hoja-v4 .app-content .se-entity-link:is(:hover,:focus-visible) { text-decoration-color: currentColor; }
+body.seprigua-hoja-v4 .app-content :is(.se-entity-link,.se-entity-avatar-link,.se-entity-link-block):focus-visible { outline: 2px solid var(--se-focus, #1769aa); outline-offset: 3px; border-radius: 3px; }
+body.seprigua-hoja-v4 .app-content .se-entity-avatar-link { max-width: 100%; }
+body.seprigua-hoja-v4 .app-content .se-entity-avatar-link > * { pointer-events: none; }
+body.seprigua-hoja-v4 .app-content .se-entity-link-block { display: grid; gap: 2px; }
+
+/* Búsqueda con el icono dentro del campo y controles alineados en la misma fila. */
+body.seprigua-hoja-v4 .app-content .people-workspace :is(.people-filter-grid-personal,.people-filter-grid-users) .people-field { display: block; min-width: 0; margin: 0; }
+body.seprigua-hoja-v4 .app-content .people-workspace :is(.people-filter-grid-personal,.people-filter-grid-users) .people-field > span:first-child { display: block; height: 16px; margin: 0 0 7px; line-height: 16px; }
+body.seprigua-hoja-v4 .app-content .people-workspace :is(.people-filter-grid-personal,.people-filter-grid-users) .people-search > div {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 44px !important;
+  min-height: 44px !important;
+  border: 1px solid #a9cbe8;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--se-input, #fff), var(--se-surface-2, #edf4fb));
+}
+body.seprigua-hoja-v4 .app-content .people-workspace :is(.people-filter-grid-personal,.people-filter-grid-users) .people-search > div > svg {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 17px;
+  height: 17px;
+  color: var(--se-brand-3, #1769aa);
+  pointer-events: none;
+}
+body.seprigua-hoja-v4 .app-content .people-workspace :is(.people-filter-grid-personal,.people-filter-grid-users) .people-search input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 0 12px 0 39px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+body.seprigua-hoja-v4 .app-content .people-workspace :is(.people-filter-grid-personal,.people-filter-grid-users) :is(select,.se-enterprise-select-button,.people-clear,.people-apply,input[type="date"]) { box-sizing: border-box; height: 44px !important; min-height: 44px !important; }
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal { grid-template-columns: minmax(210px,2.2fr) repeat(3,minmax(95px,1fr)) minmax(105px,1fr) minmax(105px,1fr) minmax(86px,.8fr) minmax(112px,auto) !important; }
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-users { align-items: end !important; }
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-users > * { align-self: end; }
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-users .people-user-filter-actions { display: flex; align-items: end; gap: 8px; min-height: 44px; }
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-users .people-user-filter-actions > button { white-space: nowrap; }
+
+/* El período agrupa inicio, fin y duración sin una línea larga de fechas. */
+body.seprigua-hoja-v4 .app-content .vacation-period { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+body.seprigua-hoja-v4 .app-content .vacation-period > span { display: grid; gap: 2px; }
+body.seprigua-hoja-v4 .app-content .vacation-period small { color: var(--se-muted, #526d82); font-size: 11px; font-weight: 500; }
+body.seprigua-hoja-v4 .app-content .vacation-period strong { color: var(--se-text-strong, #123b68); font-size: 13px; font-weight: 600; white-space: nowrap; }
+body.seprigua-hoja-v4 .app-content .vacation-period > svg { width: 14px; height: 14px; color: var(--se-brand-3, #1769aa); flex: none; }
+body.seprigua-hoja-v4 .app-content .vacation-period em { padding: 4px 8px; border-radius: 999px; background: var(--se-surface-3, #eaf3fb); color: var(--se-text-2, #526d82); font-size: 11px; font-style: normal; white-space: nowrap; }
+
+@media (max-width: 1350px) {
+  body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal { grid-template-columns: repeat(4,minmax(0,1fr)) !important; }
+}
+@media (max-width: 860px) {
+  body.seprigua-hoja-v4 .app-content .people-workspace :is(.people-filter-grid-personal,.people-filter-grid-users) { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+  body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-users > * { grid-column: span 1 !important; }
+  body.seprigua-hoja-v4 .app-content .people-workspace :is(.people-filter-grid-personal,.people-filter-grid-users) .people-search { grid-column: 1 / -1 !important; }
+  body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-users .people-user-filter-actions { grid-column: 1 / -1 !important; justify-content: flex-start; }
+  body.seprigua-hoja-v4[data-module="personal"] .app-content .people-table { table-layout: auto; }
+}
+@media (max-width: 560px) {
+  body.seprigua-hoja-v4 .app-content .people-workspace :is(.people-filter-grid-personal,.people-filter-grid-users) { grid-template-columns: minmax(0,1fr) !important; }
+  body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-users > * { grid-column: 1 !important; }
+  body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-users .people-user-filter-actions { flex-wrap: wrap; }
+}

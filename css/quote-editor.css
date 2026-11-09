@@ -141,3 +141,17 @@
 .qe-page .qe-site-empty { padding: .75rem; color: #64809d; font-size: .82rem; }
 @media (max-width: 700px) { .qe-page .qe-site-options { max-height: min(230px, 35vh); } }
 @media (max-width: 480px) { .qe-page .qe-site-option { padding: .8rem; } .qe-page .qe-site-control button { width: 40px; } }
+
+/* Cotizaciones con el lenguaje visual unificado de Gabi; conserva el editor de página. */
+body.seprigua-hoja-v4 .qe-page{--qe-ink:var(--se-text,#0c335f);--qe-blue:var(--se-brand,#0c3e73);--qe-line:var(--se-border,#d5e3f0);--qe-muted:var(--se-muted,#617e99)}
+body.seprigua-hoja-v4 .qe-header{background:var(--se-surface,#fff);border-color:var(--qe-line);box-shadow:0 8px 24px rgba(10,48,86,.07)}
+body.seprigua-hoja-v4 .qe-card,body.seprigua-hoja-v4 .qe-catalog-card{border-color:var(--qe-line);box-shadow:0 6px 20px rgba(10,48,86,.06)}
+body.seprigua-hoja-v4 .qe-card:hover,body.seprigua-hoja-v4 .qe-catalog-card:hover{border-color:#b7d2e9}
+body.seprigua-hoja-v4 .qe-section-title>span,body.seprigua-hoja-v4 .qe-catalog-heading>span{background:#e9f3fb;color:var(--qe-blue)}
+body.seprigua-hoja-v4 .qe-line{background:#f8fbfe;border-color:var(--qe-line)}
+body.seprigua-hoja-v4 .qe-line-fields :is(input,select,textarea),body.seprigua-hoja-v4 .qe-field :is(input,select,textarea){border-color:#bed3e7}
+body.seprigua-hoja-v4 .qe-total-card{background:linear-gradient(125deg,#0c3e73,#1769a8);border-color:#0c3e73}
+body.seprigua-hoja-v4 .qe-catalog-item{border-color:#e2edf6}
+body.seprigua-hoja-v4 .qe-catalog-item:hover{background:#f1f7fc}
+@media(max-width:850px){body.seprigua-hoja-v4 .qe-header{gap:.7rem}body.seprigua-hoja-v4 .qe-side{min-width:0}body.seprigua-hoja-v4 .qe-card,body.seprigua-hoja-v4 .qe-catalog-card{width:100%}}
+@media(max-width:640px){body.seprigua-hoja-v4 .qe-header{border-radius:16px}body.seprigua-hoja-v4 .qe-card,body.seprigua-hoja-v4 .qe-catalog-card,body.seprigua-hoja-v4 .qe-total-card{border-radius:14px}}

@@ -1,0 +1,72 @@
+/* Acabado del menú lateral adaptado del trabajo de Gabi. */
+body.seprigua-hoja-v4 {
+  --se-sidebar-edge: var(--se-sidebar-w);
+  background-image:
+    radial-gradient(ellipse 420px 80px at var(--se-sidebar-edge) 0,
+      rgba(38, 105, 157, .85), rgba(19, 73, 126, .42) 42%, transparent),
+    radial-gradient(circle at 7% 9%, rgba(75, 151, 235, .19), transparent 22%),
+    linear-gradient(180deg, #052551, #07366f 48%, #0a579f);
+}
+body.seprigua-hoja-v4.sidebar-collapsed {
+  --se-sidebar-edge: var(--se-sidebar-mini);
+}
+.system-sidebar { box-shadow: 7px 0 18px rgba(2, 25, 54, .13); }
+.system-sidebar::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0 0 auto;
+  height: 142px;
+  pointer-events: none;
+  background: url('/assets/img/sidebar-curves.svg') center top / 100% 100% no-repeat;
+}
+.system-sidebar .system-brand.system-brand-home {
+  position: relative;
+  z-index: 2;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.system-sidebar .system-brand.system-brand-home::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(176px, 85%);
+  height: min(76px, 90%);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(ellipse, rgba(255,255,255,.23), rgba(255,255,255,.13) 45%, transparent 78%);
+}
+.system-sidebar .system-brand.system-brand-home img {
+  position: relative;
+  z-index: 1;
+  max-width: 150px;
+  max-height: 70px;
+  filter: none;
+}
+.system-sidebar .system-brand.system-brand-home:hover { background: transparent; }
+.system-sidebar .system-brand.system-brand-home:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+.cursor-preference-panel .se-cursor-preference {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--se-border);
+  border-radius: 12px;
+  background: var(--se-surface-2);
+  cursor: pointer;
+}
+.se-cursor-preference span { display: grid; gap: 4px; min-width: 0; }
+.se-cursor-preference strong { color: var(--se-text-strong); }
+.se-cursor-preference small { color: var(--se-text-2); line-height: 1.4; }
+.se-cursor-preference input[type="checkbox"] { flex: 0 0 auto; width: 20px; height: 20px; min-height: 20px; accent-color: var(--se-brand-3); }
+@media (max-width: 540px) {
+  .cursor-preference-panel .se-cursor-preference { align-items: flex-start; }
+}

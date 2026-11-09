@@ -34,27 +34,37 @@
   <link rel="stylesheet" href="/css/navigation-breadcrumbs.css?v=20261022-v2">
   <link rel="stylesheet" href="/css/profile-photo-crop.css?v=20261020-karla-merge-v1">
   <link rel="stylesheet" href="/css/filter-polish.css?v=20261021-v2">
-  <link rel="stylesheet" href="/css/calendar-fields.css?v=20261023-v2">
+  <link rel="stylesheet" href="/css/calendar-fields.css?v=20261104-gabi-merge-1">
   <link rel="stylesheet" href="/css/solicitudes-refinement.css?v=20261024-v1">
   <link rel="stylesheet" href="/css/module-banners.css?v=20261024-centro-restaurado-v2">
   <link rel="stylesheet" href="/css/seprigua-premium.css?v=20261025-kpi-colores-v6">
   <link rel="stylesheet" href="/css/select-controls.css?v=20261025-v1">
   <link rel="stylesheet" href="/css/filter-panels-unified.css?v=20261025-v3">
   <link rel="stylesheet" href="/css/people-clients-refinement.css?v=20261025-v1">
-  <link rel="stylesheet" href="/css/module-banner-dots.css?v=20261025-v1">
-  <link rel="stylesheet" href="/css/guided-tour.css?v=20261026-v2">
-  <link rel="stylesheet" href="/css/quote-editor.css?v=20261102-sede-buscador-v4">
+  <link rel="stylesheet" href="/css/module-banner-dots.css?v=20261104-gabi-merge-1">
+  <link rel="stylesheet" href="/css/guided-tour.css?v=20261104-gabi-merge-1">
+  <link rel="stylesheet" href="/css/quote-editor.css?v=20261105-gabi-visual-v1">
   <link rel="stylesheet" href="/css/work-report.css?v=20261101-entrega-v1">
   <link rel="stylesheet" href="/css/mobile-qa-refinement.css?v=20261031-v3">
   <link rel="stylesheet" href="/css/inventory-flow.css?v=20261101-v1">
   <link rel="stylesheet" href="/css/filter-modal-refinement.css?v=20261102-v5">
+  <link rel="stylesheet" href="/css/sidebar-refresh.css?v=20261103-gabi-v2">
+  <link rel="stylesheet" href="/css/seprigua-loader.css?v=20261103-gabi-v2">
+  <link rel="stylesheet" href="/css/custom-cursors.css?v=20261104-gabi-merge-1">
+  <link rel="stylesheet" href="/css/form-controls-global.css?v=20261104-gabi-merge-1">
+  <link rel="stylesheet" href="/css/gestion-refinement.css?v=20261104-gabi-merge-1">
+  <link rel="stylesheet" href="/css/modals-global.css?v=20261104-gabi-merge-1">
+  <link rel="stylesheet" href="/css/sidebar-role-compact.css?v=20261104-gabi-merge-1">
+  <link rel="stylesheet" href="/css/tables-layout-fix.css?v=20261105-v2">
+  <link rel="stylesheet" href="/css/typography-normalization.css?v=20261104-gabi-merge-1">
+  <link rel="stylesheet" href="/css/visual-balance.css?v=20261104-gabi-merge-1">
   <script src="/java/compat-performance.js?v=1"></script>
 </head>
 <body class="seprigua-hoja-v4 ui-booting">
   <div class="system-shell" id="systemShell">
     <aside class="system-sidebar" id="sidebar" aria-label="Navegación principal">
 <button class="system-brand system-brand-home" type="button" data-module="dashboard" aria-label="Ir a Centro de control" title="Ir a Centro de control">
-        <img src="/assets/img/logo-seprigua-hd.png" alt="SEPRIGUA">
+        <img src="/assets/img/logo-seprigua.svg?v=20261103-gabi-v2" alt="SEPRIGUA">
       </button>
       <div class="sidebar-role-row">
         <div class="role-chip" id="roleChip">CARGANDO...</div>
@@ -171,28 +181,30 @@
   </div>
 
   <div class="modal-backdrop" id="modalBackdrop" hidden>
-    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <header class="modal-header"><h2 id="modalTitle">Detalle</h2><button class="icon-button" id="modalClose" type="button" aria-label="Cerrar"><i data-lucide="x"></i></button></header>
-      <div class="modal-body" id="modalBody"></div>
+    <section class="modal modal-seprigua" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-header modal-seprigua__header"><span class="modal-seprigua__icon" id="modalIcon" aria-hidden="true"><i data-lucide="file-text"></i></span><div class="modal-seprigua__heading"><h2 id="modalTitle">Detalle</h2><p id="modalSubtitle" hidden></p></div><button class="icon-button modal-seprigua__close" id="modalClose" type="button" aria-label="Cerrar"><i data-lucide="x"></i></button></header>
+      <div class="modal-body modal-seprigua__body" id="modalBody"></div>
     </section>
   </div>
   <div class="toast" id="toast" hidden></div>
 
   <script src="/java/vendor/lucide.min.js?v=1"></script>
   <script src="/java/avatar-identity.js?v=20261020-perfiles-v1"></script>
-  <script src="/java/global-loader.js?v=2"></script>
+  <script src="/java/global-loader.js?v=20261103-gabi-v2"></script>
   <script src="/java/inventory-ui.js?v=20261101-v1"></script>
   <script src="/java/portal-ui.js?v=20261101-entrega-v1"></script>
   <script src="/java/quote-editor.js?v=20261102-compartir-v5"></script>
-  <script src="/java/operations-ui.js?v=20261021-filtros-v1"></script>
-  <script src="/java/profile-photo-crop.js?v=20261020-karla-merge-v1"></script>
-  <script src="/java/sistema.js?v=20261102-compartir-multiple-v1"></script>
+  <script src="/java/operations-ui.js?v=20261104-gabi-merge-1"></script>
+  <script src="/java/profile-photo-crop.js?v=20261104-gabi-merge-1"></script>
+  <script src="/java/custom-cursors.js?v=20261104-gabi-merge-1"></script>
+  <script src="/java/sistema.js?v=20261105-foto-minuto-v5"></script>
   <script src="/java/sidebar.js?v=35-scroll-real-nav"></script>
   <script src="/java/centro-control-ui.js?v=20261025-hover-colores-v1"></script>
-  <script src="/java/filter-ui-enterprise.js?v=1"></script>
+  <script src="/java/filter-ui-enterprise.js?v=20261104-gabi-merge-1"></script>
+  <script src="/java/form-fields-global.js?v=20261104-gabi-merge-1"></script>
   <script src="/java/theme.js?v=3"></script>
-  <script src="/java/calendar-fields.js?v=20261023-v2"></script>
-  <script src="/java/guided-tour.js?v=20261026-v2"></script>
+  <script src="/java/calendar-fields.js?v=20261104-gabi-merge-1"></script>
+  <script src="/java/guided-tour.js?v=20261104-gabi-merge-1"></script>
 </body>
 </html>
 

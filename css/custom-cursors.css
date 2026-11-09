@@ -1,0 +1,226 @@
+/* Tema macOS SEPRIGUA. Solo se aplica con mouse/trackpad y preferencia activa. */
+@media (hover: hover) and (pointer: fine) {
+  html.se-cursors-enabled body,
+  html.se-cursors-enabled body * {
+    cursor: url('/assets/cursors/red-macos/cursor_normal.png?v=20261030-red-macos-v1') 4 4, default !important;
+  }
+
+  /* Controles reales: mano fina; la navegación del sistema conserva la flecha. */
+  html.se-cursors-enabled body :is(button:not(:disabled), input[type="button"], input[type="submit"], input[type="reset"], input[type="checkbox"], input[type="radio"], select, summary, label[for], [role="button"], [role="tab"], [data-action], [onclick], [data-cursor="accion"]),
+  html.se-cursors-enabled body :is(button:not(:disabled), label[for], [role="button"], [role="tab"], [data-action], [onclick], [data-cursor="accion"]) * {
+    cursor: url('/assets/cursors/red-macos/cursor_accion.png?v=20261030-red-macos-v1') 11 4, pointer !important;
+  }
+
+  html.se-cursors-enabled body :is(a[href], [role="link"], [data-cursor="enlace"]),
+  html.se-cursors-enabled body :is(a[href], [role="link"], [data-cursor="enlace"]) * {
+    cursor: url('/assets/cursors/red-macos/cursor_enlace.png?v=20261030-red-macos-v1') 4 4, pointer !important;
+  }
+
+  html.se-cursors-enabled body :is(#systemNav, #systemNav *, .system-brand-home, .system-brand-home *, #pageBreadcrumb, #pageBreadcrumb *, [data-cursor="normal"]),
+  html.se-cursors-enabled body [data-cursor="normal"] * {
+    cursor: url('/assets/cursors/red-macos/cursor_normal.png?v=20261030-red-macos-v1') 4 4, default !important;
+  }
+
+  html.se-cursors-enabled body :is(input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="password"], input[type="tel"], input[type="url"], input[type="number"], textarea, [contenteditable="true"], [role="textbox"], [data-cursor="texto"]),
+  html.se-cursors-enabled body :is([contenteditable="true"], [role="textbox"], [data-cursor="texto"]) * {
+    cursor: url('/assets/cursors/red-macos/cursor_texto.png?v=20261030-red-macos-v1') 14 14, text !important;
+  }
+
+  html.se-cursors-enabled body :is(#seTourLauncher, [data-cursor="ayuda"]),
+  html.se-cursors-enabled body :is(#seTourLauncher, [data-cursor="ayuda"]) * {
+    cursor: url('/assets/cursors/red-macos/cursor_ayuda.png?v=20261030-red-macos-v1') 4 4, help !important;
+  }
+
+  /* Archivo y arrastre se limitan a superficies que ya admiten la interacción. */
+  html.se-cursors-enabled body :is(input[type="file"], [data-cursor="arrastrar-archivo"]),
+  html.se-cursors-enabled body input[type="file"]::file-selector-button,
+  html.se-cursors-enabled body [data-cursor="arrastrar-archivo"] * {
+    cursor: url('/assets/cursors/red-macos/cursor_arrastrar_archivo.png?v=20261030-red-macos-v1') 4 4, copy !important;
+  }
+
+  html.se-cursors-enabled body :is(.agenda-job[data-agenda-draggable="1"], .se-photo-editor-content canvas, [data-cursor="grab"]),
+  html.se-cursors-enabled body :is(.agenda-job[data-agenda-draggable="1"], [data-cursor="grab"]) * {
+    cursor: url('/assets/cursors/red-macos/cursor_grab.png?v=20261030-red-macos-v1') 14 14, grab !important;
+  }
+
+  html.se-cursors-enabled body :is([draggable="true"], [data-cursor="arrastrar"]),
+  html.se-cursors-enabled body :is([draggable="true"], [data-cursor="arrastrar"]) * {
+    cursor: url('/assets/cursors/red-macos/cursor_arrastrar.png?v=20261030-red-macos-v1') 4 4, grab !important;
+  }
+
+  html.se-cursors-enabled body :is(.agenda-job[data-agenda-dragging="1"], .se-photo-editor-content canvas:active, [data-cursor="arrastrando"]),
+  html.se-cursors-enabled body :is(.agenda-job[data-agenda-dragging="1"], [data-cursor="arrastrando"]) * {
+    cursor: url('/assets/cursors/red-macos/cursor_arrastrando.png?v=20261030-red-macos-v1') 14 14, grabbing !important;
+  }
+
+  html.se-cursors-enabled body :is(.agenda-job[data-cursor-drop="valid"][data-agenda-dragging="1"], [data-cursor="soltar-valido"]),
+  html.se-cursors-enabled body :is(.agenda-job[data-cursor-drop="valid"][data-agenda-dragging="1"], [data-cursor="soltar-valido"]) * {
+    cursor: url('/assets/cursors/red-macos/cursor_soltar_valido.png?v=20261030-red-macos-v1') 4 4, copy !important;
+  }
+
+  html.se-cursors-enabled body :is(.agenda-job[data-cursor-drop="invalid"][data-agenda-dragging="1"], [data-cursor="soltar-invalido"]),
+  html.se-cursors-enabled body :is(.agenda-job[data-cursor-drop="invalid"][data-agenda-dragging="1"], [data-cursor="soltar-invalido"]) * {
+    cursor: url('/assets/cursors/red-macos/cursor_soltar_invalido.png?v=20261030-red-macos-v1') 4 4, no-drop !important;
+  }
+
+  html.se-cursors-enabled[data-se-file-drag="valid"] body input[type="file"],
+  html.se-cursors-enabled[data-se-file-drag="valid"] body input[type="file"]::file-selector-button,
+  html.se-cursors-enabled body [data-cursor="soltar-archivo-valido"],
+  html.se-cursors-enabled body [data-cursor="soltar-archivo-valido"] * {
+    cursor: url('/assets/cursors/red-macos/cursor_soltar_archivo_valido.png?v=20261030-red-macos-v1') 4 4, copy !important;
+  }
+
+  html.se-cursors-enabled body [data-cursor="soltar-archivo-invalido"],
+  html.se-cursors-enabled body [data-cursor="soltar-archivo-invalido"] * {
+    cursor: url('/assets/cursors/red-macos/cursor_soltar_archivo_invalido.png?v=20261030-red-macos-v1') 4 4, no-drop !important;
+  }
+
+  /* Se usan solo para regiones que ya admiten mover, zoom o cambio de tamaño. */
+  html.se-cursors-enabled body [data-cursor="mover"] {
+    cursor: url('/assets/cursors/red-macos/cursor_mover.png?v=20261030-red-macos-v1') 14 14, move !important;
+  }
+  html.se-cursors-enabled body :is([data-cursor="redimensionar-horizontal"], [data-cursor="redimensionar-ew"]) {
+    cursor: url('/assets/cursors/red-macos/cursor_redimensionar_horizontal.png?v=20261030-red-macos-v1') 14 14, ew-resize !important;
+  }
+  html.se-cursors-enabled body :is([data-cursor="redimensionar-vertical"], [data-cursor="redimensionar-ns"]) {
+    cursor: url('/assets/cursors/red-macos/cursor_redimensionar_vertical.png?v=20261030-red-macos-v1') 14 14, ns-resize !important;
+  }
+  html.se-cursors-enabled body textarea.se-cursor-resize-grip {
+    cursor: url('/assets/cursors/red-macos/cursor_redimensionar_diag1.png?v=20261030-red-macos-v1') 14 14, nwse-resize !important;
+  }
+  html.se-cursors-enabled body [data-cursor="redimensionar-diag1"] {
+    cursor: url('/assets/cursors/red-macos/cursor_redimensionar_diag1.png?v=20261030-red-macos-v1') 14 14, nwse-resize !important;
+  }
+  html.se-cursors-enabled body [data-cursor="redimensionar-diag2"] {
+    cursor: url('/assets/cursors/red-macos/cursor_redimensionar_diag2.png?v=20261030-red-macos-v1') 14 14, nesw-resize !important;
+  }
+  html.se-cursors-enabled body [data-cursor="redimensionar-columna"] {
+    cursor: url('/assets/cursors/red-macos/cursor_redimensionar_ew.png?v=20261030-red-macos-v1') 14 14, col-resize !important;
+  }
+  html.se-cursors-enabled body [data-cursor="redimensionar-fila"] {
+    cursor: url('/assets/cursors/red-macos/cursor_redimensionar_ns.png?v=20261030-red-macos-v1') 14 14, row-resize !important;
+  }
+  html.se-cursors-enabled body [data-cursor="precision"] {
+    cursor: url('/assets/cursors/red-macos/cursor_precision.png?v=20261030-red-macos-v1') 14 14, crosshair !important;
+  }
+  html.se-cursors-enabled body [data-cursor="zoom-in"] {
+    cursor: url('/assets/cursors/red-macos/cursor_zoom_in.png?v=20261030-red-macos-v1') 14 14, zoom-in !important;
+  }
+  html.se-cursors-enabled body [data-cursor="zoom-out"] {
+    cursor: url('/assets/cursors/red-macos/cursor_zoom_out.png?v=20261030-red-macos-v1') 14 14, zoom-out !important;
+  }
+  html.se-cursors-enabled body [data-cursor="menu-contexto"] {
+    cursor: url('/assets/cursors/red-macos/cursor_menu_contexto.png?v=20261030-red-macos-v1') 3 2, context-menu !important;
+  }
+  html.se-cursors-enabled body [data-cursor="alias"] {
+    cursor: url('/assets/cursors/red-macos/cursor_alias.png?v=20261030-red-macos-v1') 3 2, alias !important;
+  }
+
+  html.se-cursors-enabled body [data-cursor="cargando"],
+  html.se-cursors-enabled body [data-cursor="cargando"] * {
+    cursor: url('/assets/cursors/red-macos/cursor_normal.png?v=20261030-red-macos-v1') 4 4, wait !important;
+  }
+  html.se-cursors-enabled body :is([aria-busy="true"], [data-cursor="ocupado-fondo"]),
+  html.se-cursors-enabled body :is([aria-busy="true"], [data-cursor="ocupado-fondo"]) * {
+    cursor: url('/assets/cursors/red-macos/cursor_ocupado_fondo.png?v=20261030-red-macos-v1') 14 14, progress !important;
+  }
+
+  html.se-cursors-enabled body :is(button:disabled, input:disabled, select:disabled, textarea:disabled, [aria-disabled="true"], [data-cursor="bloqueado"]),
+  html.se-cursors-enabled body :is(button:disabled, input:disabled, select:disabled, textarea:disabled, [aria-disabled="true"], [data-cursor="bloqueado"]) * {
+    cursor: url('/assets/cursors/red-macos/cursor_bloqueado.png?v=20261030-red-macos-v1') 14 14, not-allowed !important;
+  }
+
+  html.se-cursors-enabled[data-se-file-drag="invalid"] body,
+  html.se-cursors-enabled[data-se-file-drag="invalid"] body :is(*, button, input, a) {
+    cursor: url('/assets/cursors/red-macos/cursor_soltar_archivo_invalido.png?v=20261030-red-macos-v1') 4 4, no-drop !important;
+  }
+  /* Carga contextual: la operación continúa disponible, pero el cursor lo indica. */
+  html.se-cursors-enabled:has(#seContextualLoaderHost.is-visible:not([hidden])) body,
+  html.se-cursors-enabled:has(#seContextualLoaderHost.is-visible:not([hidden])) body * {
+    cursor: url('/assets/cursors/red-macos/cursor_ocupado_fondo.png?v=20261030-red-macos-v1') 14 14, progress !important;
+  }
+
+  /* Las cargas de módulo abarcan también navbar/sidebar y el loader hermano de appContent. */
+  html.se-cursors-enabled:has(#appContent[aria-busy="true"], #seGlobalModuleLoaderHost[aria-busy="true"], #appContent .quote-flow-loading) body,
+  html.se-cursors-enabled:has(#appContent[aria-busy="true"], #seGlobalModuleLoaderHost[aria-busy="true"], #appContent .quote-flow-loading) body * {
+    cursor: url('/assets/cursors/red-macos/cursor_normal.png?v=20261030-red-macos-v1') 4 4, wait !important;
+  }
+
+  html.se-cursors-enabled body .modal:has(.loading-card),
+  html.se-cursors-enabled body .modal:has(.loading-card) *,
+  html.se-cursors-enabled body :is(.loading-card, .popover-loading),
+  html.se-cursors-enabled body :is(.loading-card, .popover-loading) * {
+    cursor: url('/assets/cursors/red-macos/cursor_normal.png?v=20261030-red-macos-v1') 4 4, wait !important;
+  }
+
+
+  html.se-cursors-enabled body [data-cursor="archivo"] {
+    cursor: url('/assets/cursors/red-macos/cursor_arrastrar_archivo.png?v=20261030-red-macos-v1') 4 4, copy !important;
+  }
+  html.se-cursors-enabled body [data-cursor="seleccion"] {
+    cursor: url('/assets/cursors/red-macos/cursor_seleccion.png?v=20261030-red-macos-v1') 14 14, crosshair !important;
+  }
+  html.se-cursors-enabled body [data-cursor="seleccion-alt"] {
+    cursor: url('/assets/cursors/red-macos/cursor_seleccion_alt.png?v=20261030-red-macos-v1') 4 4, copy !important;
+  }
+  html.se-cursors-enabled body [data-cursor="ocupado"] {
+    cursor: url('/assets/cursors/red-macos/cursor_ocupado.png?v=20261030-red-macos-v1') 14 14, progress !important;
+  }
+  html.se-cursors-enabled body [data-cursor="no-disponible"] {
+    cursor: url('/assets/cursors/red-macos/cursor_no_disponible.png?v=20261030-red-macos-v1') 14 14, not-allowed !important;
+  }
+
+  /* El recurso nativo se oculta solo mientras flecha y engranaje están visibles. */
+  html.se-cursors-enabled.se-loading-cursor-active:has(#seCursorLoadingVisual) body,
+  html.se-cursors-enabled.se-loading-cursor-active:has(#seCursorLoadingVisual) body * {
+    cursor: none !important;
+  }
+
+}
+
+.se-cursor-loading-visual {
+  position: fixed;
+  z-index: 2147483647;
+  top: 0;
+  left: 0;
+  width: 36px;
+  height: 36px;
+  pointer-events: none;
+  user-select: none;
+  will-change: transform;
+}
+.se-cursor-loading-visual[hidden] { display: none !important; }
+.se-cursor-loading-visual .se-cursor-loading-arrow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+.se-cursor-loading-visual .se-cursor-loading-gear {
+  position: absolute;
+  top: 17px;
+  left: 17px;
+  display: block;
+  width: 16px;
+  height: 16px;
+  transform-origin: center;
+  animation: se-cursor-loading-spin 1s linear infinite;
+}
+@keyframes se-cursor-loading-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .se-cursor-loading-visual .se-cursor-loading-gear { animation: none; }
+}
+
+.se-cursor-preference { display:flex; align-items:center; justify-content:space-between; gap:18px; width:100%; padding:5px 0; }
+.se-cursor-preference > span { display:grid; gap:3px; }
+.se-cursor-preference strong { color:var(--se-text-strong, #123B68); font-size:14px; }
+.se-cursor-preference small { color:var(--se-text-2, #526D82); font-size:12px; line-height:1.4; }
+.se-cursor-preference input[type="checkbox"] { appearance:none; position:relative; flex:0 0 48px; width:48px; height:28px; min-height:28px; margin:0; padding:0; border:1px solid #BDD0E0; border-radius:999px; background:#D8E6F2; transition:background .18s, border-color .18s; }
+.se-cursor-preference input[type="checkbox"]::after { content:''; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(9,45,82,.16); transition:transform .18s; }
+.se-cursor-preference input[type="checkbox"]:checked { background:#0E5AA7; border-color:#0E5AA7; }
+.se-cursor-preference input[type="checkbox"]:checked::after { transform:translateX(20px); }
+.se-cursor-preference input[type="checkbox"]:focus-visible { outline:3px solid rgba(23,105,170,.30); outline-offset:3px; }

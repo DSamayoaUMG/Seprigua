@@ -117,7 +117,7 @@ _PROFILE_PHOTO_ROOT_VALUE = (os.getenv("PROFILE_PHOTO_STORAGE_ROOT") or "").stri
 PROFILE_PHOTO_ROOT = (Path(_PROFILE_PHOTO_ROOT_VALUE).expanduser().resolve() if _PROFILE_PHOTO_ROOT_VALUE
                       else (BASE_DIR / ".seprigua-private" / "fotos-perfil").resolve())
 MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024
-PROFILE_PHOTO_CHANGE_DAYS = 30
+PROFILE_PHOTO_CHANGE_MINUTES = 1
 
 # Web Push / PWA. En VM y dispositivos reales requiere HTTPS.
 PUSH_DEDUPE_LOCK = Lock()
@@ -2578,7 +2578,7 @@ def _account_profile_item(session):
     photo = _profile_photo_record(session["usuario_id"])
     if photo:
         updated_at = photo["ActualizadoEn"].replace(tzinfo=timezone.utc)
-        eligible_at = updated_at + timedelta(days=PROFILE_PHOTO_CHANGE_DAYS)
+        eligible_at = updated_at + timedelta(minutes=PROFILE_PHOTO_CHANGE_MINUTES)
         item["foto_url"] = _profile_photo_url(session["usuario_id"], photo["ActualizadoEn"])
         item["foto_actualizada"] = updated_at.isoformat()
         item["foto_cambio_disponible_en"] = eligible_at.isoformat()
@@ -2699,10 +2699,10 @@ def api_actualizar_foto_perfil(session):
             existing = cursor_query_one(cursor, "SELECT ActualizadoEn FROM seg.FotoPerfil WITH (UPDLOCK,HOLDLOCK) WHERE UsuarioId=?", (session["usuario_id"],))
             now = datetime.now(timezone.utc)
             if existing:
-                eligible_at = existing["ActualizadoEn"].replace(tzinfo=timezone.utc) + timedelta(days=PROFILE_PHOTO_CHANGE_DAYS)
+                eligible_at = existing["ActualizadoEn"].replace(tzinfo=timezone.utc) + timedelta(minutes=PROFILE_PHOTO_CHANGE_MINUTES)
                 if now < eligible_at:
-                    remaining = max(1, (eligible_at.date() - now.date()).days)
-                    return jsonify(ok=False, message=f"Podrás cambiar tu fotografía en {remaining} día(s)."), 429
+                    remaining = max(1, int((eligible_at - now).total_seconds()) + 1)
+                    return jsonify(ok=False, message=f"Podrás cambiar tu fotografía en {remaining} segundo(s)."), 429
                 cursor.execute("""
                     UPDATE seg.FotoPerfil SET Imagen=?,MimeType='image/webp',PesoBytes=?,ActualizadoEn=SYSUTCDATETIME()
                     WHERE UsuarioId=?
@@ -2719,7 +2719,7 @@ def api_actualizar_foto_perfil(session):
         return app_error(exc, "No fue posible guardar la fotografía en la base de datos.")
     url = _profile_photo_url(session["usuario_id"], updated)
     return jsonify(ok=True, message="Fotografía actualizada.", foto_url=url,
-                   siguiente_cambio=(datetime.now(timezone.utc) + timedelta(days=PROFILE_PHOTO_CHANGE_DAYS)).isoformat())
+                   siguiente_cambio=(datetime.now(timezone.utc) + timedelta(minutes=PROFILE_PHOTO_CHANGE_MINUTES)).isoformat())
 
 
 @app.get("/api/cuenta")

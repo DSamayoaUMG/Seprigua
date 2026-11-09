@@ -1,0 +1,132 @@
+/* La franja superior enlaza el azul claro del sidebar con el fondo profundo. */
+body {
+  --se-sidebar-edge: var(--se-sidebar-w);
+  background-image:
+    radial-gradient(ellipse 420px 80px at var(--se-sidebar-edge) 0px,
+      rgba(38, 105, 157, .92) 0%,
+      rgba(19, 73, 126, .52) 38%,
+      rgba(5, 37, 81, 0) 100%),
+    radial-gradient(circle at 7% 9%, rgba(75,151,235,.19), transparent 22%),
+    radial-gradient(circle at 92% 12%, rgba(255,255,255,.055), transparent 22%),
+    linear-gradient(180deg, #052551 0%, #07366f 48%, #0a579f 100%);
+}
+body.sidebar-collapsed { --se-sidebar-edge: var(--se-sidebar-mini); }
+/* Una transición de color discreta vincula el sidebar con el fondo de la hoja. */
+.system-sidebar {
+  box-shadow: 7px 0 18px rgba(2, 25, 54, .10);
+}
+.system-main {
+  background:
+    linear-gradient(90deg, rgba(16, 84, 143, .27) 0px,
+      rgba(16, 84, 143, .12) 22px, transparent 46px),
+    linear-gradient(180deg, var(--se-bg) 0%, var(--se-bg-2) 100%);
+}
+/* Composición de curvas restaurada; un único logo SVG, sin copia de halo. */
+.system-sidebar::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0 0 auto;
+  height: 142px;
+  pointer-events: none;
+  background: url('/assets/img/sidebar-curves.svg?v=20261030-v1') center top / 100% 100% no-repeat;
+}
+.system-sidebar .system-brand.system-brand-home {
+  position: relative;
+  z-index: 2;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.system-sidebar .system-brand.system-brand-home::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 0;
+  width: min(176px, 85%);
+  height: min(76px, 90%);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center,
+    rgba(255, 255, 255, .23) 0%,
+    rgba(255, 255, 255, .15) 42%,
+    rgba(255, 255, 255, 0) 78%);
+}
+.system-sidebar .system-brand.system-brand-home img {
+  position: relative;
+  z-index: 1;
+  max-width: 150px;
+  max-height: 70px;
+  filter: none;
+}
+.system-sidebar .system-brand.system-brand-home:hover { background: transparent; }
+.system-sidebar .system-brand.system-brand-home:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* La primera fila mantiene los ocho controles, en el orden existente del DOM. */
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal {
+  display: grid !important;
+  grid-template-columns: minmax(235px, 2.25fr) repeat(3, minmax(105px, 1fr)) minmax(125px, 1.05fr) minmax(112px, 1fr) minmax(95px, .8fr) minmax(125px, auto) !important;
+  align-items: end !important;
+  gap: 10px !important;
+}
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal > * {
+  min-width: 0;
+  grid-column: auto !important;
+  grid-row: auto !important;
+  align-self: end;
+}
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal .people-field,
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal .people-clear-wrap {
+  width: 100%;
+}
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal :is(input, select, .se-enterprise-select-button),
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal .people-search > div,
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal .people-clear {
+  box-sizing: border-box;
+  width: 100%;
+  height: 42px !important;
+  min-height: 42px !important;
+}
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal .people-search > div {
+  border-color: #a9cbe8;
+  background: linear-gradient(90deg, #fff, #edf4fb);
+}
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal .people-search input {
+  background: transparent;
+}
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal .people-clear-wrap > span {
+  display: block;
+  height: 21px;
+  line-height: 15px;
+}
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal .people-clear {
+  padding-inline: 10px;
+  white-space: nowrap;
+}
+body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-section:has(.people-filter-grid-personal) .people-quick-row {
+  margin-top: 13px;
+  padding-top: 12px;
+  border-top: 1px solid #d8e6f2;
+}
+@media (max-width: 1530px) {
+  body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal {
+    grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(120px, 1fr)) !important;
+  }
+}
+@media (max-width: 860px) {
+  body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 540px) {
+  body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-personal {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}

@@ -1,0 +1,102 @@
+/* Las tablas mantienen sus columnas reales. En pantallas estrechas, se desplazan
+   dentro del panel; el diseño de fichas móvil existente se conserva. */
+@media (min-width: 821px) {
+  .app-content :is(.table-wrap, .people-table-scroll, .order-table-scroll, .quote-table-scroll) {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  .app-content :is(.data-table, .people-table, .order-table, .quote-table, .request-table, .orders-table, .user-report-table) {
+    width: 100%;
+    table-layout: auto !important;
+  }
+
+  .app-content .data-table.se-wide-table { min-width: 1100px; }
+  body.solicitudes-mode .app-content .solicitudes-table-panel .data-table { min-width: 1080px; }
+
+  .app-content :is(.data-table, .people-table, .order-table, .quote-table, .request-table, .orders-table, .user-report-table) :is(th, td) {
+    word-break: normal;
+    overflow-wrap: normal;
+  }
+
+  .app-content :is(.data-table, .people-table, .order-table, .quote-table, .request-table, .orders-table, .user-report-table) thead th {
+    white-space: nowrap;
+  }
+
+  .app-content :is(.data-table, .people-table, .order-table, .quote-table, .request-table, .orders-table, .user-report-table) tbody td:last-child {
+    min-width: 122px;
+  }
+
+  .app-content :is(.data-table, .people-table, .order-table, .quote-table, .request-table, .orders-table, .user-report-table) tbody td:last-child :is(button, .btn, a) {
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+
+  .app-content .request-description-cell {
+    min-width: 180px;
+    max-width: 320px;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+}
+
+@media (max-width: 820px) {
+  .app-content :is(.table-wrap, .people-table-scroll, .order-table-scroll, .quote-table-scroll) {
+    max-width: 100%;
+  }
+  .app-content table.se-responsive-table td,
+  .app-content table.se-responsive-table td :is(button, .btn, a) {
+    word-break: normal;
+    overflow-wrap: break-word;
+  }
+}
+/* Filas compactas de Gabi, adaptadas a las columnas y acciones actuales. */
+.app-content .se-cell-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  line-height: 1.4;
+}
+.app-content .se-cell-stack > strong { color: var(--se-text-strong, #0b2e59); font-weight: 700; }
+.app-content .se-cell-muted { color: var(--se-muted, #526d82); font-size: 12px; line-height: 1.35; }
+.app-content .se-cell-caption { color: var(--se-muted, #526d82); font-size: 11px; font-weight: 700; }
+.app-content .se-table-actions { white-space: normal; text-align: left; }
+.app-content .se-description { line-height: 1.45; overflow-wrap: break-word; }
+
+@media (min-width: 821px) {
+  body.seprigua-hoja-v4 .app-content :is(.data-table, .people-table, .order-table, .quote-table) thead th {
+    padding: 11px 12px;
+    background: #0c3e73 !important;
+    color: #fff !important;
+    font-weight: 650;
+    white-space: normal;
+    vertical-align: middle;
+  }
+  body.seprigua-hoja-v4 .app-content :is(.data-table, .people-table, .order-table, .quote-table) tbody td {
+    padding: 10px 12px;
+    vertical-align: middle;
+  }
+  body.seprigua-hoja-v4 .app-content :is(.data-table, .people-table, .order-table, .quote-table) tbody tr:nth-child(even) td {
+    background: var(--se-surface-2, #f4f8fc);
+  }
+  body.seprigua-hoja-v4 .app-content :is(.data-table, .people-table, .order-table, .quote-table) tbody tr:hover td {
+    background: var(--se-hover, #eaf3fb);
+  }
+  body.seprigua-hoja-v4 .app-content .people-table thead th { width: auto !important; }
+  body.solicitudes-mode .app-content .solicitudes-table-panel .data-table :is(th, td):first-child { min-width: 110px; }
+  body.solicitudes-mode .app-content .solicitudes-table-panel .data-table :is(th, td):nth-child(2) { min-width: 170px; }
+  body.solicitudes-mode .app-content .solicitudes-table-panel .data-table :is(th, td):nth-child(3) { min-width: 190px; }
+  body.solicitudes-mode .app-content .solicitudes-table-panel .data-table :is(th, td):last-child { min-width: 100px; }
+  .app-content .order-compact-table { min-width: 960px; }
+  .app-content .people-table .people-contact-cell,
+  .app-content .people-table .people-contact-detail { overflow-wrap: break-word; }
+}
+
+@media (max-width: 820px) {
+  .app-content .se-description { display: block; overflow: visible; white-space: normal; text-overflow: clip; }
+  .app-content .se-table-actions { text-align: left; }
+  .app-content .se-table-actions :is(button, .btn, a) { white-space: normal; }
+}

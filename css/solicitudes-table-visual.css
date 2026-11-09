@@ -1,0 +1,152 @@
+/* Solo la lista de Solicitudes. Mantiene los datos y las acciones existentes. */
+body.solicitudes-mode .solicitudes-table-panel {
+  overflow: visible;
+}
+
+body.solicitudes-mode .solicitudes-table-panel .table-wrap {
+  overflow: visible;
+  border-radius: 0 0 16px 16px;
+}
+
+body.solicitudes-mode .solicitudes-table-panel .data-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+body.solicitudes-mode .solicitudes-table-panel .request-description-cell {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+body.solicitudes-mode .solicitudes-table-panel .request-service-cell > strong {
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+body.solicitudes-mode .solicitudes-table-panel .request-follow-button {
+  min-height: 32px;
+  padding: 5px 8px;
+  font-weight: 600;
+}
+
+@container (min-width: 850px) {
+  body.solicitudes-mode .solicitudes-table-panel .data-table :is(th, td):nth-child(1) { width: 12%; }
+  body.solicitudes-mode .solicitudes-table-panel .data-table :is(th, td):nth-child(2) { width: 17%; }
+  body.solicitudes-mode .solicitudes-table-panel .data-table :is(th, td):nth-child(3) { width: 21%; }
+  body.solicitudes-mode .solicitudes-table-panel .data-table :is(th, td):nth-child(4) { width: 15%; }
+  body.solicitudes-mode .solicitudes-table-panel .data-table :is(th, td):nth-child(5) { width: 9%; }
+  body.solicitudes-mode .solicitudes-table-panel .data-table :is(th, td):nth-child(6) { width: 18%; }
+  body.solicitudes-mode .solicitudes-table-panel .data-table :is(th, td):nth-child(7) { width: 8%; }
+
+  body.solicitudes-mode .solicitudes-table-panel .data-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    padding: 13px 10px;
+    border-right: 1px solid rgba(255, 255, 255, .15);
+    border-bottom: 0;
+    background: #0c3e73 !important;
+    color: #fff !important;
+    font-size: 13px;
+    font-weight: 600 !important;
+    line-height: 1.25;
+    letter-spacing: 0;
+    text-transform: none !important;
+    white-space: normal;
+  }
+  body.solicitudes-mode .solicitudes-table-panel .data-table thead th:first-child {
+    border-top-left-radius: 12px;
+  }
+  body.solicitudes-mode .solicitudes-table-panel .data-table thead th:last-child {
+    border-right: 0;
+    border-top-right-radius: 12px;
+  }
+  body.solicitudes-mode .solicitudes-table-panel .data-table tbody td {
+    padding: 10px;
+    border-right: 1px solid #e4edf6;
+    border-bottom: 1px solid #deebf5;
+    font-size: 13px;
+    line-height: 1.35;
+    vertical-align: middle;
+  }
+  body.solicitudes-mode .solicitudes-table-panel .data-table tbody td:last-child { border-right: 0; }
+  body.solicitudes-mode .solicitudes-table-panel .data-table tbody tr:nth-child(odd) td { background: #fff; }
+  body.solicitudes-mode .solicitudes-table-panel .data-table tbody tr:nth-child(even) td { background: #f4f8fc; }
+  body.solicitudes-mode .solicitudes-table-panel .data-table tbody tr:hover td { background: #eaf3fb; }
+
+  body.solicitudes-mode .solicitudes-table-panel .request-identity-cell .se-cell-stack,
+  body.solicitudes-mode .solicitudes-table-panel .request-followup {
+    gap: 3px;
+  }
+  body.solicitudes-mode .solicitudes-table-panel .request-id-cell { font-size: 14px; font-weight: 600; }
+  body.solicitudes-mode .solicitudes-table-panel .request-date-cell { color: #526d82; font-size: 12px; }
+  body.solicitudes-mode .solicitudes-table-panel .request-priority-pill,
+  body.solicitudes-mode .solicitudes-table-panel .request-followup-badge {
+    width: max-content;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 24px;
+    padding: 3px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+  body.solicitudes-mode .solicitudes-table-panel .request-followup strong { font-size: 12px; font-weight: 600; }
+  body.solicitudes-mode .solicitudes-table-panel .request-followup .se-cell-muted { font-size: 11px; }
+}
+
+/* La tabla aún cabe en una laptop; el modo de tarjetas empieza debajo de 850 px. */
+@container (min-width: 850px) and (max-width: 1050px) {
+  body.solicitudes-mode .solicitudes-table-panel .se-table-responsive-scope table.data-table.se-wide-table {
+    display: table !important;
+    width: 100% !important;
+    background: #fff !important;
+  }
+  body.solicitudes-mode .solicitudes-table-panel .se-table-responsive-scope table.data-table.se-wide-table thead { display: table-header-group !important; }
+  body.solicitudes-mode .solicitudes-table-panel .se-table-responsive-scope table.data-table.se-wide-table tbody {
+    display: table-row-group !important;
+    padding: 0 !important;
+  }
+  body.solicitudes-mode .solicitudes-table-panel .se-table-responsive-scope table.data-table.se-wide-table tr {
+    display: table-row !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+  }
+  body.solicitudes-mode .solicitudes-table-panel .se-table-responsive-scope table.data-table.se-wide-table td {
+    display: table-cell !important;
+    position: static !important;
+    grid-column: auto !important;
+    width: auto !important;
+    padding: 10px !important;
+    border-right: 1px solid #e4edf6 !important;
+    border-bottom: 1px solid #deebf5 !important;
+    font-size: 13px !important;
+    background: #fff !important;
+  }
+  body.solicitudes-mode .solicitudes-table-panel .se-table-responsive-scope table.data-table.se-wide-table tr:nth-child(even) td { background: #f4f8fc !important; }
+  body.solicitudes-mode .solicitudes-table-panel .se-table-responsive-scope table.data-table.se-wide-table tr:hover td { background: #eaf3fb !important; }
+  body.solicitudes-mode .solicitudes-table-panel .se-table-responsive-scope table.data-table.se-wide-table td:last-child { border-right: 0 !important; }
+  body.solicitudes-mode .solicitudes-table-panel .se-table-responsive-scope table.data-table.se-wide-table td::before { display: none !important; content: none !important; }
+  body.solicitudes-mode .solicitudes-table-panel .se-table-responsive-scope table.data-table.se-wide-table td:last-child button { min-width: 0; min-height: 32px; }
+}
+
+@media (max-width: 820px) {
+  body.solicitudes-mode .solicitudes-table-panel .data-table thead th { position: static; }
+}
+
+@container (min-width: 850px) {
+  html[data-theme="dark"] body.solicitudes-mode .solicitudes-table-panel .data-table tbody td {
+    border-color: #2b4964;
+  }
+  html[data-theme="dark"] body.solicitudes-mode .solicitudes-table-panel .data-table tbody tr:nth-child(odd) td { background: #10243a !important; }
+  html[data-theme="dark"] body.solicitudes-mode .solicitudes-table-panel .data-table tbody tr:nth-child(even) td { background: #163049 !important; }
+  html[data-theme="dark"] body.solicitudes-mode .solicitudes-table-panel .data-table tbody tr:hover td { background: #244a6d !important; }
+}

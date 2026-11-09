@@ -535,8 +535,14 @@
       this.bubble.classList.remove("arrow-top","arrow-bottom");
       this.bubble.style.left="";this.bubble.style.top="";this.bubble.style.right="";this.bubble.style.bottom="";
       if(!rect) {
-        this.bubble.style.right="18px";
-        this.bubble.style.bottom="84px";
+        const button=this.launcher.getBoundingClientRect();
+        const edge=12;
+        const width=this.bubble.offsetWidth;
+        const height=this.bubble.offsetHeight;
+        const left=Math.max(edge,Math.min(innerWidth-width-edge,button.right-width));
+        const top=Math.max(edge,button.top-height-12);
+        this.bubble.style.left=`${left}px`;
+        this.bubble.style.top=`${top}px`;
         return;
       }
       const width=this.bubble.offsetWidth;

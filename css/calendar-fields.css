@@ -23,9 +23,11 @@ input:is([type="date"], [type="datetime-local"])::-webkit-inner-spin-button {
 .se-date-picker {
   position: fixed;
   z-index: 5500;
-  width: min(var(--se-date-picker-width, 288px), calc(100vw - 16px));
+  width: min(var(--se-date-picker-width, 300px), calc(100vw - 16px));
+  max-width: 340px;
   max-height: calc(100dvh - 16px);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
   padding: 10px;
   border: 1px solid color-mix(in srgb, var(--se-brand-3) 28%, var(--se-border));
@@ -78,7 +80,7 @@ html[data-theme="dark"] .se-date-picker {
 .se-date-day:hover:not(:disabled) { background: var(--se-hover); border-color: var(--se-border); }
 .se-date-day.is-outside { color: var(--se-muted); }
 .se-date-day.is-today { border-color: var(--se-brand-3); color: var(--se-brand-3); }
-.se-date-day.is-selected { background: var(--se-surface); border-color: var(--se-brand-3); color: var(--se-brand-3); }
+.se-date-day.is-selected { background: var(--se-surface-3); border-color: var(--se-brand-3); color: var(--se-brand); }
 .se-date-day.is-selected:hover:not(:disabled) { background: var(--se-hover); color: var(--se-brand-3); }
 .se-date-day:disabled { opacity: .34; cursor: not-allowed; }
 .se-date-picker :is(button, select):focus-visible { outline: 2px solid var(--se-focus); outline-offset: 2px; }
@@ -126,6 +128,7 @@ html[data-theme="dark"] .se-date-picker {
   font-weight: 800;
 }
 .se-date-picker-foot button[hidden] { display: none; }
+.se-date-picker-foot[hidden] { display: none; }
 .se-date-picker.is-compact .se-date-time {
   display: grid;
   grid-template-columns: auto 53px auto 53px;

@@ -1,0 +1,182 @@
+/* Tipografía de controles y datos. Conserva la paleta y las superficies globales. */
+body.seprigua-hoja-v4 .system-nav .nav-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: none;
+}
+
+body.seprigua-hoja-v4 .system-nav .nav-button {
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+body.seprigua-hoja-v4 .system-nav .nav-button.active { font-weight: 600; }
+body.seprigua-hoja-v4 :is(.role-chip, .logout-button) {
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+body.seprigua-hoja-v4 .prototype-user-copy small {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .solicitudes-filter-field label,
+  .orders-filter-field > span:not(.se-enterprise-select),
+  .people-field > span:not(.se-enterprise-select),
+  .quotes-filter > span:not(.se-enterprise-select),
+  .clients-filter-kicker,
+  .clients-filter-copy small,
+  .smart-list-tools > .field > label,
+  .operations-filters > label,
+  .user-filter-grid label,
+  .catalog-toolbar label,
+  .quotes-list-toolbar label > span,
+  .field > label,
+  .field label
+) {
+  color: var(--se-text-2);
+  font-weight: 500 !important;
+  letter-spacing: .01em !important;
+  text-transform: none !important;
+}
+
+body.seprigua-hoja-v4 .app-content :is(.smart-list-tools, .operations-filters, .user-filter-grid, .catalog-toolbar, .orders-filters, .quotes-filters, .people-filter-section) :is(input, select, .se-enterprise-select-button),
+body.seprigua-hoja-v4 .app-content .solicitudes-filter-panel :is(input, select) {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.seprigua-hoja-v4 .app-content :is(.data-table, .people-table, .order-table, .quote-table) thead th,
+body.seprigua-hoja-v4 .app-content .table-wrap table thead th {
+  background: var(--se-table-head);
+  color: var(--se-text-strong);
+  font-weight: 600 !important;
+  letter-spacing: .005em !important;
+  text-transform: none !important;
+}
+body.solicitudes-mode .solicitudes-table-panel .data-table th {
+  background: var(--request-soft);
+  color: var(--request-title);
+  font-weight: 600;
+  letter-spacing: .005em;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .solicitudes-table-title strong,
+  .people-table-toolbar h3,
+  .quotes-list-toolbar strong,
+  .order-table-toolbar strong,
+  .panel-header h2
+) { font-weight: 600; letter-spacing: 0; }
+
+body.seprigua-hoja-v4 .app-content :is(
+  .request-quick-pill,
+  .order-quick-pill,
+  .people-quick,
+  .quote-tab,
+  .people-tab,
+  .context-tab,
+  .pager-button,
+  .request-follow-button,
+  .request-clear-button,
+  .quotes-clear,
+  .people-clear,
+  .order-columns-trigger
+) {
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+body.seprigua-hoja-v4 .app-content :is(.request-quick-pill, .order-quick-pill, .people-quick, .quote-tab, .people-tab, .context-tab, .pager-button).active {
+  font-weight: 600;
+}
+body.seprigua-hoja-v4 .app-content :is(.context-tab-copy strong, .quote-tab strong, .request-quick-pill strong, .order-quick-pill strong, .people-quick b) {
+  font-weight: 600;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .data-table, .people-table, .order-table, .quote-table,
+  .smart-list-panel, .solicitudes-table-panel, .people-table-section,
+  .quotes-list-section, .operations-workspace
+) :is(.badge, .request-class-pill, .request-priority-pill, .request-state-pill, .request-followup-badge, .order-status-pill, .order-priority-pill, .people-status, .quote-status) {
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.seprigua-hoja-v4 .app-content :is(.smart-pagination-copy, .order-pagination-copy, .quote-pagination, .user-pagination-copy, .operations-pager, .smart-results-meta, .people-quick-hint, .request-quick-hint) {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.seprigua-hoja-v4 .app-content :is(.panel, .toolbar, .people-table-section, .quotes-list-section) :is(.btn, .people-outline-action, .people-action-item, .popover-menu-item) {
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+body.seprigua-hoja-v4 .app-content :is(.panel, .toolbar, .people-table-section, .quotes-list-section) :is(.btn.primary, .people-outline-action.active) {
+  font-weight: 600;
+}
+body.seprigua-hoja-v4 .app-content :is(.data-table, .people-table, .order-table, .quote-table) :is(.request-follow-button, .quote-action-button, .order-action-button, .people-outline-action, .people-action-item) {
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+body.seprigua-hoja-v4 .app-content :is(.request-quick-label, .order-quick-label, .smart-quick-label, .people-quick-row > span:first-child) {
+  color: var(--se-text-2);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.seprigua-hoja-v4 .app-content :is(
+  .role-section-kicker, .coord-section-kicker, .section-kicker,
+  .quote-flow-step small, .quote-stage-heading small,
+  .quote-collage-head small, .role-system-pill, .role-inactive-pill,
+  .quote-document em
+) {
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: none;
+}
+body.seprigua-hoja-v4 .app-content .request-warranty-head .solicitudes-eyebrow {
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: none;
+}
+body.seprigua-hoja-v4 .app-content :is(.module-context-kicker, .order-screen .panel-header .eyebrow, .order-signature-head .eyebrow) {
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: none;
+}
+
+body.seprigua-hoja-v4 .modal-seprigua :is(.field label, .form-grid label) {
+  color: var(--se-text-2);
+  font-weight: 500;
+  letter-spacing: .01em;
+  text-transform: none;
+}
+body.seprigua-hoja-v4 .modal-seprigua :is(.badge, .people-status, .order-status-pill, .quote-status) {
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+body.seprigua-hoja-v4 .modal-seprigua table th {
+  background: var(--se-table-head);
+  color: var(--se-text-strong);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+body.seprigua-hoja-v4 .modal-seprigua :is(.btn, .form-actions button) {
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+body.seprigua-hoja-v4 .modal-seprigua :is(.btn.primary, .form-actions button.primary) { font-weight: 600; }

@@ -13,6 +13,7 @@
   
 
   <link rel="stylesheet" href="css/login.css?v=20261019-recovery">
+  <link rel="stylesheet" href="css/login-typography.css?v=20261103-v1">
   <script src="/java/compat-performance.js?v=1"></script>
 </head>
 
@@ -47,7 +48,7 @@
         >
         <div class="brand-separator" aria-hidden="true">
           <span></span>
-          <small>ACCESO AL SISTEMA</small>
+          <small>Acceso al sistema</small>
           <span></span>
         </div>
         <h1 id="loginTitle">Bienvenido de nuevo</h1>
@@ -56,7 +57,7 @@
 
       <form class="login-form" id="loginForm" novalidate>
         <div class="field-group">
-          <label for="identity">USUARIO O EMAIL</label>
+          <label for="identity">Usuario o email</label>
           <div class="field-control">
             <span class="field-icon"><i data-lucide="user-round"></i></span>
             <input
@@ -72,7 +73,7 @@
         </div>
 
         <div class="field-group">
-          <label for="password">CONTRASEÑA</label>
+          <label for="password">Contraseña</label>
           <div class="field-control">
             <span class="field-icon"><i data-lucide="lock-keyhole"></i></span>
             <input
@@ -110,7 +111,7 @@
         </div>
 
         <button class="login-submit" type="submit">
-          <span>INGRESAR</span>
+          <span>Ingresar</span>
           <i data-lucide="arrow-right"></i>
         </button>
 
@@ -144,7 +145,7 @@
       <button class="recovery-close" type="button" data-company-close aria-label="Cerrar aviso"><i data-lucide="x"></i></button>
       <div class="recovery-icon"><i data-lucide="building-2"></i></div>
       <div>
-        <span class="recovery-kicker">ACCESO SUSPENDIDO</span>
+        <span class="recovery-kicker">Acceso suspendido</span>
         <h2 id="companyDisabledTitle">Empresa desactivada</h2>
         <p id="companyDisabledMessage">La empresa vinculada a tu cuenta está desactivada. Comunícate con Coordinación para solicitar la reactivación de la empresa y de tu usuario.</p>
       </div>
@@ -163,7 +164,7 @@
       <div class="recovery-icon"><i data-lucide="key-round"></i></div>
 
       <div id="recoveryRequestView">
-        <span class="recovery-kicker">RECUPERACIÓN SEGURA</span>
+        <span class="recovery-kicker">Recuperación segura</span>
         <h2 id="recoveryTitle">Restablecer contraseña</h2>
         <p>Usa tu código de seguridad personal para crear una nueva contraseña. Puedes generarlo previamente en Mi cuenta.</p>
 
@@ -173,13 +174,13 @@
         </div>
 
         <form id="recoveryCodeForm" class="recovery-form" novalidate>
-          <label for="recoveryCodeIdentity">USUARIO O CORREO</label>
+          <label for="recoveryCodeIdentity">Usuario o correo</label>
           <div class="recovery-control"><i data-lucide="user-round"></i><input id="recoveryCodeIdentity" autocomplete="username" placeholder="Ingresa tu usuario" required></div>
-          <label for="recoveryCode">CÓDIGO DE SEGURIDAD</label>
+          <label for="recoveryCode">Código de seguridad</label>
           <div class="recovery-control"><i data-lucide="key-round"></i><input id="recoveryCode" autocomplete="off" placeholder="Código guardado en Mi cuenta" required></div>
-          <label for="recoveryCodePassword">NUEVA CONTRASEÑA</label>
+          <label for="recoveryCodePassword">Nueva contraseña</label>
           <div class="recovery-control"><i data-lucide="lock-keyhole"></i><input id="recoveryCodePassword" type="password" autocomplete="new-password" placeholder="Nueva contraseña" required></div>
-          <label for="recoveryCodeConfirm">CONFIRMAR CONTRASEÑA</label>
+          <label for="recoveryCodeConfirm">Confirmar contraseña</label>
           <div class="recovery-control"><i data-lucide="shield-check"></i><input id="recoveryCodeConfirm" type="password" autocomplete="new-password" placeholder="Repite la contraseña" required></div>
           <div class="recovery-rules">8+ caracteres · mayúscula · minúscula · número</div>
           <button class="recovery-primary" type="submit"><i data-lucide="check-circle-2"></i><span>Restablecer contraseña</span></button>
@@ -187,7 +188,7 @@
         <p class="recovery-status" id="recoveryCodeStatus" aria-live="polite"></p>
 
         <form id="recoveryRequestForm" class="recovery-form" novalidate hidden>
-          <label for="recoveryIdentity">USUARIO O CORREO</label>
+          <label for="recoveryIdentity">Usuario o correo</label>
           <div class="recovery-control">
             <i data-lucide="mail"></i>
             <input id="recoveryIdentity" autocomplete="username" placeholder="Ingresa tu usuario" required>
@@ -203,17 +204,17 @@
       </div>
 
       <div id="recoveryConfirmView" hidden>
-        <span class="recovery-kicker">NUEVA CONTRASEÑA</span>
+        <span class="recovery-kicker">Nueva contraseña</span>
         <h2>Protege tu cuenta</h2>
         <p>Elige una contraseña nueva. El enlace es temporal y dejará de funcionar después del cambio.</p>
 
         <form id="recoveryConfirmForm" class="recovery-form" novalidate>
-          <label for="newPassword">NUEVA CONTRASEÑA</label>
+          <label for="newPassword">Nueva contraseña</label>
           <div class="recovery-control">
             <i data-lucide="lock-keyhole"></i>
             <input id="newPassword" type="password" autocomplete="new-password" placeholder="Nueva contraseña" required>
           </div>
-          <label for="confirmPassword">CONFIRMAR CONTRASEÑA</label>
+          <label for="confirmPassword">Confirmar contraseña</label>
           <div class="recovery-control">
             <i data-lucide="shield-check"></i>
             <input id="confirmPassword" type="password" autocomplete="new-password" placeholder="Repite la contraseña" required>
