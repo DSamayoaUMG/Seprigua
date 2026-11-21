@@ -1,0 +1,30 @@
+/* SEPRIGUA - Archivo digital: tarjetas compactas por servicio.
+   Elementos visuales solamente; permisos y rutas los valida Flask. */
+.se-service-archive {display:grid;gap:12px;margin:4px 0 16px}
+.se-service-archive__item {border:1px solid #d6e3ef;border-radius:13px;background:#fff;overflow:hidden;box-shadow:0 2px 8px rgba(10,56,100,.045)}
+.se-service-archive__head {display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:13px 15px;border-bottom:1px solid #e1eaf3;background:#f7fbff}
+.se-service-archive__icon {width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:#e2f1ff;color:#1267a7;flex:0 0 auto}
+.se-service-archive__icon svg{width:20px;height:20px}
+.se-service-archive__copy{flex:1;min-width:180px;display:grid;gap:2px}
+.se-service-archive__copy small{font-size:11px;color:#65809d}
+.se-service-archive__copy strong{color:#0a3560;font-size:14px;overflow-wrap:anywhere}
+.se-service-archive__head-actions{display:flex;flex-wrap:wrap;gap:7px}
+.se-service-archive__head-actions .btn{margin:0;font-size:12px;min-height:34px;padding:6px 10px}
+.se-service-archive__stages{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:10px 14px;border-bottom:1px solid #e1eaf3}
+.se-service-archive__stage{display:flex;align-items:center;gap:8px;min-width:0;padding:8px 9px;border:1px solid #dce6f0;background:#f5f9fd;border-radius:9px;color:#3a5978}
+.se-service-archive__stage b{width:22px;height:22px;display:grid;place-items:center;flex:0 0 auto;border-radius:50%;background:#e3eef9;color:#22699c;font-size:11px}
+.se-service-archive__stage span{font-size:11px;font-weight:650;line-height:1.25}
+.se-service-archive__stage.is-ready{border-color:#bbe3d0;background:#f3fbf8;color:#236c52}
+.se-service-archive__stage.is-ready b{background:#def6e9;color:#167748}
+.se-service-archive__files{display:grid;gap:7px;padding:10px 14px 13px}
+.se-service-archive__file{display:flex;align-items:center;flex-wrap:wrap;gap:10px;border:1px solid #e2eaf3;border-radius:9px;background:#fff;padding:9px 11px}
+.se-service-archive__file-icon{width:32px;height:32px;display:grid;place-items:center;flex:0 0 auto;border-radius:8px;background:#eaf2ff;color:#145e9c}
+.se-service-archive__file-icon svg{width:17px;height:17px}
+.se-service-archive__file-copy{display:grid;gap:2px;flex:1;min-width:160px}
+.se-service-archive__file-copy strong{font-size:12px;color:#133b63;overflow-wrap:anywhere}
+.se-service-archive__file-copy small{font-size:11px;color:#647d99}
+.se-service-archive__file-status{font-size:11px;font-weight:650;color:#27714f;border-radius:99px;background:#eaf9f1;padding:4px 9px}
+.se-service-archive__file-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.se-service-archive__file-actions .btn{margin:0;min-height:30px;padding:4px 9px;font-size:11px}
+@media(max-width:760px){.se-service-archive__stages{grid-template-columns:repeat(2,minmax(0,1fr))}.se-service-archive__head{align-items:flex-start}.se-service-archive__file-actions{width:100%;justify-content:flex-start}}
+@media(max-width:425px){.se-service-archive__stages{grid-template-columns:1fr 1fr}.se-service-archive__file{gap:7px}.se-service-archive__head-actions{width:100%}}

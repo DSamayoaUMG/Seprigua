@@ -2,10 +2,11 @@
   "use strict";
 
   const CONFIG = {
-    basePath: "assets/img/trabajos/",
+    basePath: "/assets/img/trabajos/",
     prefix: "",
     extension: ".webp",
-    maxFilesToProbe: 5,
+    firstPhoto: 2,
+    lastPhoto: 5,
     autoplayMs: 4500,
     pauseAfterInteractionMs: 7000
   };
@@ -88,7 +89,7 @@
   async function discoverImages() {
     const checks = [];
 
-    for (let i = 1; i <= CONFIG.maxFilesToProbe; i += 1) {
+    for (let i = CONFIG.firstPhoto; i <= CONFIG.lastPhoto; i += 1) {
       checks.push(imageExists(srcFor(i)));
     }
 
@@ -97,18 +98,19 @@
     if (found.length) return found;
 
     const legacyImages = [
-      "assets/img/trabajo-1.webp",
-      "assets/img/trabajo-2.webp",
-      "assets/img/trabajo-3-focus.webp",
-      "assets/img/trabajo-4-focus.webp",
-      "assets/img/trabajo-5-focus.webp"
+      "/assets/img/trabajo-1.webp",
+      "/assets/img/trabajo-2.webp",
+      "/assets/img/trabajo-3-focus.webp",
+      "/assets/img/trabajo-4-focus.webp",
+      "/assets/img/trabajo-5-focus.webp"
     ];
 
     return (await Promise.all(legacyImages.map(imageExists))).filter(Boolean);
   }
 
   function metaFor(index) {
-    return WORK_META[index] || {
+    const photoNumber = Number(images[index]?.match(/trabajos\/(\d+)\.webp$/)?.[1]);
+    return WORK_META[photoNumber ? photoNumber - 1 : index] || {
       title: "Trabajo realizado por SEPRIGUA",
       situation:
         "Condición identificada durante una intervención técnica en campo.",

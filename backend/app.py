@@ -4,6 +4,7 @@ import base64
 import hashlib
 import io
 import hmac
+from ipaddress import ip_address
 import html
 import json
 import os
@@ -30,9 +31,14 @@ import pyodbc
 from argon2.low_level import Type, hash_secret_raw
 from dotenv import load_dotenv
 from flask.json.provider import DefaultJSONProvider
-from werkzeug.exceptions import HTTPException, Forbidden, NotFound, Conflict
-from flask import g, Flask, jsonify, make_response, request, send_file, send_from_directory
+from werkzeug.exceptions import HTTPException, Forbidden, NotFound, Conflict, TooManyRequests
+from flask import g, Flask, jsonify, make_response, request, send_file, send_from_directory, render_template
 from werkzeug.utils import secure_filename
+
+try:
+    from .client_visibility import MODES, client_mode_sql, notice_visibility_sql, request_read_only_sql, request_visibility_sql
+except ImportError:
+    from client_visibility import MODES, client_mode_sql, notice_visibility_sql, request_read_only_sql, request_visibility_sql
 
 try:
     from PIL import Image, ImageOps
@@ -117,7 +123,7 @@ _PROFILE_PHOTO_ROOT_VALUE = (os.getenv("PROFILE_PHOTO_STORAGE_ROOT") or "").stri
 PROFILE_PHOTO_ROOT = (Path(_PROFILE_PHOTO_ROOT_VALUE).expanduser().resolve() if _PROFILE_PHOTO_ROOT_VALUE
                       else (BASE_DIR / ".seprigua-private" / "fotos-perfil").resolve())
 MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024
-PROFILE_PHOTO_CHANGE_MINUTES = 1
+PROFILE_PHOTO_CHANGE_DAYS = 30
 
 # Web Push / PWA. En VM y dispositivos reales requiere HTTPS.
 PUSH_DEDUPE_LOCK = Lock()
@@ -211,6 +217,9 @@ def env_bool(name: str, default: bool = False) -> bool:
 CONTACT_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 RATE_LIMIT_LOCK = Lock()
 RATE_LIMIT_BUCKETS: dict[tuple[str, str], list[float]] = {}
+CONTACT_LANDING_HOSTS = {"turamgt.com", "www.turamgt.com"}
+CONTACT_RECEIPTS: dict[str, float | None] = {}
+CONTACT_RECEIPT_SECONDS = 120
 
 
 def rate_limit_allowed(scope: str, key: str, limit: int, window_seconds: int) -> bool:
@@ -290,7 +299,7 @@ def verify_turnstile(token: str, remote_ip: str | None) -> bool:
     required = env_bool("TURNSTILE_REQUIRED", False)
     if not secret:
         return not required
-    if not token:
+    if not token or len(token) > 2048:
         return False
 
     payload = {"secret": secret, "response": token}
@@ -305,7 +314,12 @@ def verify_turnstile(token: str, remote_ip: str | None) -> bool:
     try:
         with urlopen(req, timeout=6) as response:
             result = json.loads(response.read().decode("utf-8"))
-        return bool(result.get("success"))
+        expected_hostname = urlsplit(request.host_url).hostname
+        return (
+            result.get("success") is True
+            and result.get("hostname") == expected_hostname
+            and result.get("action") == "contact"
+        )
     except Exception:
         app.logger.exception("No fue posible validar Turnstile")
         return env_bool("TURNSTILE_FAIL_OPEN", False)
@@ -575,7 +589,8 @@ def send_contact_emails(data: dict) -> None:
     settings = smtp_settings()
     admin_message = build_admin_email(data)
 
-    with open_smtp(settings) as smtp:
+    smtp = open_smtp(settings)
+    try:
         smtp.send_message(admin_message)
 
         if settings["send_confirmation"]:
@@ -584,7 +599,39 @@ def send_contact_emails(data: dict) -> None:
             except Exception:
                 # La solicitud ya llegó a SEPRIGUA. Un fallo de la confirmación
                 # no debe provocar que el cliente vuelva a enviar el formulario.
-                app.logger.exception("No se pudo enviar la confirmación al cliente.")
+                app.logger.warning("No se pudo enviar la confirmación al cliente.")
+    finally:
+        try:
+            smtp.close()
+        except OSError:
+            app.logger.warning("No se pudo cerrar la conexión SMTP.")
+
+
+def deliver_contact_once(data: dict) -> None:
+    key = hashlib.sha256(json.dumps(data, sort_keys=True).encode("utf-8")).hexdigest()
+    now = time.monotonic()
+    with RATE_LIMIT_LOCK:
+        for receipt, expires in list(CONTACT_RECEIPTS.items()):
+            if expires is not None and expires <= now:
+                del CONTACT_RECEIPTS[receipt]
+        if key in CONTACT_RECEIPTS:
+            if CONTACT_RECEIPTS[key] is None:
+                raise Conflict("Tu solicitud ya se está enviando. Espera un momento.")
+            return
+        if len(CONTACT_RECEIPTS) >= 2048:
+            raise TooManyRequests("Hay muchos envíos en curso. Intenta nuevamente en unos minutos.")
+        CONTACT_RECEIPTS[key] = None
+    try:
+        if not contact_email_rate_allowed(data["correo"]):
+            raise TooManyRequests("Ya recibimos varias solicitudes para este correo. Espera un momento.")
+        send_contact_emails(data)
+    except Exception:
+        with RATE_LIMIT_LOCK:
+            CONTACT_RECEIPTS.pop(key, None)
+        raise
+    else:
+        with RATE_LIMIT_LOCK:
+            CONTACT_RECEIPTS[key] = time.monotonic() + CONTACT_RECEIPT_SECONDS
 
 
 @contextmanager
@@ -869,6 +916,7 @@ def require_session(*roles):
                 if not session:
                     return clear_session_cookie(make_response(jsonify(ok=False,message="Sesión no válida o expirada."),401))
                 g.portal_session=session
+                g.shared_records = {}
                 if allowed and session['rol'] not in allowed: raise Forbidden("No tienes permiso para realizar esta acción.")
                 _assert_module_access(session)
                 write=request.method not in {'GET','HEAD','OPTIONS'}
@@ -898,25 +946,20 @@ def require_session(*roles):
 def _can_access_sede(session: dict, sede_id: int) -> bool:
     if session.get("rol") != "CLIENTE":
         return True
-    row = query_one("""SELECT TOP (1) s.SucursalClienteId AS id
-      FROM seg.UsuarioSucursalAcceso a
-      JOIN crm.SucursalCliente s ON s.SucursalClienteId=a.SucursalClienteId
-      JOIN seg.Usuario u ON u.UsuarioId=a.UsuarioId
-      JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId
-      WHERE a.UsuarioId=? AND s.SucursalClienteId=? AND a.Activo=1
-        AND u.Activo=1 AND cc.Activo=1 AND s.ClienteId=cc.ClienteId""",
-      (session["usuario_id"], sede_id))
-    return bool(row)
+    return bool(query_one("""SELECT SucursalClienteId FROM seg.ufn_SucursalesPermitidas(?)
+        WHERE SucursalClienteId=?""", (session["usuario_id"], sede_id)))
 
 
-def _assert_ubicacion_access(session: dict, ubicacion_id: int):
+def _assert_ubicacion_access(session: dict, ubicacion_id: int, *, require_active=False):
     if session.get("rol") != "CLIENTE":
         return
-    allowed = query_one("""SELECT TOP (1) ub.UbicacionServicioId AS id
+    active_only = "AND ub.Activo=1 AND sc.Activo=1" if require_active else ""
+    allowed = query_one(f"""SELECT TOP (1) ub.UbicacionServicioId AS id
         FROM crm.UbicacionServicio ub
         INNER JOIN seg.ufn_SucursalesPermitidas(?) a
            ON a.SucursalClienteId=ub.SucursalClienteId
-        WHERE ub.UbicacionServicioId=? AND ub.Activo=1""",
+        INNER JOIN crm.SucursalCliente sc ON sc.SucursalClienteId=a.SucursalClienteId
+        WHERE ub.UbicacionServicioId=? {active_only}""",
         (session["usuario_id"], ubicacion_id))
     if not allowed:
         raise NotFound("La ubicación no existe o no está autorizada para tu cuenta.")
@@ -957,8 +1000,25 @@ def _assert_garantia_access(session: dict, garantia_id: int):
     assert_order_access(session, int(item['id']))
 
 
+def _assert_client_record_access(session, row, kind, record_id):
+    if row['cliente_id'] != session.get('cliente_id'):
+        raise NotFound("Registro no encontrado o sin acceso.")
+    _assert_ubicacion_access(session, int(row['ubicacion_id']))
+    write = request.method not in {'GET', 'HEAD', 'OPTIONS'}
+    check = request_visibility_sql('s', 'actor.id', write=write)
+    readonly = request_read_only_sql('s', 'actor.id')
+    access = query_one(f"""SELECT {readonly} AS solo_lectura
+        FROM srv.SolicitudServicio s CROSS JOIN (SELECT CAST(? AS bigint) AS id) actor
+        WHERE s.SolicitudServicioId=? AND {check}""",
+        (session['usuario_id'], row['solicitud_id']))
+    if not access:
+        raise NotFound("Registro no encontrado o sin acceso.")
+    if getattr(g, 'shared_records', None) is not None:
+        g.shared_records[(kind, int(record_id))] = bool(access['solo_lectura'])
+
+
 def assert_order_access(session,orden_id,write=False):
-    row=query_one("""SELECT s.ClienteId AS cliente_id, s.UbicacionServicioId AS ubicacion_id, e.Codigo AS estado,
+    row=query_one("""SELECT s.SolicitudServicioId AS solicitud_id, s.ClienteId AS cliente_id, s.UbicacionServicioId AS ubicacion_id, e.Codigo AS estado,
       CASE WHEN EXISTS(SELECT 1 FROM srv.TecnicoOrden t WHERE t.OrdenTrabajoId=o.OrdenTrabajoId
         AND t.EmpleadoId=? AND t.Estado IN ('ASIGNADO','CONFIRMADO','FINALIZADO')) THEN 1 ELSE 0 END AS asignado
       FROM srv.OrdenTrabajo o JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId
@@ -967,16 +1027,16 @@ def assert_order_access(session,orden_id,write=False):
     if not row or (session['rol']=='CLIENTE' and row['cliente_id']!=session.get('cliente_id')) or (session['rol']=='TECNICO' and not row['asignado']):
         raise NotFound("Orden no encontrada o sin acceso.")
     if session['rol']=='CLIENTE':
-        _assert_ubicacion_access(session, int(row['ubicacion_id']))
+        _assert_client_record_access(session, row, 'orden', orden_id)
     if write and row['estado'] in {'COMPLETADA','CANCELADA'}: raise Conflict("La orden está cerrada; no admite cambios operativos.")
     return row
 
 
 def assert_request_access(session,solicitud_id,write=False):
-    row=query_one('SELECT ClienteId AS cliente_id, UbicacionServicioId AS ubicacion_id, Estado AS estado FROM srv.SolicitudServicio WHERE SolicitudServicioId=?',(solicitud_id,))
+    row=query_one('SELECT SolicitudServicioId AS solicitud_id, ClienteId AS cliente_id, UbicacionServicioId AS ubicacion_id, Estado AS estado FROM srv.SolicitudServicio WHERE SolicitudServicioId=?',(solicitud_id,))
     if not row or (session['rol']=='CLIENTE' and row['cliente_id']!=session.get('cliente_id')): raise NotFound("Solicitud no encontrada o sin acceso.")
     if session['rol']=='CLIENTE':
-        _assert_ubicacion_access(session, int(row['ubicacion_id']))
+        _assert_client_record_access(session, row, 'solicitud', solicitud_id)
     if write and row['estado']=='CANCELADA': raise Conflict("La solicitud está cancelada.")
     return row
 
@@ -1230,20 +1290,20 @@ def _coordinator_user_ids(exclude_user_id=None,module='ordenes'):
 
 
 def _client_user_ids_for_request(solicitud_id: int) -> list[int]:
-    rows = query_all("""
+    rows = query_all(f"""
         SELECT DISTINCT u.UsuarioId AS usuario_id
         FROM srv.SolicitudServicio s
         INNER JOIN crm.ContactoCliente cc ON cc.ClienteId=s.ClienteId AND cc.Activo=1
         INNER JOIN seg.Usuario u ON u.ContactoClienteId=cc.ContactoClienteId AND u.Activo=1
         JOIN crm.UbicacionServicio loc ON loc.UbicacionServicioId=s.UbicacionServicioId
         CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) permitted
-        WHERE s.SolicitudServicioId=? AND permitted.SucursalClienteId=loc.SucursalClienteId
+        WHERE s.SolicitudServicioId=? AND permitted.SucursalClienteId=loc.SucursalClienteId AND {request_visibility_sql('s', 'u.UsuarioId')}
     """, (solicitud_id,))
     return [int(x["usuario_id"]) for x in rows]
 
 
 def _client_user_ids_for_order(orden_id: int) -> list[int]:
-    rows = query_all("""
+    rows = query_all(f"""
         SELECT DISTINCT u.UsuarioId AS usuario_id
         FROM srv.OrdenTrabajo o
         INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId
@@ -1251,7 +1311,7 @@ def _client_user_ids_for_order(orden_id: int) -> list[int]:
         INNER JOIN seg.Usuario u ON u.ContactoClienteId=cc.ContactoClienteId AND u.Activo=1
         JOIN crm.UbicacionServicio loc ON loc.UbicacionServicioId=s.UbicacionServicioId
         CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) permitted
-        WHERE o.OrdenTrabajoId=? AND permitted.SucursalClienteId=loc.SucursalClienteId
+        WHERE o.OrdenTrabajoId=? AND permitted.SucursalClienteId=loc.SucursalClienteId AND {request_visibility_sql('s', 'u.UsuarioId')}
     """, (orden_id,))
     return [int(x["usuario_id"]) for x in rows]
 
@@ -1317,7 +1377,7 @@ def push_request_created(solicitud_id: int, actor_session: dict) -> None:
         suffix += f" · {urgency}"
     coords = _coordinator_user_ids(exclude_user_id=actor_session.get("usuario_id"),module="solicitudes")
     queue_web_push(coords, title=f"Nueva solicitud · {company}",
-                   body=f"{company} solicitó {service} en {site}{suffix}.",
+                   body=f"Solicitud #{solicitud_id} · {company} · {site} · {service}{suffix}.",
                    role="COORDINADOR", entity="SolicitudServicio", entity_id=solicitud_id,
                    tag=f"solicitud-{solicitud_id}-nueva")
     if actor_session.get("rol") == "CLIENTE":
@@ -1333,7 +1393,14 @@ def push_request_created(solicitud_id: int, actor_session: dict) -> None:
                        tag=f"solicitud-{solicitud_id}-creada")
 
 
-def push_order_created(orden_id: int) -> None:
+def push_schedule_text(value):
+    if not isinstance(value, datetime):
+        return "horario por confirmar"
+    instant = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return instant.astimezone(ZoneInfo(os.getenv("APP_TIMEZONE","America/Guatemala"))).strftime("%d/%m/%Y a las %H:%M")
+
+
+def push_order_created(orden_id: int, actor_user_id: int) -> None:
     ctx = _order_push_context(orden_id)
     if not ctx:
         return
@@ -1342,6 +1409,11 @@ def push_order_created(orden_id: int) -> None:
                    body=f"Coordinación atendió tu solicitud #{ctx.get('solicitud_id')} y creó la OT {ctx.get('numero_orden')} para {ctx.get('sede') or 'tu sede'}.",
                    role="CLIENTE", entity="OrdenTrabajo", entity_id=orden_id,
                    tag=f"ot-{orden_id}-creada")
+    queue_web_push(_coordinator_user_ids(exclude_user_id=actor_user_id),
+                   title=f"Nueva orden · {ctx['numero_orden']}",
+                   body=f"{ctx['empresa']} · {ctx['sede']} · {ctx['tipo_servicio']} · Solicitud #{ctx['solicitud_id']}.",
+                   role="COORDINADOR", entity="OrdenTrabajo", entity_id=orden_id,
+                   tag=f"ot-{orden_id}-creada-coordinador")
 
 
 def push_crew_updated(orden_id: int, actor_user_id: int, target_employee_ids=None) -> None:
@@ -1352,7 +1424,7 @@ def push_crew_updated(orden_id: int, actor_user_id: int, target_employee_ids=Non
     allowed = {int(x) for x in target_employee_ids} if target_employee_ids else None
     names = [str(x.get("nombre") or "Compañero") for x in crew]
     schedule = ctx.get("programada_para")
-    schedule_text = schedule.strftime("%d/%m/%Y %H:%M") if isinstance(schedule, datetime) else "horario por confirmar"
+    schedule_text = push_schedule_text(schedule)
     for member in crew:
         if not member.get("usuario_id") or (allowed is not None and int(member.get("empleado_id")) not in allowed):
             continue
@@ -1398,7 +1470,7 @@ def push_order_state_changed(orden_id: int, target_code: str, actor_session: dic
     actor_id = actor_session.get("usuario_id")
     if code in {"PROGRAMADA", "EN_PROCESO", "POR_CONFIRMAR"}:
         updates = {
-            "PROGRAMADA": ("Atención programada", f"La OT {number} ya tiene fecha de atención."),
+            "PROGRAMADA": ("Atención programada", f"OT {number} · {site} · {service} · {push_schedule_text(ctx.get('programada_para'))}."),
             "EN_PROCESO": ("Trabajo en proceso", f"La cuadrilla inició el trabajo de la OT {number} en {site}."),
             "POR_CONFIRMAR": ("Trabajo pendiente de confirmación", f"La OT {number} espera confirmación."),
         }
@@ -1411,13 +1483,24 @@ def push_order_state_changed(orden_id: int, target_code: str, actor_session: dic
                        body=f"La cuadrilla inició {service} en {site}.", role="COORDINADOR",
                        entity="OrdenTrabajo", entity_id=orden_id, tag=f"ot-{orden_id}-inicio")
     elif code == "COMPLETADA":
-        quote_id = ctx.get("cotizacion_id")
-        title = f"OT finalizada · {number}" if quote_id else f"OT lista para cotizar · {number}"
-        body = (f"La cuadrilla finalizó {service} en {site}. La cotización ya está asociada."
-                if quote_id else f"La cuadrilla finalizó {service} en {site}. Ya puedes crear la cotización.")
-        queue_web_push(_coordinator_user_ids(exclude_user_id=actor_id if actor_session.get("rol") == "COORDINADOR" else None),
-                       title=title, body=body, role="COORDINADOR", entity="OrdenTrabajo", entity_id=orden_id,
-                       tag=f"ot-{orden_id}-finalizada")
+        quote_exists = bool(ctx.get("cotizacion_id"))
+        warranty_review = not quote_exists and query_one("""
+            SELECT TOP 1 1 AS linked
+            FROM srv.IncidenciaOrden i
+            CROSS APPLY (VALUES(CASE WHEN ISJSON(i.AccionTomada)=1 THEN i.AccionTomada ELSE N'{}' END)) m(info)
+            WHERE JSON_VALUE(m.info,'$.portal_tipo')='garantia_solicitud'
+              AND TRY_CONVERT(bigint,JSON_VALUE(m.info,'$.revision_orden_id'))=?
+        """, (orden_id,))
+        if quote_exists or warranty_review:
+            coordinators = _coordinator_user_ids(exclude_user_id=actor_id if actor_session.get("rol") == "COORDINADOR" else None)
+            title = "OT finalizada"
+            body = f"OT {number} · {ctx['empresa']} · {site} · {service}. Consulta el seguimiento en la orden."
+        else:
+            coordinators = _coordinator_user_ids(module="cotizaciones_comercial")
+            title = "Falta crear cotización"
+            body = f"OT {number} · {ctx['empresa']} · {site} · {service}. Abre la OT para cotizar."
+        queue_web_push(coordinators, title=title, body=body, role="COORDINADOR",
+                       entity="OrdenTrabajo", entity_id=orden_id, tag=f"ot-{orden_id}-finalizada")
         queue_web_push(_client_user_ids_for_order(orden_id), title="Servicio finalizado",
                        body=f"La OT {number} fue finalizada. Ya puedes consultar su seguimiento y documentos.",
                        role="CLIENTE", entity="OrdenTrabajo", entity_id=orden_id,
@@ -1731,14 +1814,25 @@ def chatbot_page():
 @app.get("/sistema/<rol>")
 def system_page(rol: str):
     if rol.lower() not in {"coordinador", "tecnico", "cliente"}:
-        return "Ruta no encontrada", 404
+        raise NotFound()
     response = send_from_directory(BASE_DIR, "sistema.html", max_age=0)
     response.headers["Cache-Control"] = "private, no-store, must-revalidate"
     return response
 
 
+def _archivo_publico_permitido(nombre: str) -> bool:
+    """No ofrecer archivos ocultos ni tipos reservados como recursos publicos."""
+    partes = str(nombre or "").replace("\\", "/").split("/")
+    if not partes or any(not parte or parte.startswith(".") for parte in partes):
+        return False
+    extensiones_privadas = {".pem", ".key", ".p12", ".pfx", ".env", ".bak", ".sql", ".ini", ".config", ".db", ".sqlite", ".sqlite3"}
+    return not any(Path(parte).suffix.lower() in extensiones_privadas for parte in partes)
+
+
 def optimized_static(directory, filename: str, mimetype: str, max_age: int):
     """Serve precompressed code when supported, retaining Flask's safe path handling."""
+    if not _archivo_publico_permitido(filename):
+        raise NotFound()
     wants_gzip = request.accept_encodings["gzip"] > 0
     if (wants_gzip and not request.headers.get("Range") and
             filename.endswith((".css", ".js")) and
@@ -1769,6 +1863,8 @@ def js(filename: str):
 
 @app.get("/assets/<path:filename>")
 def assets(filename: str):
+    if not _archivo_publico_permitido(filename):
+        raise NotFound()
     return send_from_directory(BASE_DIR / "assets", filename, max_age=604800, conditional=True)
 
 
@@ -2481,11 +2577,11 @@ def api_calendario_actividades(session):
         return jsonify(ok=False, message="El rango de fechas no es válido."), 400
     if end <= start or (end - start).days > 32:
         return jsonify(ok=False, message="Consulta un mes a la vez."), 400
-    rows = query_all("""
+    rows = query_all(f"""
         SELECT CONVERT(char(10),o.ProgramadaPara,23) AS fecha,
                o.NumeroOrden AS titulo,c.NombreComercial AS cliente,
                eo.Codigo AS estado
-        FROM srv.OrdenTrabajo o
+        FROM srv.OrdenTrabajo o CROSS JOIN (SELECT CAST(? AS bigint) AS id) actor
         INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId
         INNER JOIN crm.Cliente c ON c.ClienteId=s.ClienteId
         INNER JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
@@ -2494,13 +2590,13 @@ def api_calendario_actividades(session):
             ?='COORDINADOR'
             OR (?='TECNICO' AND EXISTS(SELECT 1 FROM srv.TecnicoOrden t
                  WHERE t.OrdenTrabajoId=o.OrdenTrabajoId AND t.EmpleadoId=? AND t.Estado IN ('ASIGNADO','CONFIRMADO','FINALIZADO')))
-            OR (?='CLIENTE' AND s.ClienteId=? AND EXISTS(
+            OR (?='CLIENTE' AND s.ClienteId=? AND {request_visibility_sql('s', 'actor.id')} AND EXISTS(
                  SELECT 1 FROM crm.UbicacionServicio loc
                  JOIN seg.ufn_SucursalesPermitidas(?) permitido ON permitido.SucursalClienteId=loc.SucursalClienteId
                  WHERE loc.UbicacionServicioId=s.UbicacionServicioId))
           )
         ORDER BY o.ProgramadaPara,o.NumeroOrden
-    """, (datetime.combine(start, datetime.min.time()), datetime.combine(end, datetime.min.time()),
+    """, (session["usuario_id"], datetime.combine(start, datetime.min.time()), datetime.combine(end, datetime.min.time()),
           session["rol"], session["rol"], session.get("empleado_id") or -1,
           session["rol"], session.get("cliente_id") or -1, session["usuario_id"]))
     return jsonify(ok=True, items=rows)
@@ -2578,7 +2674,7 @@ def _account_profile_item(session):
     photo = _profile_photo_record(session["usuario_id"])
     if photo:
         updated_at = photo["ActualizadoEn"].replace(tzinfo=timezone.utc)
-        eligible_at = updated_at + timedelta(minutes=PROFILE_PHOTO_CHANGE_MINUTES)
+        eligible_at = updated_at + timedelta(days=PROFILE_PHOTO_CHANGE_DAYS)
         item["foto_url"] = _profile_photo_url(session["usuario_id"], photo["ActualizadoEn"])
         item["foto_actualizada"] = updated_at.isoformat()
         item["foto_cambio_disponible_en"] = eligible_at.isoformat()
@@ -2699,10 +2795,10 @@ def api_actualizar_foto_perfil(session):
             existing = cursor_query_one(cursor, "SELECT ActualizadoEn FROM seg.FotoPerfil WITH (UPDLOCK,HOLDLOCK) WHERE UsuarioId=?", (session["usuario_id"],))
             now = datetime.now(timezone.utc)
             if existing:
-                eligible_at = existing["ActualizadoEn"].replace(tzinfo=timezone.utc) + timedelta(minutes=PROFILE_PHOTO_CHANGE_MINUTES)
+                eligible_at = existing["ActualizadoEn"].replace(tzinfo=timezone.utc) + timedelta(days=PROFILE_PHOTO_CHANGE_DAYS)
                 if now < eligible_at:
-                    remaining = max(1, int((eligible_at - now).total_seconds()) + 1)
-                    return jsonify(ok=False, message=f"Podrás cambiar tu fotografía en {remaining} segundo(s)."), 429
+                    remaining = max(1, (eligible_at.date() - now.date()).days)
+                    return jsonify(ok=False, message=f"Podrás cambiar tu fotografía en {remaining} día(s)."), 429
                 cursor.execute("""
                     UPDATE seg.FotoPerfil SET Imagen=?,MimeType='image/webp',PesoBytes=?,ActualizadoEn=SYSUTCDATETIME()
                     WHERE UsuarioId=?
@@ -2719,7 +2815,7 @@ def api_actualizar_foto_perfil(session):
         return app_error(exc, "No fue posible guardar la fotografía en la base de datos.")
     url = _profile_photo_url(session["usuario_id"], updated)
     return jsonify(ok=True, message="Fotografía actualizada.", foto_url=url,
-                   siguiente_cambio=(datetime.now(timezone.utc) + timedelta(minutes=PROFILE_PHOTO_CHANGE_MINUTES)).isoformat())
+                   siguiente_cambio=(datetime.now(timezone.utc) + timedelta(days=PROFILE_PHOTO_CHANGE_DAYS)).isoformat())
 
 
 @app.get("/api/cuenta")
@@ -3121,6 +3217,13 @@ def api_usuarios_reporte(session):
                 "EXEC seg.usp_UsuarioReporte ?,?,?,?,?,?,?,?,?",
                 (busqueda, rol_id, estado, fecha_desde, fecha_hasta, pagina, tamano, orden, direccion),
             )
+            client_ids = [row["UsuarioId"] for row in rows if str(row.get("Rol") or "").strip().upper() == "CLIENTE"]
+            visibility = {}
+            if client_ids:
+                placeholders = ",".join("?" for _ in client_ids)
+                modes = exec_proc_rows(cursor, f"""SELECT u.UsuarioId AS id, {client_mode_sql('u.UsuarioId')} AS modo
+                    FROM seg.Usuario u WHERE u.UsuarioId IN ({placeholders})""", tuple(client_ids))
+                visibility = {row["id"]: row["modo"] for row in modes}
             summary = exec_proc_row(cursor, "EXEC seg.usp_UsuarioResumen") or {}
 
         total = int(rows[0].get("TotalRegistros") or 0) if rows else 0
@@ -3130,7 +3233,7 @@ def api_usuarios_reporte(session):
 
         return jsonify(
             ok=True,
-            items=[_usuario_reporte_item(x) for x in rows],
+            items=[dict(_usuario_reporte_item(x), visibilidad=visibility.get(x["UsuarioId"])) for x in rows],
             pagination={"pagina": pagina, "tamano": tamano, "total": total, "paginas": pages},
             summary={
                 "total": int(summary.get("TotalUsuarios") or 0),
@@ -3196,7 +3299,11 @@ def api_usuario_detalle(session, usuario_id: int):
         events = sets[2] if len(sets) > 2 else []
         for x in sessions:
             x["activa"] = bool(x.get("activa"))
-        return jsonify(ok=True, item=item, sesiones=sessions, actividad=events)
+        visibility = None
+        if str(item.get("rol") or "").strip().upper() == "CLIENTE":
+            visibility = query_one(f"SELECT {client_mode_sql('u.UsuarioId')} AS modo FROM seg.Usuario u WHERE u.UsuarioId=?",
+                                   (usuario_id,))["modo"]
+        return jsonify(ok=True, visibilidad=visibility, item=item, sesiones=sessions, actividad=events)
     except Exception as exc:
         return _respuesta_error_usuario(exc, "No fue posible cargar el detalle del usuario.")
 
@@ -3414,36 +3521,29 @@ def api_usuario_actualizar(session, usuario_id: int):
         return _respuesta_error_usuario(exc, "No fue posible actualizar el usuario.")
 
 
-@app.get('/api/usuarios/<int:usuario_id>/sedes-autorizadas')
+@app.patch('/api/usuarios/<int:usuario_id>/visibilidad-cliente')
 @require_session('COORDINADOR')
-def api_usuario_sedes_administrar_listar(session, usuario_id: int):
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            set_audit_context(cursor, session, f'Consultar sedes de usuario cliente {usuario_id}')
-            rows = exec_proc_rows(cursor, 'EXEC seg.usp_UsuarioSucursal_ListarAdministracion ?,?',
-                                  (session['usuario_id'], usuario_id))
-        return jsonify(ok=True, items=rows)
-    except Exception as exc:
-        return app_error(exc, 'No fue posible consultar las sucursales del usuario.')
-
-
-@app.post('/api/usuarios/<int:usuario_id>/sedes-autorizadas/<int:sucursal_id>')
-@require_session('COORDINADOR')
-def api_usuario_sedes_administrar_asignar(session, usuario_id: int, sucursal_id: int):
+def api_usuario_visibilidad_cliente(session, usuario_id):
     data = request.get_json(silent=True) or {}
-    if type(data.get('activo')) is not bool:
-        return jsonify(ok=False, message='Indica si la sucursal se autoriza o revoca.'), 400
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            set_audit_context(cursor, session, f'Asignación de sede {sucursal_id} a cuenta {usuario_id}')
-            exec_proc_rows(cursor, 'EXEC seg.usp_UsuarioSucursal_Asignar ?,?,?,?',
-                           (session['usuario_id'], usuario_id, sucursal_id, int(data['activo'])))
-            conn.commit()
-        return jsonify(ok=True, message='Asignación de sucursal actualizada.')
-    except Exception as exc:
-        return app_error(exc, 'No fue posible actualizar la asignación.')
+    modo = data.get('visibilidad')
+    if not isinstance(modo, str) or modo not in MODES:
+        raise ValueError('Selecciona una opción de visibilidad válida.')
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        set_audit_context(cursor, session, f'Visibilidad de cuenta cliente {usuario_id}')
+        target = exec_proc_row(cursor, """SELECT u.ContactoClienteId AS contacto_id
+            FROM seg.Usuario u WITH (UPDLOCK,HOLDLOCK)
+            JOIN seg.Rol r ON r.RolId=u.RolId
+            JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId
+            WHERE u.UsuarioId=? AND r.Nombre=N'CLIENTE' AND r.Activo=1""", (usuario_id,))
+        if not target:
+            raise NotFound('Cuenta de cliente no encontrada.')
+        cursor.execute("""UPDATE seg.VisibilidadCliente
+            SET ContactoClienteId=?, Modo=? WHERE UsuarioId=?""", target['contacto_id'], modo, usuario_id)
+        if not cursor.rowcount:
+            cursor.execute("""INSERT INTO seg.VisibilidadCliente (UsuarioId, ContactoClienteId, Modo)
+                VALUES (?, ?, ?)""", usuario_id, target['contacto_id'], modo)
+    return jsonify(ok=True, visibilidad=modo)
 
 
 @app.post("/api/usuarios/<int:usuario_id>/estado")
@@ -4162,38 +4262,63 @@ def api_dashboard_reporte_periodo(session):
 def api_dashboard(session):
     try:
         ensure_portal_feature_schema()
+        kind = request.args.get("periodo")
+        date_params = (None, None)
+        period = None
+        if kind:
+            start, end = dashboard_range(kind, request.args.get("fecha"), planning.local_day())
+            date_params = planning.date_bounds(start, end)
+            period = {"tipo": kind, "desde": start, "hasta": end}
+        bounds = "DECLARE @Desde datetime2=?, @Hasta datetime2=?;"
         if session["rol"] == "COORDINADOR":
             cards = query_one(
-                """
+                bounds + f"""
                 SELECT
-                  (SELECT COUNT(*) FROM srv.SolicitudServicio s WHERE Estado NOT IN ('CANCELADA','CONVERTIDA') AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.SolicitudServicio' AND qa.RegistroId=s.SolicitudServicioId)) AS solicitudes_pendientes,
-                  (SELECT COUNT(*) FROM srv.OrdenTrabajo o INNER JOIN srv.EstadoOrdenTrabajo e ON e.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId WHERE e.EsFinal=0 AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)) AS ordenes_activas,
-                  (SELECT COUNT(*) FROM srv.SolicitudServicio s WHERE Clasificacion='EMERGENCIA' AND Estado<>'CANCELADA' AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.SolicitudServicio' AND qa.RegistroId=s.SolicitudServicioId)) AS emergencias,
+                  (SELECT COUNT(*) FROM srv.OrdenTrabajo o JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
+                   WHERE {QUOTE_PENDING} AND (@Desde IS NULL OR (o.CreadoEn>=@Desde AND o.CreadoEn<@Hasta))
+                     AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)) AS ordenes_sin_cotizar,
+                  (SELECT COUNT(*) FROM srv.SolicitudServicio s WHERE Estado NOT IN ('CANCELADA','CONVERTIDA') AND (@Desde IS NULL OR (s.CreadoEn>=@Desde AND s.CreadoEn<@Hasta)) AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.SolicitudServicio' AND qa.RegistroId=s.SolicitudServicioId)) AS solicitudes_pendientes,
+                  (SELECT COUNT(*) FROM srv.OrdenTrabajo o INNER JOIN srv.EstadoOrdenTrabajo e ON e.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId WHERE e.EsFinal=0 AND (@Desde IS NULL OR (o.CreadoEn>=@Desde AND o.CreadoEn<@Hasta)) AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)) AS ordenes_activas,
+                  (SELECT COUNT(*) FROM srv.SolicitudServicio s WHERE Clasificacion='EMERGENCIA' AND Estado<>'CANCELADA' AND (@Desde IS NULL OR (s.CreadoEn>=@Desde AND s.CreadoEn<@Hasta)) AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.SolicitudServicio' AND qa.RegistroId=s.SolicitudServicioId)) AS emergencias,
                   (SELECT COUNT(*) FROM rh.Empleado em INNER JOIN rh.Puesto p ON p.PuestoId=em.PuestoId WHERE em.EstadoLaboral='ACTIVO' AND em.Disponibilidad='DISPONIBLE' AND p.EsTecnico=1) AS tecnicos_disponibles,
                   (SELECT COUNT(*) FROM eqp.Equipo WHERE Activo=1 AND Estado='DISPONIBLE') AS equipos_disponibles,
                   (SELECT COUNT(*) FROM crm.Cliente WHERE Activo=1) AS clientes_activos,
-                  (SELECT COUNT(*) FROM cot.Cotizacion c WHERE Estado NOT IN ('ACEPTADA','ANULADA') AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'cot.Cotizacion' AND qa.RegistroId=c.CotizacionId)) AS cotizaciones_pendientes,
+                  (SELECT COUNT(*) FROM cot.Cotizacion c
+                   WHERE c.Estado IN ('BORRADOR','OBSERVADA','CONFIRMADA')
+                     AND c.ClienteId IS NOT NULL
+                     AND (@Desde IS NULL OR (c.CreadoEn>=@Desde AND c.CreadoEn<@Hasta))
+                     AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'cot.Cotizacion' AND qa.RegistroId=c.CotizacionId)) AS cotizaciones_pendientes,
                   (SELECT COUNT(*) FROM eqp.MantenimientoEquipo WHERE Estado NOT IN ('FINALIZADO','CANCELADO')) AS mantenimientos_pendientes,
                   (SELECT COUNT(*) FROM srv.IncidenciaOrden i WHERE ISJSON(i.AccionTomada)=1
                     AND JSON_VALUE(i.AccionTomada,'$.portal_tipo')='garantia_solicitud'
                     AND JSON_VALUE(i.AccionTomada,'$.estado') IN ('PENDIENTE','EN_REVISION','PENDIENTE_AUTORIZACION','AUTORIZADA_CLIENTE','GARANTIA_APROBADA')
                     AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.IncidenciaOrden' AND qa.RegistroId=i.IncidenciaOrdenId)) AS garantias_pendientes
-                """
+                """, date_params
             )
             recent = query_all(
-                """
+                bounds + """
                 SELECT TOP (8) o.OrdenTrabajoId AS id,o.NumeroOrden AS numero,c.NombreComercial AS cliente,
                        s.Clasificacion AS clasificacion,e.Nombre AS estado,o.Prioridad,o.ProgramadaPara AS programada
                 FROM srv.OrdenTrabajo o
                 INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId
                 INNER JOIN crm.Cliente c ON c.ClienteId=s.ClienteId
                 INNER JOIN srv.EstadoOrdenTrabajo e ON e.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
-                WHERE NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)
+                WHERE (@Desde IS NULL OR (o.CreadoEn>=@Desde AND o.CreadoEn<@Hasta)) AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)
                 ORDER BY o.CreadoEn DESC
-                """
+                """, date_params
             )
             chart = query_all(
-                """
+                """;WITH Dias AS (
+                      SELECT DATEADD(HOUR,-6,CAST(? AS datetime2)) AS dia
+                      UNION ALL SELECT DATEADD(DAY,1,dia) FROM Dias WHERE dia<DATEADD(HOUR,-6,CAST(? AS datetime2))
+                    )
+                    SELECT CONVERT(char(10),d.dia,23) AS dia,COUNT(o.OrdenTrabajoId) AS ordenes
+                    FROM Dias d
+                    LEFT JOIN srv.OrdenTrabajo o ON o.CreadoEn>=DATEADD(HOUR,6,d.dia) AND o.CreadoEn<DATEADD(HOUR,30,d.dia)
+                      AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)
+                    GROUP BY d.dia ORDER BY d.dia""", (date_params[0],date_params[1]-timedelta(days=1))
+            ) if period else query_all(
+                bounds + """
                 ;WITH Meses AS (
                   SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
                 ), B AS (
@@ -4206,26 +4331,26 @@ def api_dashboard(session):
                 LEFT JOIN srv.OrdenTrabajo o ON o.CreadoEn>=B.mes AND o.CreadoEn<DATEADD(MONTH,1,B.mes) AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)
                 LEFT JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
                 GROUP BY B.mes ORDER BY B.mes
-                """
+                """, date_params
             )
         elif session["rol"] == "TECNICO":
             emp = session["empleado_id"] or -1
             cards = query_one(
-                """
+                bounds + """
                 SELECT
                   SUM(CASE WHEN eo.EsFinal=0 AND t.Estado IN ('ASIGNADO','CONFIRMADO') THEN 1 ELSE 0 END) AS ordenes_activas,
-                  SUM(CASE WHEN CONVERT(date,DATEADD(HOUR,-6,o.ProgramadaPara))=CONVERT(date,DATEADD(HOUR,-6,SYSUTCDATETIME())) AND t.Estado IN ('ASIGNADO','CONFIRMADO') THEN 1 ELSE 0 END) AS hoy,
+                  SUM(CASE WHEN ((@Desde IS NULL AND CONVERT(date,DATEADD(HOUR,-6,o.ProgramadaPara))=CONVERT(date,DATEADD(HOUR,-6,SYSUTCDATETIME()))) OR (o.ProgramadaPara>=@Desde AND o.ProgramadaPara<@Hasta)) AND t.Estado IN ('ASIGNADO','CONFIRMADO') THEN 1 ELSE 0 END) AS hoy,
                   SUM(CASE WHEN eo.Codigo='COMPLETADA' THEN 1 ELSE 0 END) AS finalizadas,
-                  (SELECT COUNT(*) FROM srv.IncidenciaOrden i WHERE i.ReportadaPorEmpleadoId=? AND i.Estado<>'RESUELTA' AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.IncidenciaOrden' AND qa.RegistroId=i.IncidenciaOrdenId)) AS incidencias
+                  (SELECT COUNT(*) FROM srv.IncidenciaOrden i WHERE i.ReportadaPorEmpleadoId=? AND i.Estado<>'RESUELTA' AND (@Desde IS NULL OR (i.ReportadaEn>=@Desde AND i.ReportadaEn<@Hasta)) AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.IncidenciaOrden' AND qa.RegistroId=i.IncidenciaOrdenId)) AS incidencias
                 FROM srv.TecnicoOrden t
                 INNER JOIN srv.OrdenTrabajo o ON o.OrdenTrabajoId=t.OrdenTrabajoId
                 INNER JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
-                WHERE t.EmpleadoId=? AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)
+                WHERE t.EmpleadoId=? AND t.Estado IN ('ASIGNADO','CONFIRMADO','FINALIZADO') AND (@Desde IS NULL OR (COALESCE(o.ProgramadaPara,o.CreadoEn)>=@Desde AND COALESCE(o.ProgramadaPara,o.CreadoEn)<@Hasta)) AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)
                 """,
-                (emp, emp),
+                (*date_params, emp, emp),
             ) or {}
             recent = query_all(
-                """
+                bounds + """
                 SELECT TOP (8) o.OrdenTrabajoId AS id,o.NumeroOrden AS numero,c.NombreComercial AS cliente,
                        su.Nombre AS sede,eo.Nombre AS estado,o.Prioridad,o.ProgramadaPara AS programada
                 FROM srv.TecnicoOrden t
@@ -4235,36 +4360,38 @@ def api_dashboard(session):
                 INNER JOIN crm.UbicacionServicio ub ON ub.UbicacionServicioId=ss.UbicacionServicioId
                 INNER JOIN crm.SucursalCliente su ON su.SucursalClienteId=ub.SucursalClienteId
                 INNER JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
-                WHERE t.EmpleadoId=? AND t.Estado IN ('ASIGNADO','CONFIRMADO') AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)
+                WHERE t.EmpleadoId=? AND t.Estado IN ('ASIGNADO','CONFIRMADO','FINALIZADO') AND (@Desde IS NULL OR (COALESCE(o.ProgramadaPara,o.CreadoEn)>=@Desde AND COALESCE(o.ProgramadaPara,o.CreadoEn)<@Hasta)) AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)
                 ORDER BY COALESCE(o.ProgramadaPara,o.CreadoEn) DESC
                 """,
-                (emp,),
+                (*date_params, emp),
             )
             chart = []
         else:
             cid = session["cliente_id"] or -1
             cards = query_one(
-                """
+                bounds + f"""
+                DECLARE @Actor bigint=?;
                 SELECT
-                  (SELECT COUNT(*) FROM srv.SolicitudServicio si JOIN crm.UbicacionServicio ui ON ui.UbicacionServicioId=si.UbicacionServicioId JOIN seg.ufn_SucursalesPermitidas(?) pi ON pi.SucursalClienteId=ui.SucursalClienteId WHERE si.ClienteId=? AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.SolicitudServicio' AND qa.RegistroId=si.SolicitudServicioId)) AS solicitudes,
-                  (SELECT COUNT(*) FROM srv.OrdenTrabajo o INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId INNER JOIN srv.EstadoOrdenTrabajo e ON e.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId JOIN crm.UbicacionServicio ui ON ui.UbicacionServicioId=s.UbicacionServicioId JOIN seg.ufn_SucursalesPermitidas(?) pi ON pi.SucursalClienteId=ui.SucursalClienteId WHERE s.ClienteId=? AND e.EsFinal=0 AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)) AS servicios_activos,
-                  (SELECT COUNT(*) FROM srv.OrdenTrabajo o INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId INNER JOIN srv.EstadoOrdenTrabajo e ON e.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId JOIN crm.UbicacionServicio ui ON ui.UbicacionServicioId=s.UbicacionServicioId JOIN seg.ufn_SucursalesPermitidas(?) pi ON pi.SucursalClienteId=ui.SucursalClienteId WHERE s.ClienteId=? AND e.Codigo='COMPLETADA' AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)) AS completados,
-                  (SELECT COUNT(*) FROM doc.DocumentoServicio d INNER JOIN srv.OrdenTrabajo o ON o.OrdenTrabajoId=d.OrdenTrabajoId INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId JOIN crm.UbicacionServicio ui ON ui.UbicacionServicioId=s.UbicacionServicioId JOIN seg.ufn_SucursalesPermitidas(?) pi ON pi.SucursalClienteId=ui.SucursalClienteId WHERE s.ClienteId=? AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)) AS documentos
+                  (SELECT COUNT(*) FROM srv.SolicitudServicio si JOIN crm.UbicacionServicio ui ON ui.UbicacionServicioId=si.UbicacionServicioId JOIN seg.ufn_SucursalesPermitidas(@Actor) pi ON pi.SucursalClienteId=ui.SucursalClienteId WHERE si.ClienteId=? AND (@Desde IS NULL OR (si.CreadoEn>=@Desde AND si.CreadoEn<@Hasta)) AND {request_visibility_sql('si', '@Actor')} AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.SolicitudServicio' AND qa.RegistroId=si.SolicitudServicioId)) AS solicitudes,
+                  (SELECT COUNT(*) FROM srv.OrdenTrabajo o INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId INNER JOIN srv.EstadoOrdenTrabajo e ON e.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId JOIN crm.UbicacionServicio ui ON ui.UbicacionServicioId=s.UbicacionServicioId JOIN seg.ufn_SucursalesPermitidas(@Actor) pi ON pi.SucursalClienteId=ui.SucursalClienteId WHERE s.ClienteId=? AND (@Desde IS NULL OR (o.CreadoEn>=@Desde AND o.CreadoEn<@Hasta)) AND {request_visibility_sql('s', '@Actor')} AND e.EsFinal=0 AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)) AS servicios_activos,
+                  (SELECT COUNT(*) FROM srv.OrdenTrabajo o INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId INNER JOIN srv.EstadoOrdenTrabajo e ON e.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId JOIN crm.UbicacionServicio ui ON ui.UbicacionServicioId=s.UbicacionServicioId JOIN seg.ufn_SucursalesPermitidas(@Actor) pi ON pi.SucursalClienteId=ui.SucursalClienteId WHERE s.ClienteId=? AND (@Desde IS NULL OR (o.CreadoEn>=@Desde AND o.CreadoEn<@Hasta)) AND {request_visibility_sql('s', '@Actor')} AND e.Codigo='COMPLETADA' AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)) AS completados,
+                  (SELECT COUNT(*) FROM doc.DocumentoServicio d INNER JOIN srv.OrdenTrabajo o ON o.OrdenTrabajoId=d.OrdenTrabajoId INNER JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId JOIN crm.UbicacionServicio ui ON ui.UbicacionServicioId=s.UbicacionServicioId JOIN seg.ufn_SucursalesPermitidas(@Actor) pi ON pi.SucursalClienteId=ui.SucursalClienteId WHERE s.ClienteId=? AND (@Desde IS NULL OR (COALESCE(d.GeneradoEn,d.CreadoEn)>=@Desde AND COALESCE(d.GeneradoEn,d.CreadoEn)<@Hasta)) AND {request_visibility_sql('s', '@Actor')} AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.OrdenTrabajo' AND qa.RegistroId=o.OrdenTrabajoId)) AS documentos
                 """,
-                (session['usuario_id'],cid,session['usuario_id'],cid,session['usuario_id'],cid,session['usuario_id'],cid),
+                (*date_params,session['usuario_id'],cid,cid,cid,cid),
             )
             recent = query_all(
-                """
+                bounds + f"""
+                DECLARE @Actor bigint=?;
                 SELECT TOP (8) s.SolicitudServicioId AS id,s.DescripcionProblema AS descripcion,
                        ts.Nombre AS tipo,s.Clasificacion,s.Estado,s.FechaPreferida AS fecha
                 FROM srv.SolicitudServicio s
                 INNER JOIN srv.TipoServicio ts ON ts.TipoServicioId=s.TipoServicioId
-                WHERE s.ClienteId=? AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.SolicitudServicio' AND qa.RegistroId=s.SolicitudServicioId) AND EXISTS (SELECT 1 FROM crm.UbicacionServicio ui JOIN seg.ufn_SucursalesPermitidas(?) pi ON pi.SucursalClienteId=ui.SucursalClienteId WHERE ui.UbicacionServicioId=s.UbicacionServicioId) ORDER BY s.CreadoEn DESC
+                WHERE s.ClienteId=? AND {request_visibility_sql('s', '@Actor')} AND (@Desde IS NULL OR (s.CreadoEn>=@Desde AND s.CreadoEn<@Hasta)) AND NOT EXISTS (SELECT 1 FROM seg.RegistroPruebaQA qa WHERE qa.Entidad=N'srv.SolicitudServicio' AND qa.RegistroId=s.SolicitudServicioId) AND EXISTS (SELECT 1 FROM crm.UbicacionServicio ui JOIN seg.ufn_SucursalesPermitidas(@Actor) pi ON pi.SucursalClienteId=ui.SucursalClienteId WHERE ui.UbicacionServicioId=s.UbicacionServicioId) ORDER BY s.CreadoEn DESC
                 """,
-                (cid,session['usuario_id']),
+                (*date_params,session['usuario_id'],cid),
             )
             chart = []
-        return jsonify(ok=True, cards=cards or {}, recent=recent, chart=chart)
+        return jsonify(ok=True, cards=cards or {}, recent=recent, chart=chart, periodo=period)
     except Exception as exc:
         return app_error(exc, "No fue posible cargar el panel.")
 
@@ -4314,7 +4441,7 @@ def api_crear_solicitud(session):
         if not cliente_id:
             raise ValueError("No se pudo determinar el cliente de la solicitud.")
         ubicacion_id = int(require_value(data, "ubicacion_id", "Selecciona una sede/ubicación."))
-        _assert_ubicacion_access(session, ubicacion_id)
+        _assert_ubicacion_access(session, ubicacion_id, require_active=True)
         tipo_id = int(require_value(data, "tipo_servicio_id", "Selecciona un tipo de servicio."))
         clasificacion = str(data.get("clasificacion") or "PROGRAMADA").upper()
         if clasificacion not in {"PROGRAMADA", "EMERGENCIA"}:
@@ -4363,7 +4490,7 @@ def api_crear_solicitud(session):
                 )
             else:
                 cursor.execute(
-                    """
+                    f"""
                     INSERT INTO com.Notificacion(UsuarioId,Tipo,Titulo,Mensaje,Entidad,EntidadId,Canal,Estado)
                     SELECT DISTINCT u.UsuarioId,N'NUEVA_SOLICITUD',N'Solicitud registrada por SEPRIGUA',
                            CONCAT(N'SEPRIGUA registró una solicitud ',?,N' para tu empresa.'),
@@ -4373,7 +4500,7 @@ def api_crear_solicitud(session):
                     INNER JOIN srv.SolicitudServicio ss ON ss.SolicitudServicioId=? AND ss.ClienteId=cc.ClienteId
                     INNER JOIN crm.UbicacionServicio ub ON ub.UbicacionServicioId=ss.UbicacionServicioId
                     CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) allowed
-                    WHERE cc.ClienteId=? AND cc.Activo=1 AND u.UsuarioId<>? AND allowed.SucursalClienteId=ub.SucursalClienteId
+                    WHERE cc.ClienteId=? AND cc.Activo=1 AND u.UsuarioId<>? AND allowed.SucursalClienteId=ub.SucursalClienteId AND {request_visibility_sql('ss', 'u.UsuarioId')}
                     """,
                     clasificacion, str(solicitud_id) if solicitud_id is not None else None,
                     solicitud_id, cliente_id, session["usuario_id"],
@@ -4406,6 +4533,20 @@ def api_crear_solicitud(session):
 
 
 
+_SOLICITANTE_COLUMNAS = """
+                   COALESCE(NULLIF(LTRIM(RTRIM(contacto.NombreCompleto)), N''),
+                            NULLIF(LTRIM(RTRIM(contacto_cuenta.NombreCompleto)), N'')) AS solicitante_nombre,
+                   NULLIF(LTRIM(RTRIM(CONCAT(persona.Nombres,N' ',persona.Apellidos))), N'') AS registrada_por_nombre,
+"""
+_SOLICITANTE_UNIONES = """
+            LEFT JOIN crm.ContactoCliente contacto ON contacto.ContactoClienteId={alias}.ContactoClienteId AND contacto.ClienteId={alias}.ClienteId
+            LEFT JOIN seg.Usuario registrante ON registrante.UsuarioId={alias}.RegistradaPorUsuarioId
+            LEFT JOIN crm.ContactoCliente contacto_cuenta ON contacto_cuenta.ContactoClienteId=registrante.ContactoClienteId AND contacto_cuenta.ClienteId={alias}.ClienteId
+            LEFT JOIN rh.Empleado empleado ON empleado.EmpleadoId=registrante.EmpleadoId
+            LEFT JOIN rh.Persona persona ON persona.PersonaId=empleado.PersonaId
+"""
+
+
 @app.get("/api/solicitudes/<int:solicitud_id>")
 @require_session("COORDINADOR", "CLIENTE")
 def api_solicitud_detalle(session, solicitud_id: int):
@@ -4419,6 +4560,7 @@ def api_solicitud_detalle(session, solicitud_id: int):
         item = query_one(
             f"""
             SELECT s.SolicitudServicioId AS id,s.ClienteId AS cliente_id,c.NombreComercial AS cliente,
+            {_SOLICITANTE_COLUMNAS.format(alias="s")}
                    s.ContactoClienteId,s.UbicacionServicioId,COALESCE(sc.Nombre,u.NombreReferencia,N'Sin sede') AS sede,
                    u.Direccion,u.Municipio,u.Departamento,ts.Nombre AS tipo,ts.Codigo AS tipo_codigo,
                    s.CanalRecepcion AS canal,s.Clasificacion,s.NivelUrgencia AS urgencia,
@@ -4433,6 +4575,7 @@ def api_solicitud_detalle(session, solicitud_id: int):
                    q.MonedaCotizacion AS cotizacion_moneda
             FROM srv.SolicitudServicio s
             INNER JOIN crm.Cliente c ON c.ClienteId=s.ClienteId
+            {_SOLICITANTE_UNIONES.format(alias="s")}
             LEFT JOIN crm.UbicacionServicio u ON u.UbicacionServicioId=s.UbicacionServicioId
             LEFT JOIN crm.SucursalCliente sc ON sc.SucursalClienteId=u.SucursalClienteId
             INNER JOIN srv.TipoServicio ts ON ts.TipoServicioId=s.TipoServicioId
@@ -4463,6 +4606,7 @@ def api_solicitud_detalle(session, solicitud_id: int):
         )
         if not item:
             return jsonify(ok=False, message="Solicitud no encontrada o sin acceso."), 404
+        item['solo_lectura'] = g.shared_records.get(('solicitud', solicitud_id), False)
         if session['rol']=='CLIENTE' and item.get('cotizacion_estado') in {'BORRADOR','ANULADA'}:
             for key in ('cotizacion_id','cotizacion_numero','cotizacion_estado','cotizacion_total','cotizacion_moneda'):item[key]=None
         evidencias = query_all(
@@ -4547,19 +4691,22 @@ def api_orden_detalle(session, orden_id: int):
         elif session["rol"] == "CLIENTE":
             permission = "AND ss.ClienteId=? AND EXISTS (SELECT 1 FROM crm.UbicacionServicio ux JOIN seg.ufn_SucursalesPermitidas(?) ax ON ax.SucursalClienteId=ux.SucursalClienteId WHERE ux.UbicacionServicioId=ss.UbicacionServicioId)"
             params.extend((session["cliente_id"] or -1, session["usuario_id"]))
+        pending_quote = f"CASE WHEN {QUOTE_PENDING} THEN 1 ELSE 0 END" if session['rol'] == 'COORDINADOR' else '0'
         item = query_one(
             f"""
             SELECT o.OrdenTrabajoId AS id,o.SolicitudServicioId AS solicitud_id,o.NumeroOrden AS numero,o.NumeroTicketCliente AS ticket,
                    o.NumeroOrdenPapel AS orden_papel,c.NombreComercial AS cliente,sc.Nombre AS sede,
+            {_SOLICITANTE_COLUMNAS.format(alias="ss")}
                    ub.Direccion,ub.Municipio,ub.Departamento,ts.Nombre AS tipo,ss.DescripcionProblema AS solicitud,
                    ss.NivelUrgencia AS urgencia_solicitud,ss.FechaPreferida AS fecha_preferida,
                    eo.EstadoOrdenTrabajoId AS estado_id,eo.Codigo AS estado_codigo,eo.Nombre AS estado,eo.EsFinal AS es_final,
                    o.Prioridad,o.ProgramadaPara AS programada,o.IniciadaEn,o.FinalizadaEn,o.CerradaEn,
                    o.RequiereCorreccion AS requiere_correccion,o.MotivoCorreccion AS motivo_correccion,
-                   o.ObservacionesCoordinacion AS observaciones
+                   o.ObservacionesCoordinacion AS observaciones,{pending_quote} AS cotizacion_pendiente
             FROM srv.OrdenTrabajo o
             INNER JOIN srv.SolicitudServicio ss ON ss.SolicitudServicioId=o.SolicitudServicioId
             INNER JOIN crm.Cliente c ON c.ClienteId=ss.ClienteId
+            {_SOLICITANTE_UNIONES.format(alias="ss")}
             LEFT JOIN crm.UbicacionServicio ub ON ub.UbicacionServicioId=ss.UbicacionServicioId
             LEFT JOIN crm.SucursalCliente sc ON sc.SucursalClienteId=ub.SucursalClienteId
             INNER JOIN srv.TipoServicio ts ON ts.TipoServicioId=ss.TipoServicioId
@@ -4570,14 +4717,18 @@ def api_orden_detalle(session, orden_id: int):
         )
         if not item:
             return jsonify(ok=False, message="Orden no encontrada o sin acceso."), 404
+        item['solo_lectura'] = g.shared_records.get(('orden', orden_id), False)
 
+        extra_info = WORK_EXTRA if session['rol'] != 'CLIENTE' else '0'
         tecnicos = query_all(
-            """
+            f"""
             SELECT t.TecnicoOrdenId AS id,e.EmpleadoId AS empleado_id,
                    LTRIM(RTRIM(CONCAT(p.Nombres,N' ',p.Apellidos))) AS nombre,
                    t.FuncionCuadrilla AS funcion,t.Estado AS estado,t.AsignadoEn AS asignado_en,t.DesasignadoEn AS desasignado_en,
-                   e.Disponibilidad AS disponibilidad,pu.Nombre AS puesto
+                   e.Disponibilidad AS disponibilidad,pu.Nombre AS puesto,{extra_info} AS trabajo_extra
             FROM srv.TecnicoOrden t
+            JOIN srv.OrdenTrabajo o ON o.OrdenTrabajoId=t.OrdenTrabajoId
+            JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
             INNER JOIN rh.Empleado e ON e.EmpleadoId=t.EmpleadoId
             INNER JOIN rh.Persona p ON p.PersonaId=e.PersonaId
             LEFT JOIN rh.Puesto pu ON pu.PuestoId=e.PuestoId
@@ -4724,7 +4875,7 @@ def api_crear_orden(session):
 
             if orden_id:
                 cursor.execute(
-                    """
+                    f"""
                     INSERT INTO com.Notificacion(UsuarioId,Tipo,Titulo,Mensaje,Entidad,EntidadId,Canal,Estado)
                     SELECT DISTINCT u.UsuarioId,'SOLICITUD_A_OT',N'Solicitud convertida a orden de trabajo',
                            CONCAT(N'Tu solicitud #',s.SolicitudServicioId,N' fue convertida en la OT ',o.NumeroOrden,
@@ -4737,13 +4888,16 @@ def api_crear_orden(session):
                     INNER JOIN seg.Usuario u ON u.ContactoClienteId=cc.ContactoClienteId AND u.Activo=1
                     INNER JOIN crm.UbicacionServicio ub ON ub.UbicacionServicioId=s.UbicacionServicioId
                     CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) allowed
-                    WHERE o.OrdenTrabajoId=? AND allowed.SucursalClienteId=ub.SucursalClienteId
+                    WHERE o.OrdenTrabajoId=? AND allowed.SucursalClienteId=ub.SucursalClienteId AND {request_visibility_sql('s', 'u.UsuarioId')}
                     """,
                     orden_id,
                 )
             conn.commit()
         if orden_id:
-            push_order_created(int(orden_id))
+            try:
+                push_order_created(int(orden_id), session["usuario_id"])
+            except Exception:
+                app.logger.exception("La OT %s se guardó, pero falló su aviso Web Push.", orden_id)
         return jsonify(ok=True, message="Orden de trabajo creada y seguimiento actualizado.", item=row), 201
     except ValueError as exc:
         return jsonify(ok=False, message=str(exc)), 400
@@ -4918,7 +5072,8 @@ def api_actualizar_cuadrilla(session, orden_id: int):
                 conn.rollback(); return jsonify(ok=False,message="Orden no encontrada."),404
 
             ids = [m[0] for m in normalized]
-            planning.validate_order(sys.modules[__name__],cursor,orden_id,employee_ids=ids)
+            planning.validate_order(sys.modules[__name__],cursor,orden_id,employee_ids=ids,
+                                    authorized_by=session["usuario_id"] if data.get("autorizar_extra") is True else None)
             placeholders = ",".join("?" for _ in ids)
             cursor.execute(
                 f"""
@@ -4935,6 +5090,8 @@ def api_actualizar_cuadrilla(session, orden_id: int):
             current_ids = {int(r[0]) for r in cursor.fetchall()}
             removed = current_ids.difference(ids)
             if removed:
+                for employee_id in removed:
+                    cursor.execute("DELETE FROM srv.TrabajoExtraAutorizado WHERE OrdenTrabajoId=? AND EmpleadoId=?", orden_id, employee_id)
                 rem_ph = ",".join("?" for _ in removed)
                 cursor.execute(
                     f"""
@@ -5154,7 +5311,7 @@ def api_cambiar_estado(session, orden_id: int):
                     from notifications import resolve_order_notifications
                 resolve_order_notifications(cursor, orden_id)
             cursor.execute(
-                """
+                f"""
                 ;WITH Destinatarios AS (
                     SELECT DISTINCT u.UsuarioId
                     FROM seg.Usuario u
@@ -5168,7 +5325,7 @@ def api_cambiar_estado(session, orden_id: int):
                             INNER JOIN crm.ContactoCliente cc ON cc.ClienteId=ss.ClienteId AND cc.Activo=1
                             INNER JOIN crm.UbicacionServicio ub ON ub.UbicacionServicioId=ss.UbicacionServicioId
                             CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) allowed
-                            WHERE o.OrdenTrabajoId=? AND allowed.SucursalClienteId=ub.SucursalClienteId
+                            WHERE o.OrdenTrabajoId=? AND allowed.SucursalClienteId=ub.SucursalClienteId AND {request_visibility_sql('ss', 'u.UsuarioId')}
                         )
                     )
                 )
@@ -5225,7 +5382,10 @@ def api_cambiar_estado(session, orden_id: int):
                     orden_id, orden_id,
                 )
             conn.commit()
-        push_order_state_changed(orden_id, target_code, session)
+        try:
+            push_order_state_changed(orden_id, target_code, session)
+        except Exception:
+            app.logger.exception("El estado de la OT %s se guardó, pero falló su aviso Web Push.", orden_id)
         return jsonify(ok=True, message="Estado actualizado.", item=row)
     except ValueError as exc:
         return jsonify(ok=False, message=str(exc)), 400
@@ -5373,7 +5533,7 @@ def api_enviar_cambio_alcance(session, orden_id: int, cambio_id: int):
             if cursor.rowcount==0:
                 conn.rollback(); return jsonify(ok=False,message="El cambio no existe o ya fue respondido."),409
             cursor.execute(
-                """
+                f"""
                 INSERT INTO com.Notificacion(UsuarioId,Tipo,Titulo,Mensaje,Entidad,EntidadId,Canal,Estado)
                 SELECT DISTINCT u.UsuarioId,'CAMBIO_ALCANCE',N'Autorización requerida',
                        CONCAT(N'La OT ',o.NumeroOrden,N' tiene un cambio de alcance que requiere tu respuesta.'),
@@ -5383,7 +5543,7 @@ def api_enviar_cambio_alcance(session, orden_id: int, cambio_id: int):
                 INNER JOIN seg.Usuario u ON u.ContactoClienteId=cc.ContactoClienteId AND u.Activo=1
                 INNER JOIN crm.UbicacionServicio ub ON ub.UbicacionServicioId=ss.UbicacionServicioId
                 CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) allowed
-                WHERE o.OrdenTrabajoId=? AND allowed.SucursalClienteId=ub.SucursalClienteId
+                WHERE o.OrdenTrabajoId=? AND allowed.SucursalClienteId=ub.SucursalClienteId AND {request_visibility_sql('ss', 'u.UsuarioId')}
                 """,cambio_id,orden_id)
             conn.commit()
         queue_web_push(_client_user_ids_for_order(orden_id),title="Autorización requerida",body="Revisa el cambio de alcance de tu servicio.",role="CLIENTE",entity="OrdenTrabajo",entity_id=orden_id)
@@ -5614,14 +5774,11 @@ def api_mis_sedes(session):
                 ub.Direccion AS direccion,ub.Municipio AS municipio,ub.Departamento AS departamento,
                 ub.ReferenciaLlegada AS referencia_llegada,
                 s.CreadoEn AS creada,s.ActualizadoEn AS actualizada
-                FROM seg.UsuarioSucursalAcceso acc
-                INNER JOIN seg.Usuario u ON u.UsuarioId=acc.UsuarioId AND u.Activo=1
-                INNER JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId AND cc.Activo=1
-                INNER JOIN crm.SucursalCliente s ON s.SucursalClienteId=acc.SucursalClienteId AND s.ClienteId=cc.ClienteId
+                FROM seg.ufn_SucursalesPermitidas(?) allowed
+                INNER JOIN crm.SucursalCliente s ON s.SucursalClienteId=allowed.SucursalClienteId
                 OUTER APPLY (SELECT TOP (1) x.* FROM crm.UbicacionServicio x
                    WHERE x.SucursalClienteId=s.SucursalClienteId AND x.Activo=1
                    ORDER BY x.UbicacionServicioId DESC) ub
-                WHERE acc.UsuarioId=? AND acc.Activo=1
                 ORDER BY s.Nombre,s.SucursalClienteId""",session['usuario_id'])
             items=rows_to_dicts(cursor,cursor.fetchall())
         return jsonify(ok=True,items=items[(page-1)*size:page*size],total=len(items),pagina=page,tamano=size,paginas=max(1,(len(items)+size-1)//size))
@@ -6740,15 +6897,26 @@ def _cotizacion_expediente_sets(session, cotizacion_id: int):
     while len(sets) < 3:
         sets.append([])
     quote_meta=query_one('''SELECT q.SucursalClienteId AS sede_id,sc.Nombre AS sede_cotizacion,
-           q.OrdenFisicaNumero AS orden_fisica_numero,q.NombreCotizacion AS nombre_cotizacion
+           q.OrdenFisicaNumero AS orden_fisica_numero,q.NombreCotizacion AS nombre_cotizacion,
+           original.Descripcion AS primera_descripcion_original
            FROM cot.Cotizacion q LEFT JOIN crm.SucursalCliente sc ON sc.SucursalClienteId=q.SucursalClienteId
+           OUTER APPLY (
+               SELECT TOP 1 d.Descripcion FROM cot.VersionCotizacion original_version
+               JOIN cot.DetalleCotizacion d ON d.VersionCotizacionId=original_version.VersionCotizacionId
+               WHERE original_version.CotizacionId=q.CotizacionId AND d.NumeroLinea=1
+               ORDER BY original_version.NumeroVersion,d.DetalleCotizacionId
+           ) original
            WHERE q.CotizacionId=?''',(cotizacion_id,)) or {}
     for header in sets[0]:
         header['ruta_documento']=f'/api/cotizaciones/{cotizacion_id}/pdf'
         header['sede_id']=quote_meta.get('sede_id')
         header['sede']=quote_meta.get('sede_cotizacion') or header.get('sede')
         header['numero_orden_papel']=quote_meta.get('orden_fisica_numero') or header.get('numero_orden_papel')
-        header['nombre_cotizacion']=quote_meta.get('nombre_cotizacion') or header.get('nombre_cotizacion')
+        header['nombre_cotizacion']=quote_support.quote_display_title(
+            quote_meta.get('nombre_cotizacion') or header.get('nombre_cotizacion'), header,
+            quote_meta.get('primera_descripcion_original'),
+            sets[2][0].get('descripcion') if sets[2] else None,
+        )
     for evidence in sets[1]:
         evidence_id = evidence.get("evidencia_id") or evidence.get("id")
         if evidence_id is not None:
@@ -6800,6 +6968,13 @@ def api_cotizaciones(session):
     quote_support.ensure_schema(sys.modules[__name__])
     return portal_listing(__import__(__name__,fromlist=["app"]),session,"cotizaciones")
 
+@app.get("/api/cotizaciones/ordenes-pendientes")
+@require_session("COORDINADOR")
+def api_ordenes_sin_cotizacion(session):
+    ensure_portal_feature_schema()
+    return portal_listing(sys.modules[__name__], session, "ordenes", quote_pending=True)
+
+
 @app.get("/api/cotizaciones/<int:cotizacion_id>/expediente")
 @require_session("CLIENTE")
 def api_cotizacion_expediente(session, cotizacion_id: int):
@@ -6807,6 +6982,7 @@ def api_cotizacion_expediente(session, cotizacion_id: int):
         summary, evidences, details = _cotizacion_expediente_sets(session, cotizacion_id)
         if not summary:
             return jsonify(ok=False, message="Cotización no encontrada o todavía no disponible para tu empresa."), 404
+        summary[0]['solo_lectura'] = any(g.shared_records.values())
         return jsonify(ok=True, item=summary[0], evidencias=evidences, detalles=details)
     except Exception as exc:
         return app_error(exc, "No fue posible cargar el expediente de la cotización.")
@@ -6821,7 +6997,7 @@ def api_cotizacion_pdf(session, cotizacion_id: int):
             return jsonify(ok=False, message="Cotización no encontrada o sin acceso."), 404
         item = summary[0]
         pdf = _build_quote_pdf(item, details)
-        filename = re.sub(r"[^A-Za-z0-9._-]+", "_", str(item.get("numero_cotizacion") or f"cotizacion_{cotizacion_id}")) + ".pdf"
+        filename = quote_pdf_filename(item, cotizacion_id)
         return send_file(pdf, mimetype="application/pdf", as_attachment=request.args.get('imprimir')!='1', download_name=filename, max_age=0)
     except RuntimeError as exc:
         return jsonify(ok=False, message=str(exc)), 503
@@ -6966,6 +7142,12 @@ def api_public_security_config():
 @app.post("/api/contacto")
 def api_contacto():
     ip = client_ip() or "desconocida"
+    if ip in {"127.0.0.1", "::1"} and request.host in CONTACT_LANDING_HOSTS:
+        # The landing proxy overwrites X-Real-IP with the connection address.
+        try:
+            ip = str(ip_address(request.headers.get("X-Real-IP", "")))
+        except ValueError:
+            pass
 
     if not contact_rate_allowed(ip):
         return jsonify(
@@ -7029,13 +7211,7 @@ def api_contacto():
             raise ValueError("Ingresa un correo electrónico válido.")
         if "\r" in data["asunto"] or "\n" in data["asunto"]:
             raise ValueError("El asunto contiene caracteres no permitidos.")
-        if not contact_email_rate_allowed(data["correo"]):
-            return jsonify(
-                ok=False,
-                message="Ya recibimos varias solicitudes para este correo. Espera un momento antes de enviar otra.",
-            ), 429
-
-        send_contact_emails(data)
+        deliver_contact_once(data)
 
         return jsonify(
             ok=True,
@@ -7052,7 +7228,7 @@ def api_contacto():
             detail=str(exc) if env_bool("FLASK_DEBUG", False) else None,
         ), 503
     except (smtplib.SMTPException, OSError) as exc:
-        app.logger.exception("No fue posible enviar la solicitud por correo.")
+        app.logger.warning("No fue posible enviar la solicitud por correo (%s).", type(exc).__name__)
         return jsonify(
             ok=False,
             message="No pudimos enviar la solicitud en este momento. Intenta nuevamente en unos minutos.",
@@ -7606,10 +7782,28 @@ def api_archivos_usuario_descargar(session, doc_id):
 @require_session("COORDINADOR")
 def api_archivos_usuario_destinatarios(session):
     try:
+        ensure_portal_feature_schema()
+        doc_id = request.args.get("archivo_id", type=int)
+        if not doc_id or doc_id <= 0:
+            raise ValueError("Selecciona el documento que deseas compartir.")
+        origen = query_one("""SELECT a.UsuarioId AS propietario_id, a.RolOrigen AS rol_origen,
+            cc.ClienteId AS cliente_id FROM doc.ArchivoUsuario a
+            LEFT JOIN seg.Usuario propietario ON propietario.UsuarioId=a.UsuarioId
+            LEFT JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=propietario.ContactoClienteId
+            WHERE a.ArchivoUsuarioId=? AND a.Activo=1""", (doc_id,))
+        if not origen:
+            raise NotFound("Documento no encontrado o archivado.")
+        # No ofrecer usuarios de otras empresas cuando el origen es CLIENTE.
+        # Coordinación puede elegir técnicos, pero no compartirlo entre empresas cliente.
         rows = query_all("""SELECT u.UsuarioId AS id,u.NombreUsuario AS usuario,
             r.Nombre AS rol FROM seg.Usuario u JOIN seg.Rol r ON r.RolId=u.RolId
+            LEFT JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId
             WHERE u.Activo=1 AND UPPER(r.Nombre) IN ('TECNICO','CLIENTE')
-            ORDER BY r.Nombre,u.NombreUsuario""")
+            AND u.UsuarioId<>?
+            AND (UPPER(?)<>'CLIENTE' OR UPPER(r.Nombre)='TECNICO'
+                 OR (cc.ClienteId IS NOT NULL AND cc.ClienteId=?))
+            ORDER BY r.Nombre,u.NombreUsuario""",
+            (origen["propietario_id"], origen["rol_origen"], origen["cliente_id"]))
         return jsonify(ok=True, items=rows)
     except Exception as exc:
         return app_error(exc, "No fue posible cargar los destinatarios.")
@@ -7621,8 +7815,8 @@ def api_archivos_usuario_accesos(session, doc_id):
     try:
         ensure_portal_feature_schema()
         owner = query_one("SELECT UsuarioId AS usuario_id FROM doc.ArchivoUsuario WHERE ArchivoUsuarioId=? AND Activo=1", (doc_id,))
-        if not owner or owner["usuario_id"] != session["usuario_id"]:
-            raise NotFound("Solo puedes compartir documentos de tu expediente.")
+        if not owner:
+            raise NotFound("Documento no encontrado o archivado.")
         rows = query_all("""SELECT aa.ArchivoUsuarioAccesoId AS id,
             aa.BeneficiarioUsuarioId AS usuario_id,u.NombreUsuario AS usuario,
             aa.CreadoEn AS creado,aa.ExpiraEn AS expira,aa.RevocadoEn AS revocado,
@@ -7654,15 +7848,29 @@ def api_archivos_usuario_otorgar_acceso(session, doc_id):
         with get_db_connection() as conn:
             cur = conn.cursor()
             set_audit_context(cur, session, "Acceso temporal a documento personal")
-            owner = exec_proc_row(cur, "SELECT UsuarioId AS usuario_id FROM doc.ArchivoUsuario WITH (UPDLOCK,HOLDLOCK) WHERE ArchivoUsuarioId=? AND Activo=1", (doc_id,))
-            if not owner or owner["usuario_id"] != session["usuario_id"]:
-                raise NotFound("Solo puedes compartir documentos de tu expediente.")
+            owner = exec_proc_row(cur, """SELECT a.UsuarioId AS propietario_id,
+                a.RolOrigen AS rol_origen, cc.ClienteId AS cliente_id
+                FROM doc.ArchivoUsuario a WITH (UPDLOCK,HOLDLOCK)
+                LEFT JOIN seg.Usuario u ON u.UsuarioId=a.UsuarioId
+                LEFT JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId
+                WHERE a.ArchivoUsuarioId=? AND a.Activo=1""", (doc_id,))
+            if not owner:
+                raise NotFound("Documento no encontrado o archivado.")
             for beneficiario in beneficiarios:
-                target = exec_proc_row(cur, """SELECT u.UsuarioId AS id FROM seg.Usuario u
-                    JOIN seg.Rol r ON r.RolId=u.RolId WHERE u.UsuarioId=? AND u.Activo=1
+                target = exec_proc_row(cur, """SELECT u.UsuarioId AS id, r.Nombre AS rol,
+                    cc.ClienteId AS cliente_id FROM seg.Usuario u
+                    JOIN seg.Rol r ON r.RolId=u.RolId
+                    LEFT JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId
+                    WHERE u.UsuarioId=? AND u.Activo=1
                     AND UPPER(r.Nombre) IN ('TECNICO','CLIENTE')""", (beneficiario,))
                 if not target:
                     raise ValueError("Una cuenta seleccionada ya no está activa o no es cliente/técnico.")
+                if int(beneficiario) == int(owner["propietario_id"]):
+                    raise ValueError("El titular ya tiene acceso a su propio documento.")
+                if (str(owner["rol_origen"] or "").upper() == "CLIENTE"
+                    and str(target["rol"] or "").upper() == "CLIENTE"
+                    and (owner["cliente_id"] is None or target["cliente_id"] != owner["cliente_id"])):
+                    raise Forbidden("Un documento de cliente no se puede compartir con otra empresa.")
             access_ids = []
             for beneficiario in beneficiarios:
                 cur.execute("""UPDATE doc.ArchivoUsuarioAcceso SET RevocadoEn=SYSUTCDATETIME()
@@ -7693,8 +7901,8 @@ def api_archivos_usuario_revocar_acceso(session, doc_id, access_id):
                 FROM doc.ArchivoUsuarioAcceso aa
                 JOIN doc.ArchivoUsuario d ON d.ArchivoUsuarioId=aa.ArchivoUsuarioId
                 WHERE aa.ArchivoUsuarioAccesoId=? AND aa.ArchivoUsuarioId=?
-                AND d.UsuarioId=? AND aa.RevocadoEn IS NULL""",
-                access_id, doc_id, session["usuario_id"])
+                AND d.Activo=1 AND aa.RevocadoEn IS NULL""",
+                access_id, doc_id)
             if cur.rowcount != 1:
                 raise NotFound("Acceso no encontrado o ya revocado.")
         return jsonify(ok=True, message="Acceso revocado.")
@@ -7767,7 +7975,7 @@ def api_archivos_usuario_archivar(session, doc_id):
 # Documentos del servicio
 # ---------------------------------------------------------------------------
 @app.get("/api/documentos")
-@require_session("COORDINADOR", "CLIENTE")
+@require_session("COORDINADOR", "TECNICO", "CLIENTE")
 def api_documentos(session):
     return portal_listing(__import__(__name__,fromlist=["app"]),session,"documentos")
 
@@ -7947,6 +8155,7 @@ _QA_NOTICE_FILTER = """NOT EXISTS (
 def api_notificaciones(session):
     try:
         ensure_portal_feature_schema()
+        scope = notice_visibility_sql() if session['rol'] == 'CLIENTE' else '1=1'
         page,size = pagination_args()
         filtro = str(request.args.get("filtro") or "TODAS").upper()
         if filtro not in {"TODAS", "NO_LEIDAS", "LEIDAS"}:
@@ -7956,14 +8165,27 @@ def api_notificaciones(session):
             SELECT n.NotificacionId AS id,n.Tipo AS tipo,n.Titulo AS titulo,n.Mensaje AS mensaje,
                    n.Entidad AS entidad,n.EntidadId AS entidad_id,n.Canal AS canal,n.Estado AS estado,
                    n.CreadaEn AS creada,n.EnviadaEn AS enviada,n.LeidaEn AS leida,
-                   COUNT_BIG(*) OVER() AS TotalRegistros
-            FROM com.Notificacion n WHERE n.UsuarioId=? AND {_QA_NOTICE_FILTER}{predicate}
+                   COUNT_BIG(*) OVER() AS TotalRegistros,
+                   COALESCE(o.NumeroOrden,q.NumeroCotizacion,CASE WHEN rs.SolicitudServicioId IS NOT NULL THEN CONCAT(N'Solicitud #',rs.SolicitudServicioId) END) AS referencia,
+                   COALESCE(scq.Nombre,sc.Nombre,ub.NombreReferencia) AS sede_aviso,
+                   ts.Nombre AS servicio_aviso
+            FROM com.Notificacion n
+            LEFT JOIN srv.OrdenTrabajo o ON n.Entidad=N'OrdenTrabajo' AND o.OrdenTrabajoId=TRY_CONVERT(bigint,n.EntidadId)
+            LEFT JOIN cot.Cotizacion q ON n.Entidad=N'Cotizacion' AND q.CotizacionId=TRY_CONVERT(bigint,n.EntidadId)
+            LEFT JOIN srv.OrdenTrabajo oq ON oq.OrdenTrabajoId=q.OrdenTrabajoId
+            LEFT JOIN srv.SolicitudServicio rs ON rs.SolicitudServicioId=COALESCE(o.SolicitudServicioId,oq.SolicitudServicioId,
+                   CASE WHEN n.Entidad=N'SolicitudServicio' THEN TRY_CONVERT(bigint,n.EntidadId) END)
+            LEFT JOIN crm.UbicacionServicio ub ON ub.UbicacionServicioId=rs.UbicacionServicioId
+            LEFT JOIN crm.SucursalCliente sc ON sc.SucursalClienteId=ub.SucursalClienteId
+            LEFT JOIN crm.SucursalCliente scq ON scq.SucursalClienteId=q.SucursalClienteId
+            LEFT JOIN srv.TipoServicio ts ON ts.TipoServicioId=rs.TipoServicioId
+            WHERE n.UsuarioId=? AND {_QA_NOTICE_FILTER} AND {scope}{predicate}
             ORDER BY n.CreadaEn DESC,n.NotificacionId DESC
             OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
         """, (session["usuario_id"], (page-1)*size, size))
         summary = query_one(f"""SELECT COUNT_BIG(*) AS total,
                     SUM(CASE WHEN n.LeidaEn IS NULL THEN 1 ELSE 0 END) AS no_leidas
-                    FROM com.Notificacion n WHERE n.UsuarioId=? AND {_QA_NOTICE_FILTER}""",
+                    FROM com.Notificacion n WHERE n.UsuarioId=? AND {_QA_NOTICE_FILTER} AND {scope}""",
                     (session["usuario_id"],)) or {}
         return paged_response(items,page,size,no_leidas=int(summary.get("no_leidas") or 0),total_todas=int(summary.get("total") or 0))
     except Exception as exc:
@@ -7975,14 +8197,15 @@ def api_notificaciones(session):
 def api_notificaciones_resumen(session):
     try:
         ensure_portal_feature_schema()
+        scope = notice_visibility_sql() if session['rol'] == 'CLIENTE' else '1=1'
         summary = query_one(f"""SELECT COUNT_BIG(*) AS total,
                     SUM(CASE WHEN n.LeidaEn IS NULL THEN 1 ELSE 0 END) AS no_leidas
-                    FROM com.Notificacion n WHERE n.UsuarioId=? AND {_QA_NOTICE_FILTER}""",
+                    FROM com.Notificacion n WHERE n.UsuarioId=? AND {_QA_NOTICE_FILTER} AND {scope}""",
                     (session["usuario_id"],)) or {}
         items = query_all(f"""SELECT TOP (5) n.NotificacionId AS id,n.Tipo AS tipo,n.Titulo AS titulo,
                     n.Mensaje AS mensaje,n.Entidad AS entidad,n.EntidadId AS entidad_id,n.Canal AS canal,
                     n.Estado AS estado,n.CreadaEn AS creada,n.LeidaEn AS leida
-                    FROM com.Notificacion n WHERE n.UsuarioId=? AND {_QA_NOTICE_FILTER}
+                    FROM com.Notificacion n WHERE n.UsuarioId=? AND {_QA_NOTICE_FILTER} AND {scope}
                     ORDER BY n.CreadaEn DESC,n.NotificacionId DESC""", (session["usuario_id"],))
         return jsonify(ok=True,total=int(summary.get("total") or 0),no_leidas=int(summary.get("no_leidas") or 0),items=items)
     except Exception as exc:
@@ -8164,14 +8387,54 @@ def api_auditoria_prueba(session):
     except Exception as exc: return app_error(exc,"No fue posible ejecutar la prueba de auditoría.")
 
 
+# Paginas de estado HTTP. Las peticiones API mantienen el contrato JSON.
+_HTTP_ERRORES_VISUALES = {
+    400: ("Solicitud incorrecta", "No pudimos procesar esta solicitud.", "Revisa los datos e inténtalo nuevamente.", "alerta"),
+    401: ("Acceso requerido", "Necesitas iniciar sesión.", "Ingresa con tu cuenta autorizada para continuar.", "candado"),
+    403: ("Acceso restringido", "Esta área está protegida.", "Tu cuenta no tiene permisos para abrir este recurso.", "candado"),
+    404: ("Página no encontrada", "No encontramos esta página.", "Es posible que el enlace haya cambiado o ya no esté disponible.", "busqueda"),
+    405: ("Acción no permitida", "Esta acción no está disponible.", "El método de acceso no es válido para esta dirección.", "alerta"),
+    413: ("Archivo demasiado grande", "Este archivo supera el límite permitido.", "Prueba con un archivo más pequeño o con otro formato admitido.", "archivo"),
+    429: ("Demasiados intentos", "Recibimos demasiadas solicitudes.", "Espera un momento antes de volver a intentarlo.", "reloj"),
+    500: ("Error interno", "No pudimos completar la operación.", "Se produjo un inconveniente en el servidor. Vuelve a intentarlo más tarde.", "servidor"),
+    502: ("Conexión interrumpida", "El servidor no respondió correctamente.", "Estamos teniendo dificultades para conectar con el servicio.", "servidor"),
+    503: ("Servicio no disponible", "SEPRIGUA está temporalmente fuera de servicio.", "Vuelve a visitarnos en unos momentos.", "servidor"),
+}
+
+
+def _solicitud_prefiere_json() -> bool:
+    if request.path.startswith("/api/") or request.is_json:
+        return True
+    if request.headers.get("X-Requested-With", "").lower() == "xmlhttprequest":
+        return True
+    accept = request.accept_mimetypes
+    return bool(accept["application/json"] > accept["text/html"])
+
+
+def _pagina_error_seprigua(codigo: int):
+    codigo = int(codigo or 500)
+    titulo, encabezado, mensaje, icono = _HTTP_ERRORES_VISUALES.get(
+        codigo, ("Error de solicitud", "No pudimos abrir esta página.",
+                 "Regresa al inicio y vuelve a intentarlo.", "alerta"))
+    respuesta = make_response(render_template(
+        "http_error.html", codigo=codigo, titulo=titulo,
+        encabezado=encabezado, mensaje=mensaje, icono=icono), codigo)
+    respuesta.headers["Cache-Control"] = "no-store, max-age=0"
+    return respuesta
+
+
 @app.errorhandler(404)
 def not_found(_error):
-    return jsonify(ok=False, message="Recurso no encontrado."), 404
+    if _solicitud_prefiere_json():
+        return jsonify(ok=False, message="Recurso no encontrado."), 404
+    return _pagina_error_seprigua(404)
 
 
 @app.errorhandler(413)
 def too_large(_error):
-    return jsonify(ok=False, message="El archivo supera el tamaño máximo permitido."), 413
+    if _solicitud_prefiere_json():
+        return jsonify(ok=False, message="El archivo supera el tamaño máximo permitido."), 413
+    return _pagina_error_seprigua(413)
 
 
 
@@ -8192,6 +8455,10 @@ def validate_request():
         if request.cookies.get(COOKIE_NAME) and request.headers.get("X-SEPRIGUA-Request")!="1":raise Forbidden("Solicitud sin verificación de origen.")
         origin=request.headers.get('Origin')
         expected=urlsplit(os.getenv('PUBLIC_ORIGIN') or request.host_url)
+        if request.method == "POST" and request.path == "/api/contacto":
+            if request.host in CONTACT_LANDING_HOSTS:
+                expected = urlsplit(f"https://{request.host}")
+            origin = origin or request.headers.get("Referer")
         if origin:
             actual=urlsplit(origin)
             if actual.scheme!=expected.scheme or actual.netloc!=expected.netloc:raise Forbidden('Origen de solicitud no permitido.')
@@ -8219,34 +8486,49 @@ def security_headers(response):
     return response
 
 @app.errorhandler(HTTPException)
-def http_error(error):return app_error(error)
+def http_error(error):
+    if _solicitud_prefiere_json():
+        return app_error(error)
+    return _pagina_error_seprigua(error.code or 500)
+
 @app.errorhandler(Exception)
-def unexpected_error(error):return app_error(error)
+def unexpected_error(error):
+    if _solicitud_prefiere_json():
+        return app_error(error)
+    app.logger.exception("Fallo inesperado al cargar una pagina del portal.")
+    return _pagina_error_seprigua(500)
 
 
 if __package__:
     from . import planning
-    from .production import register_production
+    from .production import WORK_EXTRA, register_production
+    from .staff_calendar import register_staff_calendar
+    from .operations_status import QUOTE_PENDING, dashboard_range
     from .cancellations import register_cancellations
     from .portal_extensions import register_extensions
     from .agenda_operativa import register_agenda_operativa
     from .reprogramming import register_reprogramming
     from .work_report import register_work_report
+    from .quote_support import quote_pdf_filename
     from .evidence_storage import DatabaseEvidenceStorage
     from .listings import listing as portal_listing
 else:
     import planning
-    from production import register_production
+    from production import WORK_EXTRA, register_production
+    from staff_calendar import register_staff_calendar
+    from operations_status import QUOTE_PENDING, dashboard_range
     from cancellations import register_cancellations
     from portal_extensions import register_extensions
     from agenda_operativa import register_agenda_operativa
     from reprogramming import register_reprogramming
     from work_report import register_work_report
+    from quote_support import quote_pdf_filename
     from evidence_storage import DatabaseEvidenceStorage
     from listings import listing as portal_listing
 evidence_storage=DatabaseEvidenceStorage(lambda cursor,sql,arguments: exec_proc_row(cursor,sql,arguments))
 portal_actions=register_extensions(__import__(__name__, fromlist=['app']))
 register_production(sys.modules[__name__])
+register_staff_calendar(sys.modules[__name__])
 register_cancellations(sys.modules[__name__])
 agenda_actions=register_agenda_operativa(__import__(__name__, fromlist=['app']))
 reprogramming_actions=register_reprogramming(sys.modules[__name__])

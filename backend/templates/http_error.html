@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0b315c">
+  <title>{{ codigo }} · {{ titulo }} | SEPRIGUA</title>
+  <link rel="icon" type="image/png" href="/assets/pwa/seprigua-192.png">
+  <link rel="stylesheet" href="/css/http-errors.css">
+  <script src="/java/http-errors.js" defer></script>
+</head>
+<body class="error-layout">
+  <div class="ambient ambient--one" aria-hidden="true"></div>
+  <div class="ambient ambient--two" aria-hidden="true"></div>
+  <div class="page-wrap">
+    <header class="site-head" aria-label="SEPRIGUA">
+      <a class="logo-link" href="/" aria-label="Ir al inicio de SEPRIGUA">
+        <img src="/assets/img/logo-seprigua-hd.png" alt="SEPRIGUA — Corporación Turam, S.A." width="200" height="100">
+      </a>
+      <span class="head-label"><span class="head-dot"></span> CENTRO DE ASISTENCIA <span class="head-label-secondary">/ ESTADO DEL PORTAL</span></span>
+    </header>
+    <main class="error-card" id="contenido">
+      <div class="error-content">
+        <div class="eyebrow"><span class="tiny-diamond" aria-hidden="true"></span> AVISO DEL SISTEMA <span class="eyebrow-line"></span> {{ titulo | upper }}</div>
+        <div class="error-number" aria-label="Error {{ codigo }}">{{ codigo }}</div>
+        <div class="error-rule" aria-hidden="true"></div>
+        <h1>{{ encabezado }}</h1>
+        <p class="error-description">{{ mensaje }}</p>
+        <p class="error-help">Puedes regresar a la página principal o volver a la página anterior.</p>
+        <div class="error-actions">
+          {% if codigo == 401 %}
+          <a href="/login" class="action-primary"><span class="button-icon" aria-hidden="true">↗</span> Iniciar sesión</a>
+          {% else %}
+          <a href="/" class="action-primary"><span class="button-icon" aria-hidden="true">⌂</span> Ir al inicio</a>
+          {% endif %}
+          <a href="/" class="action-secondary" id="volver-atras"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m13 6-6 6 6 6M8 12h10"/></svg> Página anterior</a>
+        </div>
+        <div class="hint"><span class="hint-icon" aria-hidden="true">i</span> Si el problema continúa, comunícate con el equipo responsable de SEPRIGUA.</div>
+      </div>
+      <div class="error-art" aria-hidden="true">
+        <div class="art-grid"></div>
+        <div class="art-halo art-halo--outer"></div>
+        <div class="art-halo art-halo--inner"></div>
+        <span class="orb orb--top"></span><span class="orb orb--right"></span><span class="orb orb--bottom"></span>
+        <div class="art-center">
+          {% if icono == 'busqueda' %}
+          <svg viewBox="0 0 140 140" class="art-icon"><circle cx="62" cy="62" r="31"/><path d="m85 85 27 27"/><path d="M51 62h22" opacity=".5"/></svg>
+          {% elif icono == 'candado' %}
+          <svg viewBox="0 0 140 140" class="art-icon"><rect x="35" y="63" width="70" height="54" rx="12"/><path d="M48 63V48a22 22 0 0 1 44 0v15"/><circle cx="70" cy="86" r="5"/><path d="M70 91v10"/></svg>
+          {% elif icono == 'reloj' %}
+          <svg viewBox="0 0 140 140" class="art-icon"><circle cx="70" cy="70" r="43"/><path d="M70 44v28l19 13"/><path d="M70 15v9M70 116v9M15 70h9M116 70h9"/></svg>
+          {% elif icono == 'archivo' %}
+          <svg viewBox="0 0 140 140" class="art-icon"><path d="M43 25h43l18 19v67a8 8 0 0 1-8 8H43a8 8 0 0 1-8-8V33a8 8 0 0 1 8-8Z"/><path d="M86 25v22h18M52 78h36M52 91h25"/></svg>
+          {% elif icono == 'servidor' %}
+          <svg viewBox="0 0 140 140" class="art-icon"><rect x="28" y="25" width="84" height="40" rx="9"/><rect x="28" y="75" width="84" height="40" rx="9"/><circle cx="44" cy="45" r="4"/><circle cx="44" cy="95" r="4"/><path d="M59 45h37M59 95h37"/></svg>
+          {% else %}
+          <svg viewBox="0 0 140 140" class="art-icon"><path d="m63 27-42 73a10 10 0 0 0 9 14h80a10 10 0 0 0 9-14L77 27a8 8 0 0 0-14 0Z"/><path d="M70 53v28M70 97v2"/></svg>
+          {% endif %}
+        </div>
+        <div class="floating-note floating-note--one"><span class="note-mark"></span> SEPRIGUA · SISTEMA</div>
+        <div class="floating-note floating-note--two">HTTP / {{ codigo }}</div>
+      </div>
+    </main>
+    <footer class="site-foot"><span>© SEPRIGUA · CORPORACIÓN TURAM, S.A.</span><span class="foot-sign">TECNOLOGÍA PARA UNA OPERACIÓN MÁS EFICIENTE <span class="foot-red">◆</span></span></footer>
+  </div>
+</body>
+</html>

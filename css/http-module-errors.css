@@ -1,0 +1,18 @@
+
+/* SEPRIGUA / estados HTTP dentro del portal (solo vistas fallidas). */
+.se-http-module{display:grid;grid-template-columns:minmax(150px,32%) minmax(0,1fr);max-width:1050px;width:min(100%,1050px);min-height:320px;margin:clamp(20px,5vh,64px) auto;border:1px solid #d9e7f2;border-radius:22px;background:#fff;overflow:hidden;box-shadow:0 18px 45px rgba(16,65,106,.09);color:#173b60}
+.se-http-module__art{min-height:310px;display:grid;place-items:center;position:relative;isolation:isolate;overflow:hidden;background:linear-gradient(150deg,#0b3159,#145e9b)}
+.se-http-module__art:before{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(192,225,252,.34) 1px,transparent 1px);background-size:21px 21px;opacity:.32}
+.se-http-module__ring{width:170px;height:170px;border-radius:50%;border:1px solid rgba(202,236,255,.44);box-shadow:0 0 0 24px rgba(205,234,255,.07),0 0 0 54px rgba(205,234,255,.04)}
+.se-http-module__symbol{position:absolute;display:grid;place-items:center;width:80px;height:80px;border-radius:20px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;font-weight:800;font-size:46px;box-shadow:0 12px 30px rgba(1,16,40,.16)}
+.se-http-module__content{align-self:center;padding:clamp(26px,4vw,54px)}
+.se-http-module__eyebrow{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:.13em;font-size:10px;color:#587a98}
+.se-http-module__eyebrow span{width:9px;height:9px;display:inline-block;border-radius:2px;background:#e43b50;transform:rotate(45deg)}
+.se-http-module__code{font-size:clamp(17px,2.5vw,27px);font-weight:850;color:#2c6b9f;letter-spacing:.04em;margin-top:16px}
+.se-http-module__content h2{margin:7px 0 10px!important;font-size:clamp(22px,2.6vw,32px)!important;color:#123a63!important;line-height:1.18!important}
+.se-http-module__content p{margin:0!important;font-size:15px;color:#678199;line-height:1.65;max-width:450px}
+.se-http-module__actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:25px}
+.se-http-module__actions .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;min-height:42px;padding:10px 18px}
+.se-http-module__help{font-size:12px;color:#8a9fb0;margin-top:21px;border-top:1px solid #edf2f8;padding-top:14px;line-height:1.5}
+@media(max-width:700px){.se-http-module{grid-template-columns:1fr;margin:18px auto}.se-http-module__art{min-height:150px}.se-http-module__ring{width:90px;height:90px;box-shadow:0 0 0 14px rgba(205,234,255,.07)}.se-http-module__symbol{height:54px;width:54px;font-size:31px}.se-http-module__content{padding:24px}}
+@media(prefers-reduced-motion:reduce){.se-http-module *{animation:none!important;transition:none!important}}

@@ -502,7 +502,7 @@ def register_work_report(b):
                 summary, _evidence, details = b._cotizacion_expediente_sets(session, cotizacion_id)
                 if not summary:
                     raise NotFound('Cotización no disponible para descarga.')
-                generated.append((f'Cotizacion-{safe}.pdf', b._build_quote_pdf(summary[0], details).getvalue()))
+                generated.append((b.quote_pdf_filename(summary[0], cotizacion_id), b._build_quote_pdf(summary[0], details).getvalue()))
             if 'ot_digital' in selected:
                 order = data['orden']
                 ids = [e['id'] for e in data['evidencias'] if

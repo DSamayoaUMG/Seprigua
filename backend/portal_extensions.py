@@ -138,7 +138,7 @@ def register_extensions(b):
         if coordinators:
             ids=coordinator_users(b,cur,'garantia')
         else:
-            ids=[x['id'] for x in b.exec_proc_rows(cur,"SELECT DISTINCT u.UsuarioId AS id FROM seg.Usuario u JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId JOIN srv.SolicitudServicio ss ON ss.ClienteId=cc.ClienteId JOIN srv.OrdenTrabajo o ON o.SolicitudServicioId=ss.SolicitudServicioId JOIN crm.UbicacionServicio ux ON ux.UbicacionServicioId=ss.UbicacionServicioId CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) ax WHERE o.OrdenTrabajoId=? AND u.Activo=1 AND cc.Activo=1 AND ax.SucursalClienteId=ux.SucursalClienteId",(order_id,))]
+            ids=[x['id'] for x in b.exec_proc_rows(cur,f"SELECT DISTINCT u.UsuarioId AS id FROM seg.Usuario u JOIN crm.ContactoCliente cc ON cc.ContactoClienteId=u.ContactoClienteId JOIN srv.SolicitudServicio ss ON ss.ClienteId=cc.ClienteId JOIN srv.OrdenTrabajo o ON o.SolicitudServicioId=ss.SolicitudServicioId JOIN crm.UbicacionServicio ux ON ux.UbicacionServicioId=ss.UbicacionServicioId CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) ax WHERE o.OrdenTrabajoId=? AND u.Activo=1 AND cc.Activo=1 AND ax.SucursalClienteId=ux.SucursalClienteId AND {b.request_visibility_sql('ss', 'u.UsuarioId')}",(order_id,))]
         notify_users(b,cur,ids,'GARANTIA',title,message,'OrdenTrabajo',order_id)
 
     def save_quote(session,quote_id=None):
@@ -150,12 +150,23 @@ def register_extensions(b):
         d=data();lines=quote_lines(d.get('lineas') or [{'descripcion':d.get('descripcion'),'precio':d.get('precio'),'cantidad':1,'unidad':'Servicio'}])
         today=b.utcnow().replace(tzinfo=timezone.utc).astimezone(ZoneInfo(os.getenv('APP_TIMEZONE','America/Guatemala'))).date()
         expiry=quote_expiry_date(d,today)
+        title=text_value(d,'nombre',250)
         condition=text_value(d,'condicion_pago',80) or 'POR DEFINIR';reason=text_value(d,'motivo',700)
         site_id=int(d.get('sede_id') or 0) or None
         physical_order=text_value(d,'orden_fisica_numero',60)
         meta={'Moneda':'GTQ','EsExportacion':False,'EsDocumentoTributario':False}
         with b.get_db_connection() as conn:
             cur=conn.cursor();b.set_audit_context(cur,session,'Registro de versión de cotización')
+
+            def default_title(client_id, site_id, prospect_name, reference):
+                identity=row(cur,"""SELECT c.NombreComercial AS cliente, sc.Nombre AS sede
+                    FROM (VALUES(CAST(? AS bigint), CAST(? AS bigint))) AS ids(cliente_id,sede_id)
+                    LEFT JOIN crm.Cliente c ON c.ClienteId=ids.cliente_id
+                    LEFT JOIN crm.SucursalCliente sc ON sc.SucursalClienteId=ids.sede_id
+                        AND sc.ClienteId=ids.cliente_id""",(client_id,site_id)) or {}
+                identity.update(prospecto_nombre=prospect_name,numero_orden_papel=reference,fecha_emision=today)
+                return quote_support.quote_document_label(identity)
+
             if quote_id:
                 q=row(cur,'SELECT * FROM cot.Cotizacion WITH (UPDLOCK,HOLDLOCK) WHERE CotizacionId=?',(quote_id,))
                 if not q:raise NotFound('Cotización no encontrada.')
@@ -163,13 +174,14 @@ def register_extensions(b):
                 if q['Estado'] in {'ACEPTADA','ANULADA'}:raise Conflict('La cotización ya está cerrada.')
                 if 'sede_id' not in d and q['OrdenTrabajoId'] is None:
                     site_id=q['SucursalClienteId']
+                linked=None
                 if q['OrdenTrabajoId'] is not None:
                     check=row(cur,"""SELECT eo.Codigo AS estado FROM srv.OrdenTrabajo o
                       JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
                       WHERE o.OrdenTrabajoId=?""",(q['OrdenTrabajoId'],))
                     if not check or check['estado']=='CANCELADA':
                         raise Conflict('No se pueden modificar cotizaciones de órdenes canceladas.')
-                    linked=row(cur,"""SELECT ux.SucursalClienteId AS sede_id
+                    linked=row(cur,"""SELECT ux.SucursalClienteId AS sede_id,o.NumeroOrdenPapel AS orden_fisica
                       FROM srv.OrdenTrabajo o JOIN srv.SolicitudServicio ss ON ss.SolicitudServicioId=o.SolicitudServicioId
                       JOIN crm.UbicacionServicio ux ON ux.UbicacionServicioId=ss.UbicacionServicioId
                       WHERE o.OrdenTrabajoId=?""",(q['OrdenTrabajoId'],))
@@ -181,11 +193,15 @@ def register_extensions(b):
                 if not reason:raise ValueError('Indica el motivo de la nueva versión.')
                 version=int(row(cur,'SELECT MAX(NumeroVersion) AS n FROM cot.VersionCotizacion WHERE CotizacionId=?',(quote_id,))['n'] or 0)+1
                 if version>32767:raise Conflict('Se alcanzó el límite de versiones.')
+                reference=physical_order if 'orden_fisica_numero' in d else q['OrdenFisicaNumero']
+                if 'nombre' in d and not title:
+                    title=default_title(q['ClienteId'],site_id,q['ProspectoNombre'],
+                                        reference or (linked or {}).get('orden_fisica'))
                 cur.execute('UPDATE cot.VersionCotizacion SET EsActual=0,ActualizadoEn=SYSUTCDATETIME() WHERE CotizacionId=? AND EsActual=1',quote_id)
                 cur.execute("""UPDATE cot.Cotizacion SET Estado='BORRADOR',SucursalClienteId=?,
-                    OrdenFisicaNumero=?,ActualizadoEn=SYSUTCDATETIME() WHERE CotizacionId=?""",
+                    OrdenFisicaNumero=?,NombreCotizacion=COALESCE(?,NombreCotizacion),ActualizadoEn=SYSUTCDATETIME() WHERE CotizacionId=?""",
                     site_id if 'sede_id' in d or q['OrdenTrabajoId'] is not None else q['SucursalClienteId'],
-                    physical_order if 'orden_fisica_numero' in d else q['OrdenFisicaNumero'],quote_id)
+                    reference,title,quote_id)
             else:
                 order_id=int(d.get('orden_id') or 0) or None
                 client_id=int(d.get('cliente_id') or 0) or None
@@ -193,7 +209,7 @@ def register_extensions(b):
                 if order_id:
                     b.assert_order_access(session,order_id)
                     locked=row(cur,"""SELECT o.OrdenTrabajoId AS id,ss.ClienteId AS cliente_id,
-                       ux.SucursalClienteId AS sede_id,eo.Codigo AS estado
+                       ux.SucursalClienteId AS sede_id,eo.Codigo AS estado,o.NumeroOrdenPapel AS orden_fisica
                      FROM srv.OrdenTrabajo o WITH (UPDLOCK,HOLDLOCK)
                      JOIN srv.SolicitudServicio ss ON ss.SolicitudServicioId=o.SolicitudServicioId
                      JOIN crm.UbicacionServicio ux ON ux.UbicacionServicioId=ss.UbicacionServicioId
@@ -221,6 +237,9 @@ def register_extensions(b):
                     raise ValueError('Selecciona una sede existente para esta cotización.')
                 if not client_id and site_id:
                     raise ValueError('Una sede registrada requiere un cliente existente.')
+                if not title:
+                    title=default_title(client_id,site_id,prospect_name,
+                                        physical_order or (locked.get('orden_fisica') if order_id else None))
                 number_code='COT-'+today.strftime('%Y%m%d')+'-'+uuid.uuid4().hex[:8].upper()
                 q=row(cur,"""DECLARE @n TABLE(id bigint); INSERT INTO cot.Cotizacion
                    (OrdenTrabajoId,ClienteId,SucursalClienteId,OrdenFisicaNumero,
@@ -228,7 +247,7 @@ def register_extensions(b):
                     NumeroCotizacion,NombreCotizacion,CreadaPorUsuarioId,Estado)
                    OUTPUT INSERTED.CotizacionId INTO @n VALUES(?,?,?,?,?,?,?,?,?,?,'BORRADOR'); SELECT id FROM @n;""",
                   (order_id,client_id,site_id,physical_order,prospect_name,prospect_email,prospect_phone,
-                   number_code,text_value(d,'nombre',250) or 'Cotización de servicio',session['usuario_id']))
+                   number_code,title,session['usuario_id']))
                 quote_id=q['id'];version=1
             vid=row(cur,"""DECLARE @n TABLE(id bigint); INSERT INTO cot.VersionCotizacion
               (CotizacionId,CreadaPorUsuarioId,NumeroVersion,Folio,FechaEmision,FechaExpiracion,CondicionPago,EsExportacion,Moneda,
@@ -430,17 +449,34 @@ def register_extensions(b):
     @app.post('/api/vacaciones')
     @auth('COORDINADOR','TECNICO')
     def vacation_create(session):
-        d=data();start,end=vacation_dates(d);motive=text_value(d,'motivo',500,True)
+        d = data()
+        start, end = vacation_dates(d)
+        coord = session['rol'] == 'COORDINADOR'
+        motive = text_value(d, 'motivo', 500, not coord) or 'Vacaciones asignadas por Coordinación'
+        title = 'Vacaciones asignadas' if coord else 'Solicitud de vacaciones'
         with b.get_db_connection() as conn:
-            cur=conn.cursor();b.planning.lock_planning(b,cur);b.set_audit_context(cur,session,'Solicitud de vacaciones')
-            employee=active_employee(cur,session.get('empleado_id') if session['rol']=='TECNICO' else d.get('empleado_id'))
-            b.planning.validate_vacation(b,cur,employee,start,end)
-            vid=row(cur,"""DECLARE @ids TABLE(id bigint); INSERT INTO rh.SolicitudVacacion(EmpleadoId,FechaInicio,FechaFin,Motivo,Estado)
-              OUTPUT INSERTED.SolicitudVacacionId INTO @ids VALUES(?,?,?,?,'PENDIENTE'); SELECT id FROM @ids;""",(employee,start,end,motive))['id']
-            coords=coordinator_users(b,cur,'vacaciones');staff=employee_users(b,cur,employee)
-            notify_users(b,cur,coords+staff,'VACACIONES_SOLICITADAS','Solicitud de vacaciones',f'Solicitud del {start} al {end}.','Vacaciones',vid)
-        b.queue_web_push(coords,title='Solicitud de vacaciones',body='Hay una solicitud pendiente de resolución.',role='COORDINADOR',entity='Vacaciones',entity_id=vid)
-        return jsonify(ok=True,message='Solicitud registrada.',id=vid),201
+            cur = conn.cursor()
+            b.planning.lock_planning(b, cur)
+            b.set_audit_context(cur, session, title)
+            employee = active_employee(cur, d.get('empleado_id') if coord else session.get('empleado_id'))
+            b.planning.validate_vacation(b, cur, employee, start, end, approving=coord)
+            vid = row(cur, """DECLARE @ids TABLE(id bigint);
+              INSERT INTO rh.SolicitudVacacion(EmpleadoId,FechaInicio,FechaFin,Motivo,Estado,ResueltoPorUsuarioId,ResueltoEn)
+              OUTPUT INSERTED.SolicitudVacacionId INTO @ids
+              VALUES(?,?,?,?,?,?,CASE WHEN ?=1 THEN SYSUTCDATETIME() END);
+              SELECT id FROM @ids;""", (employee,start,end,motive,'APROBADA' if coord else 'PENDIENTE',
+                                          session['usuario_id'] if coord else None,int(coord)))['id']
+            staff = employee_users(b, cur, employee)
+            coords = [] if coord else coordinator_users(b, cur, 'vacaciones')
+            employee_name = row(cur, """SELECT CONCAT_WS(N' ',p.Nombres,p.Apellidos) AS nombre
+                       FROM rh.Empleado e JOIN rh.Persona p ON p.PersonaId=e.PersonaId WHERE e.EmpleadoId=?""", (employee,))['nombre']
+            dates = f'{start:%d/%m/%Y} al {end:%d/%m/%Y}'
+            message = f'Coordinación asignó tus vacaciones del {dates}.' if coord else f'{employee_name} solicitó vacaciones del {dates}.'
+            notify_users(b, cur, coords+staff, 'VACACIONES_ASIGNADAS' if coord else 'VACACIONES_SOLICITADAS',
+                         title, message, 'Vacaciones', vid)
+        b.queue_web_push(staff if coord else coords, title=title, body=message,
+                         role='TECNICO' if coord else 'COORDINADOR', entity='Vacaciones', entity_id=vid)
+        return jsonify(ok=True,message='Vacaciones asignadas.' if coord else 'Solicitud registrada.',id=vid),201
 
     @app.patch('/api/vacaciones/<int:vacation_id>')
     @auth('COORDINADOR','TECNICO')
@@ -472,12 +508,12 @@ def register_extensions(b):
         return jsonify(ok=True,message='Solicitud actualizada.')
 
     @app.get('/api/documentos/<int:document_id>/archivo')
-    @auth('COORDINADOR','CLIENTE')
+    @auth('COORDINADOR','TECNICO','CLIENTE')
     def document_download(session,document_id):
         item=b.query_one('SELECT d.OrdenTrabajoId AS orden_id,d.RutaArchivo AS ruta,d.Estado AS estado,d.EsSeguimientoInterno AS interno,f.Categoria AS categoria FROM doc.DocumentoServicio d JOIN doc.FormatoDocumento f ON f.FormatoDocumentoId=d.FormatoDocumentoId WHERE d.DocumentoServicioId=?',(document_id,))
         if not item:raise NotFound('Documento no encontrado.')
         b.assert_order_access(session,item['orden_id'])
-        if session['rol']=='CLIENTE' and (item.get('interno') or item['estado'] not in {'GENERADO','ENTREGADO','ACEPTADO','OBSERVADO'}):raise NotFound('Documento no disponible.')
+        if session['rol'] in {'CLIENTE','TECNICO'} and (item.get('interno') or item['estado'] not in {'GENERADO','ENTREGADO','ACEPTADO','OBSERVADO'}):raise NotFound('Documento no disponible.')
         path=str(item['ruta'] or '')
         if path.upper().startswith('BD://EVIDENCIA/'):
             evidence_id=int(path.rsplit('/',1)[1]);return b.api_archivo_evidencia(evidencia_id=evidence_id)
@@ -544,15 +580,18 @@ def register_extensions(b):
           db_state,encoded,item.get('ResponsableUsuarioId'),b.utcnow() if resolved else None,item['IncidenciaOrdenId'])
 
     def guarantee_list(session):
-        orders=b.query_all("""SELECT o.OrdenTrabajoId AS orden_id,o.NumeroOrden AS numero_orden,o.FinalizadaEn AS finalizada_en,
-          c.NombreComercial AS cliente,sc.Nombre AS sede,ts.Nombre AS tipo_servicio
+        orders=b.query_all(f"""DECLARE @Actor bigint=?;
+          SELECT o.OrdenTrabajoId AS orden_id,o.NumeroOrden AS numero_orden,o.FinalizadaEn AS finalizada_en,
+          c.NombreComercial AS cliente,sc.Nombre AS sede,ts.Nombre AS tipo_servicio,
+          {b.request_read_only_sql('ss', '@Actor')} AS solo_lectura
           FROM srv.OrdenTrabajo o JOIN srv.EstadoOrdenTrabajo e ON e.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
           JOIN srv.SolicitudServicio ss ON ss.SolicitudServicioId=o.SolicitudServicioId JOIN crm.Cliente c ON c.ClienteId=ss.ClienteId
           LEFT JOIN crm.UbicacionServicio ub ON ub.UbicacionServicioId=ss.UbicacionServicioId LEFT JOIN crm.SucursalCliente sc ON sc.SucursalClienteId=ub.SucursalClienteId
-          JOIN srv.TipoServicio ts ON ts.TipoServicioId=ss.TipoServicioId WHERE e.Codigo='COMPLETADA' AND (?='COORDINADOR' OR (ss.ClienteId=? AND EXISTS (SELECT 1 FROM crm.UbicacionServicio ux JOIN seg.ufn_SucursalesPermitidas(?) ax ON ax.SucursalClienteId=ux.SucursalClienteId WHERE ux.UbicacionServicioId=ss.UbicacionServicioId))) ORDER BY o.FinalizadaEn DESC""",(session['rol'],session.get('cliente_id'),session['usuario_id']))
-        raw=b.query_all("""SELECT i.* FROM srv.IncidenciaOrden i JOIN srv.OrdenTrabajo o ON o.OrdenTrabajoId=i.OrdenTrabajoId
+          JOIN srv.TipoServicio ts ON ts.TipoServicioId=ss.TipoServicioId WHERE e.Codigo='COMPLETADA' AND (?='COORDINADOR' OR (ss.ClienteId=? AND {b.request_visibility_sql('ss', '@Actor')} AND EXISTS (SELECT 1 FROM crm.UbicacionServicio ux JOIN seg.ufn_SucursalesPermitidas(@Actor) ax ON ax.SucursalClienteId=ux.SucursalClienteId WHERE ux.UbicacionServicioId=ss.UbicacionServicioId))) ORDER BY o.FinalizadaEn DESC""",(session['usuario_id'],session['rol'],session.get('cliente_id')))
+        raw=b.query_all(f"""DECLARE @Actor bigint=?;
+          SELECT i.* FROM srv.IncidenciaOrden i JOIN srv.OrdenTrabajo o ON o.OrdenTrabajoId=i.OrdenTrabajoId
           JOIN srv.SolicitudServicio ss ON ss.SolicitudServicioId=o.SolicitudServicioId
-          WHERE ISJSON(i.AccionTomada)=1 AND (?='COORDINADOR' OR (ss.ClienteId=? AND EXISTS (SELECT 1 FROM crm.UbicacionServicio ux JOIN seg.ufn_SucursalesPermitidas(?) ax ON ax.SucursalClienteId=ux.SucursalClienteId WHERE ux.UbicacionServicioId=ss.UbicacionServicioId))) ORDER BY i.IncidenciaOrdenId""",(session['rol'],session.get('cliente_id'),session['usuario_id']))
+          WHERE ISJSON(i.AccionTomada)=1 AND (?='COORDINADOR' OR (ss.ClienteId=? AND {b.request_visibility_sql('ss', '@Actor')} AND EXISTS (SELECT 1 FROM crm.UbicacionServicio ux JOIN seg.ufn_SucursalesPermitidas(@Actor) ax ON ax.SucursalClienteId=ux.SucursalClienteId WHERE ux.UbicacionServicioId=ss.UbicacionServicioId))) ORDER BY i.IncidenciaOrdenId""",(session['usuario_id'],session['rol'],session.get('cliente_id')))
         configs={};requests=[];mapped={x['orden_id']:x for x in orders}
         linked_ids=set()
         for i in raw:

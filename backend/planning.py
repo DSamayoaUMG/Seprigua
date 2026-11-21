@@ -24,7 +24,7 @@ def lock_planning(b,cur):
 def crew_ids(b,cur,order_id):
     return [int(r['id']) for r in b.exec_proc_rows(cur,"SELECT DISTINCT EmpleadoId AS id FROM srv.TecnicoOrden WHERE OrdenTrabajoId=? AND Estado IN ('ASIGNADO','CONFIRMADO')",(order_id,))]
 
-def validate_order(b,cur,order_id,scheduled=_UNSET,employee_ids=None,starting=False):
+def validate_order(b,cur,order_id,scheduled=_UNSET,employee_ids=None,starting=False,authorized_by=None):
     order=b.exec_proc_row(cur,"""SELECT o.ProgramadaPara AS programada,eo.Codigo AS estado FROM srv.OrdenTrabajo o
       JOIN srv.EstadoOrdenTrabajo eo ON eo.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId WHERE o.OrdenTrabajoId=?""",(order_id,))
     if not order:raise NotFound('Orden no encontrada.')
@@ -39,8 +39,18 @@ def validate_order(b,cur,order_id,scheduled=_UNSET,employee_ids=None,starting=Fa
         if not employee or employee['estado']!='ACTIVO' or not employee['persona_activa'] or not employee['tecnico'] or not employee['puesto_activo']:
             raise Conflict('Todos los integrantes deben ser empleados operativos activos.')
         if employee['disponibilidad'] not in {'DISPONIBLE','ASIGNADO'}:raise Conflict(f"{employee['nombre']} figura como no disponible.")
-        if b.exec_proc_row(cur,"SELECT TOP 1 SolicitudVacacionId AS id FROM rh.SolicitudVacacion WHERE EmpleadoId=? AND Estado='APROBADA' AND FechaInicio<=? AND FechaFin>=?",(employee_id,day,day)):
-            raise Conflict(f"{employee['nombre']} tiene vacaciones aprobadas para esa fecha.")
+        vacations = b.exec_proc_row(cur, """SELECT TOP 1 SolicitudVacacionId AS id FROM rh.SolicitudVacacion
+            WHERE EmpleadoId=? AND Estado='APROBADA' AND (FechaInicio<=? AND FechaFin>=?
+              OR (?=1 AND FechaInicio<=? AND FechaFin>=?))""",
+            (employee_id,day,day,int(bool(authorized_by)),local_day(),local_day()))
+        if vacations:
+            authorized = b.exec_proc_row(cur, """SELECT 1 AS autorizado FROM srv.TrabajoExtraAutorizado
+                 WHERE OrdenTrabajoId=? AND EmpleadoId=?""", (order_id, employee_id))
+            if not authorized:
+                if not authorized_by:
+                    raise Conflict(f"{employee['nombre']} tiene vacaciones aprobadas para esa fecha. Coordinación puede autorizar trabajo extra desde la cuadrilla.")
+                cur.execute("""INSERT INTO srv.TrabajoExtraAutorizado(OrdenTrabajoId,EmpleadoId,AutorizadoPorUsuarioId)
+                               VALUES (?,?,?)""", order_id, employee_id, authorized_by)
         if starting:condition="eo.Codigo='EN_PROCESO'";params=(employee_id,order_id)
         elif scheduled:condition='eo.EsFinal=0 AND o.ProgramadaPara=?';params=(employee_id,order_id,scheduled)
         else:continue

@@ -7,6 +7,10 @@
   let opened = null;
   let updateScheduled = false;
   let menu = null;
+  // Mantiene sincronizado el <select> original con su boton visual.
+  // Otros formularios habilitan/deshabilitan controles por propiedad JS
+  // (p. ej. Urgencia y Funcion de la cuadrilla), sin disparar 'change'.
+  const selectSyncs = new WeakMap();
   function hideMenu(refocus = false) {
     if (!menu) return;
     menu.remove();
@@ -52,7 +56,10 @@
     (list.querySelector('[aria-selected="true"]') || list.querySelector('button:not([disabled])'))?.scrollIntoView({block:'nearest'});
   }
   function enhanceOne(select) {
-    if (select.dataset.seEnterprise === '1') return;
+    if (select.dataset.seEnterprise === '1') {
+      selectSyncs.get(select)?.();
+      return;
+    }
     select.dataset.seEnterprise='1';
     const wrapper=document.createElement('span');
     wrapper.className='se-enterprise-select';
@@ -71,12 +78,28 @@
     button.append(label,arrow);
     wrapper.appendChild(button);
     const sync=() => {
-      label.textContent=select.selectedOptions[0]?.textContent.trim() || 'Seleccionar';
+      const nextLabel=select.selectedOptions[0]?.textContent.trim() || 'Seleccionar';
+      if (label.textContent !== nextLabel) label.textContent=nextLabel;
       const fieldName=select.closest('.field, .solicitudes-filter-field, .orders-filter-field, .people-field')?.querySelector('label')?.textContent.trim() || 'Filtro';
-      button.setAttribute('aria-label',`${fieldName}: ${label.textContent}`);
-      button.disabled=select.disabled;
+      const nextAriaLabel=`${fieldName}: ${nextLabel}`;
+      if (button.getAttribute('aria-label') !== nextAriaLabel) button.setAttribute('aria-label',nextAriaLabel);
+      // IMPORTANTE: select.disabled = true/false modifica el atributo, pero no
+      // emite 'change'. Sin esto, el boton queda bloqueado para siempre.
+      if (button.disabled !== select.disabled) button.disabled=select.disabled;
+      if (select.disabled && opened?.select === select) hideMenu();
     };
+    selectSyncs.set(select,sync);
     sync();
+    // Actualiza disabled, cambios de opciones y seleccion dinamica sin
+    // alterar las reglas ni los eventos originales de los formularios.
+    new MutationObserver(sync).observe(select, {
+      attributes:true,
+      attributeFilter:['disabled','selected'],
+      childList:true,
+      characterData:true,
+      subtree:true
+    });
+    select.form?.addEventListener('reset',() => setTimeout(sync,0));
     button.addEventListener('click',() => showMenu({select,button}));
     button.addEventListener('keydown',ev => {
       if(['ArrowDown','ArrowUp','Enter',' '].includes(ev.key)) {ev.preventDefault();showMenu({select,button});}

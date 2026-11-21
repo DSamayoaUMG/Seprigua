@@ -125,8 +125,8 @@
 .qe-page .qe-site-picker { position: relative; min-width: 0; }
 .qe-page .qe-site-control { display: flex; align-items: center; min-height: 44px; border: 1px solid #bed3e7; border-radius: 10px; background: #fff; transition: border-color .15s, box-shadow .15s; }
 .qe-page .qe-site-control:focus-within { border-color: #2382c7; box-shadow: 0 0 0 3px rgba(35,130,199,.13); }
-.qe-page .qe-order-details-grid .qe-field .qe-site-control input[type=search] { flex: 1; min-width: 0; width: auto; min-height: 42px; padding: .6rem .75rem; border: 0; background: transparent; box-shadow: none; outline: 0; font: inherit; color: #092c56; }
-.qe-page .qe-order-details-grid .qe-field .qe-site-control input[type=search]:focus { border: 0; box-shadow: none; }
+.qe-page .qe-fields .qe-field .qe-site-control input[type=search] { flex: 1; min-width: 0; width: auto; min-height: 42px; padding: .6rem .75rem; border: 0; background: transparent; box-shadow: none; outline: 0; font: inherit; color: #092c56; }
+.qe-page .qe-fields .qe-field .qe-site-control input[type=search]:focus { border: 0; box-shadow: none; }
 .qe-page .qe-site-control button { display: grid; place-items: center; flex: none; width: 42px; height: 42px; border: 0; border-left: 1px solid #e0eaf3; background: transparent; color: #3172a9; cursor: pointer; }
 .qe-page .qe-site-control button:disabled { opacity: .45; cursor: default; }
 .qe-page .qe-site-control button svg { width: 18px; height: 18px; transition: transform .15s; }

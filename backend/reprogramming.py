@@ -115,13 +115,13 @@ def _recipients(b, cur, order_id, actor_id, *, coordinators=False, staff=False, 
         for row in crew:
             result.update(employee_users(b, cur, row["id"]))
     if clients:
-        result.update(row["id"] for row in b.exec_proc_rows(cur, """SELECT DISTINCT u.UsuarioId AS id
+        result.update(row["id"] for row in b.exec_proc_rows(cur, f"""SELECT DISTINCT u.UsuarioId AS id
           FROM srv.OrdenTrabajo o JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId
           JOIN crm.UbicacionServicio loc ON loc.UbicacionServicioId=s.UbicacionServicioId
           JOIN crm.ContactoCliente cc ON cc.ClienteId=s.ClienteId AND cc.Activo=1
           JOIN seg.Usuario u ON u.ContactoClienteId=cc.ContactoClienteId AND u.Activo=1
           CROSS APPLY seg.ufn_SucursalesPermitidas(u.UsuarioId) permitted
-          WHERE o.OrdenTrabajoId=? AND permitted.SucursalClienteId=loc.SucursalClienteId""", (order_id,)))
+          WHERE o.OrdenTrabajoId=? AND permitted.SucursalClienteId=loc.SucursalClienteId AND {b.request_visibility_sql('s', 'u.UsuarioId')}""", (order_id,)))
     result.discard(actor_id)
     return sorted(result)
 

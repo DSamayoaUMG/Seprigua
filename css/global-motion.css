@@ -1,0 +1,89 @@
+/* Movimiento breve y compartido para la interfaz autenticada. */
+body.seprigua-hoja-v4 {
+  --motion-fast: 170ms;
+  --motion-normal: 230ms;
+  --motion-curve: cubic-bezier(.2,.75,.25,1);
+}
+body.seprigua-hoja-v4 :is(button,.btn,[role="button"],.system-nav a,.system-nav button,.top-popover a,.top-popover button) {
+  transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease,
+    opacity var(--motion-fast) ease, transform var(--motion-fast) var(--motion-curve);
+}
+body.seprigua-hoja-v4 :is(input,textarea,select,.se-enterprise-select-button) {
+  transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease;
+}
+body.seprigua-hoja-v4 .app-content :is(.data-table,.people-table,.order-table,.quote-table,.request-table,.orders-table,.user-report-table) tbody td {
+  transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+body.seprigua-hoja-v4 :is(.request-quick-pill,.order-quick-pill,.people-quick,.smart-quick-pill,.quote-tab,.people-tab,.context-tab) {
+  transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease,
+    transform var(--motion-fast) var(--motion-curve);
+}
+@media (hover:hover) and (pointer:fine) {
+  body.seprigua-hoja-v4 :is(.app-content,#modalBackdrop) :is(.btn,button):not(:disabled):not(.se-enterprise-select-button):hover {
+    transform: translateY(-2px);
+  }
+  body.seprigua-hoja-v4 :is(.app-content,#modalBackdrop) :is(.btn,button):not(:disabled):active {
+    transform: translateY(0) scale(.98);
+  }
+  body.seprigua-hoja-v4 .system-nav :is(a,button):hover { transform: translateX(3px); }
+  body.seprigua-hoja-v4 .app-content :is(.request-quick-pill,.order-quick-pill,.people-quick,.smart-quick-pill):hover { transform: translateY(-1px); }
+}
+body.seprigua-hoja-v4 #modalBackdrop:not([hidden]) { animation: se-motion-overlay var(--motion-normal) ease both; }
+body.seprigua-hoja-v4 #modalBackdrop:not([hidden]) .modal-seprigua { animation: se-motion-dialog var(--motion-normal) var(--motion-curve) both; }
+body.seprigua-hoja-v4 :is(.top-popover,.top-calendar-popover):not([hidden]) { animation: se-motion-popover 180ms var(--motion-curve) both; transform-origin: top right; }
+body.seprigua-hoja-v4 .app-content > :first-child { animation: se-motion-content 250ms var(--motion-curve) both; }
+@keyframes se-motion-overlay { from { opacity: 0; } to { opacity: 1; } }
+@keyframes se-motion-dialog { from { opacity: 0; transform: translateY(12px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes se-motion-popover { from { opacity: 0; transform: translateY(-5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes se-motion-content { from { opacity: .75; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion:reduce) {
+  body.seprigua-hoja-v4 :is(button,.btn,[role="button"],input,textarea,select,.se-enterprise-select-button,.top-popover,.top-calendar-popover,.modal-seprigua,.app-content > :first-child) {
+    animation: none !important;
+    transition-duration: .01ms !important;
+  }
+  body.seprigua-hoja-v4 :is(.app-content,#modalBackdrop) :is(.btn,button):hover,
+  body.seprigua-hoja-v4 .system-nav :is(a,button):hover { transform: none !important; }
+}
+
+/* Segunda capa: cada tipo de interacción tiene un gesto propio. */
+body.seprigua-hoja-v4 { --motion-normal: 330ms; }
+body.seprigua-hoja-v4 .app-content > :first-child { animation-duration: 360ms; }
+body.seprigua-hoja-v4 #modalBackdrop:not([hidden]) .modal-seprigua { animation-duration: 360ms; }
+body.seprigua-hoja-v4 :is(.top-popover,.top-calendar-popover):not([hidden]) { animation-duration: 240ms; }
+body.seprigua-hoja-v4 :is(.cc-kpi,.role-kpi-card,.agenda-summary-card) {
+  transition: transform 230ms var(--motion-curve), border-color 210ms ease, box-shadow 230ms ease;
+  animation: se-motion-kpi 340ms var(--motion-curve) both;
+}
+body.seprigua-hoja-v4 :is(.cc-kpi,.role-kpi-card,.agenda-summary-card):nth-child(2) { animation-delay: 45ms; }
+body.seprigua-hoja-v4 :is(.cc-kpi,.role-kpi-card,.agenda-summary-card):nth-child(3) { animation-delay: 90ms; }
+body.seprigua-hoja-v4 :is(.cc-kpi,.role-kpi-card,.agenda-summary-card):nth-child(4) { animation-delay: 135ms; }
+body.seprigua-hoja-v4 .app-content :is(.request-quick-pill,.order-quick-pill,.people-quick,.smart-quick-pill):is(.active,:active) {
+  animation: se-motion-select 240ms var(--motion-curve);
+}
+body.seprigua-hoja-v4 .app-content :is(.data-table,.people-table,.order-table,.quote-table,.request-table,.orders-table,.user-report-table) tbody tr:hover td:first-child {
+  box-shadow: inset 3px 0 0 #1769aa;
+  transition: box-shadow 190ms ease, background-color 190ms ease;
+}
+body.seprigua-hoja-v4 details[open] > :not(summary) { animation: se-motion-reveal 250ms var(--motion-curve) both; }
+@media (hover:hover) and (pointer:fine) {
+  body.seprigua-hoja-v4 .system-nav :is(a,button):hover { transform: translateX(5px); }
+  body.seprigua-hoja-v4 :is(.cc-kpi,.role-kpi-card,.agenda-summary-card):hover {
+    transform: translateY(-4px);
+    box-shadow: 0 9px 20px rgba(8,47,91,.10);
+  }
+  body.seprigua-hoja-v4 .app-content :is(.request-quick-pill,.order-quick-pill,.people-quick,.smart-quick-pill):hover { transform: translateY(-2px); }
+  body.seprigua-hoja-v4 :is(.app-content,#modalBackdrop) :is(.btn,button):not(:disabled):not(.se-enterprise-select-button):hover { transform: translateY(-3px); }
+}
+@keyframes se-motion-kpi { from { opacity: .55; transform: translateY(13px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes se-motion-select { 0% { transform: scale(.96); } 65% { transform: scale(1.025); } 100% { transform: scale(1); } }
+@keyframes se-motion-reveal { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion:reduce) {
+  body.seprigua-hoja-v4 :is(.cc-kpi,.role-kpi-card,.agenda-summary-card,.request-quick-pill,.order-quick-pill,.people-quick,.smart-quick-pill,details[open] > :not(summary)) {
+    animation: none !important;
+    transition-duration: .01ms !important;
+  }
+  body.seprigua-hoja-v4 :is(.cc-kpi,.role-kpi-card,.agenda-summary-card,.request-quick-pill,.order-quick-pill,.people-quick,.smart-quick-pill):hover { transform: none !important; }
+}

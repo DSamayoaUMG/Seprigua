@@ -9,7 +9,7 @@ from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
-from reportlab.platypus import CondPageBreak, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import CondPageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 if __package__:
     from .pdf_styles import (BORDER, BLUE, INK, MUTED, NAVY, PALE, PALE_BLUE, RED,
@@ -120,23 +120,22 @@ def build_user_report(item):
 def build_quote_pdf(item, details):
     out = BytesIO()
     styles = portal_styles()
-    width = 178 * mm
     number = str(item.get('numero_cotizacion') or 'Sin número')
-    doc = SimpleDocTemplate(out, pagesize=A4, leftMargin=16 * mm, rightMargin=16 * mm,
-                            topMargin=39 * mm, bottomMargin=23 * mm,
+    doc = SimpleDocTemplate(out, pagesize=A4, leftMargin=13 * mm, rightMargin=13 * mm,
+                            topMargin=31 * mm, bottomMargin=18 * mm,
                             title=f'Cotización {number}', author='SEPRIGUA - Corporación Turam, S.A.')
     kicker = ParagraphStyle('QuoteKicker', parent=styles['Normal'], fontName='PortalSans-Bold',
-                            fontSize=8, leading=11, textColor=BLUE, spaceAfter=4)
+                            fontSize=8, leading=10, textColor=BLUE, spaceAfter=2)
     title = ParagraphStyle('QuoteTitle', parent=styles['Title'], fontName='PortalSans-Bold',
-                           fontSize=20, leading=24, textColor=NAVY, alignment=0, spaceAfter=4)
+                           fontSize=16, leading=19, textColor=NAVY, alignment=0, spaceAfter=2)
     subtitle = ParagraphStyle('QuoteSubtitle', parent=styles['Normal'], fontSize=8.5,
-                              leading=12, textColor=MUTED)
+                              leading=10.5, textColor=MUTED)
     label = ParagraphStyle('QuoteLabel', parent=styles['Normal'], fontName='PortalSans-Bold',
                            fontSize=7, leading=10, textColor=MUTED)
     value = ParagraphStyle('QuoteValue', parent=styles['Normal'], fontName='PortalSans-Bold',
-                           fontSize=8.5, leading=12, textColor=INK)
-    body = ParagraphStyle('QuoteBody', parent=styles['Normal'], fontSize=7.8,
-                          leading=11, textColor=INK)
+                           fontSize=8.5, leading=10.5, textColor=INK)
+    body = ParagraphStyle('QuoteBody', parent=styles['Normal'], fontSize=8,
+                          leading=10.5, textColor=INK)
     head = ParagraphStyle('QuoteHead', parent=body, fontName='PortalSans-Bold',
                           textColor=colors.white)
     right = ParagraphStyle('QuoteRight', parent=body, alignment=TA_RIGHT)
@@ -151,14 +150,14 @@ def build_quote_pdf(item, details):
         Paragraph('PROPUESTA COMERCIAL', kicker),
         Paragraph(pdf_text(item.get('nombre_cotizacion') or 'Cotización'), title),
         Paragraph(f'Número {pdf_text(number)}{version_label} · Estado: {pdf_text(item.get("cotizacion_estado"))}', subtitle),
-        Spacer(1, 7 * mm),
+        Spacer(1, 3 * mm),
     ]
     guest = bool(item.get('prospecto_nombre'))
     meta_values = [
         ('CLIENTE', item.get('cliente')),
         ('SEDE / UBICACIÓN', item.get('sede')),
         ('OT DEL SISTEMA', item.get('numero_orden')),
-        ('OT FÍSICA', item.get('numero_orden_papel')),
+        ('REFERENCIA FÍSICA (OT U OC)', item.get('numero_orden_papel')),
         ('EMISIÓN', _date(item.get('fecha_emision'))),
         ('VENCIMIENTO', _date(item.get('fecha_expiracion'))),
     ]
@@ -169,10 +168,10 @@ def build_quote_pdf(item, details):
     if guest:
         meta_rows.append([
             _meta_card('CORREO DE CONTACTO', item.get('prospecto_correo'), label, value),
+            '',
             _meta_card('TELÉFONO', item.get('prospecto_telefono'), label, value),
-            _meta_card('TOTAL', _money(item.get('total'), item.get('moneda')), label, value),
         ])
-    metadata = Table(meta_rows, colWidths=[61 * mm, 67 * mm, 50 * mm], hAlign='LEFT')
+    metadata = Table(meta_rows, colWidths=[61 * mm, 75 * mm, 48 * mm], hAlign='LEFT')
     metadata.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), PALE),
         ('BOX', (0, 0), (-1, -1), .7, BORDER),
@@ -180,19 +179,26 @@ def build_quote_pdf(item, details):
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING', (0, 0), (-1, -1), 9),
         ('RIGHTPADDING', (0, 0), (-1, -1), 9),
-        ('TOPPADDING', (0, 0), (-1, -1), 9),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
-    story += [metadata, Spacer(1, 8 * mm),
-              section_header('Detalle de la cotización', width, styles), Spacer(1, 3 * mm)]
+    if guest:
+        metadata.setStyle(TableStyle([('SPAN', (0, 2), (1, 2))]))
+    story += [metadata, Spacer(1, 3 * mm)]
 
     matrix = [[Paragraph(pdf_text(name), head) for name in
-               ('#', 'Descripción', 'Cantidad', 'Tipo', 'Precio', 'Total')]]
+               ('#', 'Descripción', 'Cant.', 'Tipo', 'Precio unit.', 'Total')]]
     for line in details:
         description = pdf_text(line.get('descripcion'))
-        description += (f"<br/><font color='#607A94' size='7'>Descuento: "
-                        f"{pdf_text(_money(line.get('descuento'), item.get('moneda')))} · "
-                        f"Impuesto: {pdf_text(line.get('porcentaje_impuesto') or 0)}%</font>")
+        adjustments = []
+        discount = Decimal(str(line.get('descuento') or 0))
+        tax_rate = Decimal(str(line.get('porcentaje_impuesto') or 0))
+        if discount:
+            adjustments.append(f"Descuento: {_money(discount, item.get('moneda'))}")
+        if tax_rate:
+            adjustments.append(f'Impuesto: {tax_rate:f}%')
+        if adjustments:
+            description += f"<br/><font color='#607A94' size='7'>{pdf_text(' · '.join(adjustments))}</font>"
         if line.get('observaciones'):
             description += f"<br/><font color='#607A94' size='7'>{pdf_text(line['observaciones'])}</font>"
         matrix.append([
@@ -205,8 +211,8 @@ def build_quote_pdf(item, details):
     if len(matrix) == 1:
         matrix.append([Paragraph('—', body), Paragraph('Sin líneas registradas.', body),
                        Paragraph('—', body), Paragraph('—', body), Paragraph('—', body), Paragraph('—', body)])
-    lines = Table(matrix, colWidths=[10 * mm, 72 * mm, 22 * mm, 18 * mm, 27 * mm, 29 * mm],
-                  repeatRows=1, hAlign='LEFT')
+    lines = Table(matrix, colWidths=[9 * mm, 87 * mm, 17 * mm, 17 * mm, 26 * mm, 28 * mm],
+                  repeatRows=1, splitInRow=1, hAlign='LEFT')
     lines.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), NAVY),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, PALE_BLUE]),
@@ -215,48 +221,37 @@ def build_quote_pdf(item, details):
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING', (0, 0), (-1, -1), 6),
         ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 0), (-1, -1), 7),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]))
-    story += [lines, Spacer(1, 7 * mm)]
-    currency = item.get('moneda')
-    total_rows = [
-        [Paragraph('Subtotal', body), Paragraph(pdf_text(_money(item.get('subtotal'), currency)), right)],
-        [Paragraph('Descuento', body), Paragraph(pdf_text(_money(item.get('descuento_total'), currency)), right)],
-        [Paragraph('Impuesto', body), Paragraph(pdf_text(_money(item.get('impuesto_total'), currency)), right)],
-        [Paragraph('TOTAL', total_left), Paragraph(pdf_text(_money(item.get('total'), currency)), total_right)],
+    payment = _meta_card('FORMA DE PAGO', item.get('condicion_pago'), label, value)
+    payment += [
+        Spacer(1, 2 * mm),
+        Paragraph('Documento generado desde el portal privado de SEPRIGUA. '
+                  'No constituye un comprobante de pago.', subtitle),
     ]
-    totals = Table(total_rows, colWidths=[46 * mm, 47 * mm], hAlign='RIGHT')
+    currency = item.get('moneda')
+    totals = Table([
+        [payment, Paragraph('Subtotal', body), Paragraph(pdf_text(_money(item.get('subtotal'), currency)), right)],
+        ['', Paragraph('Descuento', body), Paragraph(pdf_text(_money(item.get('descuento_total'), currency)), right)],
+        ['', Paragraph('Impuesto', body), Paragraph(pdf_text(_money(item.get('impuesto_total'), currency)), right)],
+        ['', Paragraph('TOTAL', total_left), Paragraph(pdf_text(_money(item.get('total'), currency)), total_right)],
+    ], colWidths=[106 * mm, 36 * mm, 42 * mm], splitByRow=0, hAlign='LEFT')
     totals.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 2), PALE),
-        ('BACKGROUND', (0, 3), (-1, 3), NAVY),
-        ('LINEABOVE', (0, 3), (-1, 3), 2, RED),
-        ('BOX', (0, 0), (-1, -1), .6, BORDER),
-        ('LEFTPADDING', (0, 0), (-1, -1), 10),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-        ('TOPPADDING', (0, 0), (-1, -1), 7),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
-    ]))
-    summary = [section_header('Resumen económico', width, styles), Spacer(1, 3 * mm),
-               totals, Spacer(1, 8 * mm),
-               section_header('Forma de pago y vigencia', width, styles), Spacer(1, 3 * mm)]
-    commercial = Table([[
-        _meta_card('FORMA DE PAGO', item.get('condicion_pago'), label, value),
-        _meta_card('VIGENCIA', f"Hasta {_date(item.get('fecha_expiracion'))}", label, value),
-    ]], colWidths=[112 * mm, 66 * mm])
-    commercial.setStyle(TableStyle([
+        ('SPAN', (0, 0), (0, 3)),
         ('BACKGROUND', (0, 0), (-1, -1), PALE),
+        ('BACKGROUND', (1, 3), (-1, 3), NAVY),
+        ('LINEABOVE', (1, 3), (-1, 3), 1.2, RED),
+        ('LINEBEFORE', (1, 0), (1, -1), .6, BORDER),
         ('BOX', (0, 0), (-1, -1), .6, BORDER),
-        ('INNERGRID', (0, 0), (-1, -1), .4, BORDER),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 10),
-        ('TOPPADDING', (0, 0), (-1, -1), 9),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (0, 0), 6),
     ]))
-    summary += [commercial, Spacer(1, 5 * mm),
-                Paragraph('Documento generado desde el portal privado de SEPRIGUA. '
-                          'No constituye un comprobante de pago.', subtitle)]
-    story.append(KeepTogether(summary))
+    story += [lines, Spacer(1, 3 * mm), totals]
     draw = lambda canvas, document: page_frame(canvas, document, 'Cotización', number,
                                                 note='Propuesta comercial · Corporación Turam, S.A.')
     doc.build(story, onFirstPage=draw, onLaterPages=draw)

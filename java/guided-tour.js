@@ -6,6 +6,7 @@
   const VERSION = 2;
   const POLL_MS = 25000;
   const $ = selector => document.querySelector(selector);
+  const quoteView = () => $(".qe-expediente, .quote-flow-hero");
   const all = selector => [...document.querySelectorAll(selector)];
   const numberId = value => { const n = Number(value); return Number.isSafeInteger(n) && n > 0 ? n : null; };
   const upper = value => String(value || "").trim().toUpperCase();
@@ -49,7 +50,7 @@
     saveQuote: {actor:"COORDINADOR",action:"ACTION_STATE_CHANGE",stage:6,title:"Guarda la cotización",text:"Revisa los conceptos y condiciones. Guarda la propuesta; continuaremos cuando quede vinculada a la OT.",target:()=> '#quoteFullForm button[type="submit"]',completionCondition:c=>!!c.quote},
     navQuotes: {actor:["COORDINADOR","CLIENTE"],action:"ACTION_ROUTE",stage:6,title:"Entra a Cotizaciones",text:"Abre Cotizaciones para continuar con la propuesta vinculada a este servicio.",target:()=> '#systemNav [data-module="cotizaciones"]',completionCondition:c=>c.module==="cotizaciones"},
     sendQuote: {actor:"COORDINADOR",action:"ACTION_STATE_CHANGE",stage:6,title:"Envía la cotización",text:"La propuesta está en borrador. Pulsa Enviar para que el cliente pueda responder; el tour verificará el nuevo estado.",target:c=>`[data-action="enviar-cotizacion"][data-id="${c.quoteId}"]`,completionCondition:c=>c.quoteCode==="ENVIADA"},
-    quoteDetail: {actor:["COORDINADOR","CLIENTE"],action:"ACTION_CLICK",stage:6,title:"Abre la cotización",text:"Consulta el expediente o el detalle de la propuesta vinculada a esta OT.",target:c=>`#appContent [data-action="ver-expediente-cotizacion"][data-id="${c.quoteId}"]`,completionCondition:()=>!!$('.quote-flow-hero') || /Cotización/i.test($('#modalTitle')?.textContent||"")},
+    quoteDetail: {actor:["COORDINADOR","CLIENTE"],action:"ACTION_CLICK",stage:6,title:"Abre la cotización",text:"Consulta el expediente o el detalle de la propuesta vinculada a esta OT.",target:c=>`#appContent [data-action="ver-expediente-cotizacion"][data-id="${c.quoteId}"]`,completionCondition:()=>!!quoteView() || /Cotización/i.test($('#modalTitle')?.textContent||"")},
     reviseQuote: {actor:"COORDINADOR",action:"ACTION_CLICK",stage:6,title:"Prepara una nueva versión",text:"El cliente pidió cambios o rechazó la propuesta. Abre Nueva versión y revisa las condiciones antes de volver a enviar.",target:()=> '#modalBackdrop:not([hidden]) [data-action="version-cotizacion"]',completionCondition:()=>!!$("#quoteFullForm")},
     clientQuoteResponse: {actor:"CLIENTE",action:"ACTION_CLICK",stage:6,title:"Responde la cotización",text:"La propuesta fue enviada. Abre Responder cotización para aceptar, solicitar cambios o rechazar según corresponda.",target:()=> '#appContent [data-action="responder-cotizacion"]',completionCondition:()=>!!$("#quoteResponse")},
     clientQuoteChoice: {actor:"CLIENTE",action:"ACTION_FORM",stage:6,title:"Elige tu respuesta",text:"Selecciona Aceptar, Solicitar cambios o Rechazar. Los cambios o rechazo requieren una observación.",target:()=> '#quoteResponse [name="respuesta"]',completionCondition:()=>!!$('#quoteResponse [name="respuesta"]')?.value},
@@ -239,9 +240,31 @@
       if (this.error) return {id:"error",actor:"SISTEMA",action:"ACTION_WAIT",title:"No se pudo comprobar el avance",text:this.error,target:null};
       const coreModules=this.role==="TECNICO"?["ordenes"]:["solicitudes","ordenes"];
       if(coreModules.some(module=>!this.allowed.has(module)))return {id:"noPermission",actor:"SISTEMA",action:"ACTION_INFO",title:"Flujo no disponible para esta cuenta",text:"Esta cuenta no tiene acceso a todos los módulos necesarios para el flujo principal. Usa la ayuda contextual de los módulos que sí aparecen en tu menú.",target:null};
-      if ($( "#requestForm") && !c.orderId && this.role!=="TECNICO") {
+      if ($("#requestForm") && !c.orderId && this.role!=="TECNICO") {
+        const location = $("#requestLocation");
+        if (location?.options.length === 1 && /sin ubicaciones/i.test(location.options[0].textContent)) {
+          if (this.role === "CLIENTE" && this.allowed.has("sedes")) {
+            this.needsSite = true;
+            return {id:"manageSites",actor:this.role,action:"ACTION_CLICK",stage:2,title:"Agrega una sede primero",text:"Todavía no hay ubicaciones disponibles. Pulsa Administrar sedes para registrar la dirección del servicio.",target:()=> '#requestForm [data-action="ir-mis-sedes"]'};
+          }
+          const client = $("#requestClient");
+          return {id:"missingLocation",actor:this.role,action:"ACTION_INFO",stage:2,title:"El cliente necesita una sede",text:client?"Elige otro cliente o registra una sede para este cliente desde Clientes y personal.":"Pide a Coordinación que registre la sede de tu empresa.",target:client?()=>"#requestClient":null};
+        }
+        if (location?.options.length > 1) this.needsSite = false;
         const field=this.requestField();
-        return field ? {...FLOW.requestField,id:"requestField",title:field.fieldTitle,text:field.fieldText,target:()=>field.fieldTarget,completionCondition:()=>!!$(field.fieldTarget)?.value.trim()} : {...FLOW.requestSave,id:"requestSave"};
+        return field ? {...FLOW.requestField,id:field.fieldTarget,title:field.fieldTitle,text:field.fieldText,target:()=>field.fieldTarget,completionCondition:()=>!!$(field.fieldTarget)?.value.trim()} : {...FLOW.requestSave,id:"requestSave"};
+      }
+      if (this.needsSite && c.module === "sedes") {
+        const form = $("#clientSiteForm");
+        if (form) {
+          const field = all("#clientSiteForm [required]").find(input => !input.value.trim());
+          return {id:field ? `site-${field.name}` : "saveSite",actor:this.role,action:"ACTION_FORM",stage:2,
+            title:field ? "Completa los datos de la sede" : "Guarda la sede",
+            text:field ? "Completa el campo señalado. Necesitamos el nombre y la dirección de la ubicación." : "Pulsa Agregar sede para volver a Solicitudes.",
+            target:()=>field ? `#clientSiteForm [name="${field.name}"]` : '#clientSiteForm [type="submit"]'};
+        }
+        if (this.siteReady) return {...FLOW.navRequests,id:"returnToRequest",title:"Vuelve a Solicitudes",text:"Ya guardaste la sede. Vuelve a Solicitudes y selecciónala en el formulario."};
+        return {id:"addSite",actor:this.role,action:"ACTION_CLICK",stage:2,title:"Registra la ubicación del servicio",text:"Pulsa Agregar sede e indica la dirección donde se hará el trabajo.",target:()=> '#appContent [data-action="nueva-sede"]'};
       }
       if ($( "#orderForm") && this.role==="COORDINADOR") return {...FLOW.orderForm,id:"orderForm"};
       if ($( "#crewForm") && this.role==="COORDINADOR") return c.crewFormReady ? {...FLOW.crewSave,id:"crewSave"} : {...FLOW.crewChoose,id:"crewChoose"};
@@ -249,13 +272,24 @@
       if ($( "#quoteFullForm") && this.role==="COORDINADOR") return {...FLOW.saveQuote,id:"saveQuote"};
       if ($( "#decideRescheduleForm") && this.role==="COORDINADOR") return {...FLOW.saveReprogram,id:"saveReprogram"};
       if ($( "#scopeResponse") && this.role==="CLIENTE") return {...FLOW.saveScope,id:"saveScope"};
-      if ($( "#quoteResponse") && this.role==="CLIENTE") return $('#quoteResponse [name="respuesta"]')?.value ? {...FLOW.clientQuoteSave,id:"clientQuoteSave"} : {...FLOW.clientQuoteChoice,id:"clientQuoteChoice"};
+      if ($("#quoteResponse") && this.role==="CLIENTE") {
+        const response = $('#quoteResponse [name="respuesta"]')?.value;
+        if (!response) return {...FLOW.clientQuoteChoice,id:"clientQuoteChoice"};
+        const notes = '#quoteResponse [name="observaciones"]';
+        if (["CAMBIOS","RECHAZADA"].includes(response) && !$(notes)?.value.trim()) {
+          return {id:"quoteResponseNotes",actor:this.role,action:"ACTION_FORM",stage:6,title:"Escribe una observación",text:"Indica qué debe cambiar o por qué rechazas la propuesta.",target:()=>notes};
+        }
+        return {...FLOW.clientQuoteSave,id:"clientQuoteSave"};
+      }
       if ($( "#suspendOrderForm") && this.role==="TECNICO") return {id:"suspendOrder",actor:"TECNICO",action:"ACTION_STATE_CHANGE",stage:8,title:"Solicita reprogramación",text:"Registra el motivo, trabajo realizado, pendientes, nueva fecha y fotos. Coordinación deberá decidir después.",target:()=> '#suspendOrderForm button[type="submit"]'};
 
       if (!c.requestId && !c.orderId) {
         const targetModule=this.role==="TECNICO"?"ordenes":"solicitudes";
         if(c.module!==targetModule) return {...FLOW[targetModule==="ordenes"?"navOrders":"navRequests"],id:targetModule==="ordenes"?"navOrders":"navRequests"};
-        if(targetModule==="ordenes") return {...FLOW.openOrder,id:"openOrder"};
+        if(targetModule==="ordenes") {
+          if ($('#appContent [data-action="ver-orden"]')) return {...FLOW.openOrder,id:"openOrder"};
+          return {id:"noAssignedOrders",actor:this.role,action:"ACTION_INFO",stage:4,title:"Aún no tienes órdenes asignadas",text:"Cuando Coordinación te asigne una orden, abre Mis órdenes y selecciona el trabajo para seguir la guía.",target:null};
+        }
         return c.firstRequestId ? {...FLOW.chooseRequest,id:"chooseRequest"} : {...FLOW.newRequest,id:"newRequest"};
       }
       if (c.requestId && !c.orderId && this.role!=="TECNICO") {
@@ -273,12 +307,14 @@
       if (this.role==="CLIENTE") {
         if(c.serverScopePending && !c.scopePending)return {id:"waitScopeCoordinator",...FLOW.waitCoordinator,title:"Esperando a Coordinación",text:"Hay un cambio de alcance pendiente que todavía no se ha comunicado a tu cuenta. Coordinación debe continuar primero."};
         if(c.scopePending && !c.scopeUnsent) {
+          if(c.order?.solo_lectura) return {...FLOW.waitClient,id:"waitScopeOwner",title:"Esperando al solicitante",text:"La cuenta que solicitó el servicio debe responder el cambio de alcance."};
           if(!c.orderOpen) return this.orderAccessNode(c);
           return {...FLOW.respondScope,id:"respondScope"};
         }
         if(c.quoteCode==="ENVIADA" && this.allowed.has("cotizaciones")) {
+          if(c.order?.solo_lectura) return {id:"quoteReadOnly",actor:"CLIENTE",action:"ACTION_WAIT",stage:6,title:"Cotización pendiente de respuesta",text:"La cuenta que solicitó el servicio puede responder esta cotización. Puedes consultar el estado mientras llega su respuesta.",target:null};
           if(c.module!=="cotizaciones") return {...FLOW.navQuotes,id:"navQuotes"};
-          if(!$(".quote-flow-hero")) return {...FLOW.quoteDetail,id:"quoteDetail"};
+          if(!quoteView()) return {...FLOW.quoteDetail,id:"quoteDetail"};
           return {...FLOW.clientQuoteResponse,id:"clientQuoteResponse"};
         }
         if(c.orderCode==="COMPLETADA")return {...FLOW.complete,id:"complete"};
@@ -309,8 +345,12 @@
         if(c.scopePending) return {...FLOW.waitClient,id:"waitClient",title:"Esperando respuesta del cliente",text:"El cambio de alcance fue informado. El cliente debe responder antes de cerrar la OT."};
         if(c.quote && this.progress.quoteChoice!=="no" && this.allowed.has("cotizaciones")) {
           if(["BORRADOR","CONFIRMADA","OBSERVADA"].includes(c.quoteCode)) {
-            if(c.module!=="cotizaciones" && !$('#modalBackdrop:not([hidden]) [data-action="enviar-cotizacion"]')) return {...FLOW.navQuotes,id:"navQuotes"};
-            return {...FLOW.sendQuote,id:"sendQuote"};
+            const send = `[data-action="enviar-cotizacion"][data-id="${c.quoteId}"]`;
+            if (all(send).some(button => this.isShown(button))) return {...FLOW.sendQuote,id:"sendQuote"};
+            if (c.module !== "cotizaciones") return {...FLOW.navQuotes,id:"navQuotes"};
+            const menu = `[popovertarget="quote-actions-${c.quoteId}"]`;
+            if ($(menu)) return {id:"openQuoteActions",actor:this.role,action:"ACTION_CLICK",stage:6,title:"Abre las acciones de la cotización",text:"Pulsa el botón de tres puntos para encontrar Enviar.",target:()=>menu};
+            return {...FLOW.quoteDetail,id:"quoteDetail"};
           }
           if(c.quoteCode==="ENVIADA") return {...FLOW.waitClient,id:"waitClient",title:"Esperando respuesta a la cotización",text:"La propuesta está enviada. El cliente puede aceptarla, solicitar cambios o rechazarla; volveremos a comprobar el estado."};
           if(["CAMBIOS","RECHAZADA"].includes(c.quoteCode)) {
@@ -406,11 +446,15 @@
       this.bubble.addEventListener("click",event=>this.onHelpClick(event));
       document.addEventListener("keydown",event=>{if(event.key==="Escape" && this.mode!=="closed")this.close();});
       document.addEventListener("click",event=>{if(this.mode==="guided" && !event.target.closest?.("#seTourBubble,#seTourLauncher"))this.scheduleRender(110);});
-      document.addEventListener("toggle",event=>{if(this.mode==="guided" && event.target.matches?.("details"))this.scheduleRender(110);},true);
-      document.addEventListener("input",event=>{if(event.target.closest?.("#requestForm,#orderForm,#crewForm,#orderEvidenceForm,#orderDescriptionForm,#quoteResponse,#quoteFullForm,#warrantyConfigForm"))this.scheduleRender(90);});
-      document.addEventListener("change",event=>{if(event.target.closest?.("#requestForm,#orderForm,#crewForm,#orderEvidenceForm,#orderDescriptionForm,#quoteResponse,#quoteFullForm,#warrantyConfigForm"))this.scheduleRender(90);});
+      document.addEventListener("toggle",event=>{if(this.mode==="guided" && event.target.matches?.("details, [popover]"))this.scheduleRender(110);},true);
+      document.addEventListener("input",event=>{if(event.target.closest?.("#clientSiteForm,#requestForm,#orderForm,#crewForm,#orderEvidenceForm,#orderDescriptionForm,#quoteResponse,#quoteFullForm,#warrantyConfigForm"))this.scheduleRender(90);});
+      document.addEventListener("change",event=>{if(event.target.closest?.("#clientSiteForm,#requestForm,#orderForm,#crewForm,#orderEvidenceForm,#orderDescriptionForm,#quoteResponse,#quoteFullForm,#warrantyConfigForm"))this.scheduleRender(90);});
       document.addEventListener("seprigua:tour-record",event=>this.record(event.detail?.type,event.detail?.id,event.detail?.solicitudId));
       document.addEventListener("seprigua:tour-change",event=>{
+        if (this.needsSite && event.detail?.path === "/api/mis-sedes" && event.detail.method === "POST") {
+          this.siteReady = true;
+          this.scheduleRender();
+        }
         if (!this.progress.entityId || !/^\/api\/(ordenes|solicitudes|cotizaciones|garantias)/.test(event.detail?.path||"")) return;
         this.scheduleSync(250);
       });
@@ -418,20 +462,42 @@
       document.addEventListener("scroll",()=>this.place(),{capture:true,passive:true});
       document.addEventListener("visibilitychange",()=>{if(!document.hidden && this.progress.entityId)this.scheduleSync(80);});
       window.addEventListener("focus",()=>{if(this.progress.entityId)this.scheduleSync(80);});
-      const observer=new MutationObserver(()=>this.scheduleRender(90));
-      observer.observe(this.app,{childList:true,subtree:true,attributes:true,attributeFilter:["data-rendered-module"]});
+      const observer=new MutationObserver(() => {
+        this.startOnFirstVisit();
+        this.scheduleRender(90);
+      });
+      observer.observe(document.body, {attributes:true, attributeFilter:["class"]});
+      observer.observe(this.app,{childList:true,subtree:true,attributes:true,attributeFilter:["data-rendered-module","data-offline"]});
       if(this.modal) observer.observe(this.modal,{childList:true,subtree:true,attributes:true,attributeFilter:["hidden"]});
       this.poller=window.setInterval(()=>{
         if(!document.hidden && this.progress.entityId && this.progress.status==="WAITING_FOR_ACTOR")this.sync();
       },POLL_MS);
       this.update();
     }
+    firstVisitKey() { return `seprigua_tour_seen:${this.user.usuario_id}:${TOUR_ID}`; }
+
+    startOnFirstVisit() {
+      if (this.tourSeen || this.mode !== "closed" || document.body.classList.contains("ui-booting")) return;
+      if (!this.app.dataset.renderedModule || this.app.dataset.offline || (this.modal && !this.modal.hidden)) return;
+      try {
+        if (localStorage.getItem(this.firstVisitKey())) {
+          this.tourSeen = true;
+          return;
+        }
+      } catch (_) { /* Aun puede iniciar en esta visita. */ }
+      const firstStep = this.chooseNode();
+      if (!firstStep || firstStep.id === "noPermission") return;
+      this.start();
+    }
+
     openMenu() {
       this.mode="menu";
       this.render();
       if(this.progress.entityId)this.scheduleSync(40);
     }
     start(contextual=false) {
+      this.tourSeen = true;
+      try { localStorage.setItem(this.firstVisitKey(), "1"); } catch (_) {}
       this.mode="guided";
       this.readyBadge=false;
       if(contextual || (!this.progress.requestId && !this.progress.orderId))this.adoptCurrentRecord(contextual);
@@ -453,6 +519,8 @@
       this.lastWaitingNode="";
       this.lastNodeId="";
       this.readyBadge=false;
+      this.needsSite=false;
+      this.siteReady=false;
       this.save();
       this.start(false);
     }
@@ -587,7 +655,7 @@
       return `<header class="se-tour-menu-head"><div><small>TUTORIALES</small><strong>Disponibles</strong></div>${this.closeButton()}</header><div class="se-tour-menu-body"><button type="button" data-tour-action="start" class="se-tour-menu-option"><strong>Flujo principal de atención</strong><span>Guía operativa entre los módulos y actores reales.</span></button><p class="se-tour-note">Los recorridos especializados se incorporarán después de completar este flujo principal.</p><button type="button" data-tour-action="menu" class="se-tour-menu-reset">Volver</button></div>`;
     }
     renderGuided() {
-      const spec=this.node || this.chooseNode();
+      const spec=this.error ? this.chooseNode() : this.node || this.chooseNode();
       const c=this.context();
       const title=typeof spec.title==="function"?spec.title(c):spec.title;
       const description=typeof spec.text==="function"?spec.text(c):spec.text;
@@ -631,6 +699,7 @@
         this.allowed=new Set(Array.isArray(user.modulos)?user.modulos:[]);
         this.load();
         this.mount();
+        this.startOnFirstVisit();
         if(this.progress.entityId)this.scheduleSync(40);
       } catch(_) { /* Sin sesión autenticada, no se muestra el botón. */ }
     }

@@ -1,0 +1,41 @@
+/* Cotizaciones: información primero, acciones secundarias bajo demanda. */
+body.seprigua-hoja-v4 .app-content .quote-table { table-layout: fixed; }
+body.seprigua-hoja-v4 .app-content .quote-table th:nth-child(1) { width: 34% !important; }
+body.seprigua-hoja-v4 .app-content .quote-table th:nth-child(2) { width: 31% !important; }
+body.seprigua-hoja-v4 .app-content .quote-table th:nth-child(3) { width: 15% !important; }
+body.seprigua-hoja-v4 .app-content .quote-table th:nth-child(4) { width: 20% !important; }
+body.seprigua-hoja-v4 .app-content .quote-table.quote-table--selection { table-layout: auto; }
+body.seprigua-hoja-v4 .app-content .quote-table.quote-table--selection th:nth-child(n) { width: auto !important; }
+body.seprigua-hoja-v4 .app-content .quote-table td { padding-block: 15px !important; vertical-align: middle; }
+body.seprigua-hoja-v4 .app-content .quote-document { gap: 4px; }
+body.seprigua-hoja-v4 .app-content .quote-document > strong { font-size: 13px; overflow-wrap: anywhere; }
+body.seprigua-hoja-v4 .app-content .quote-document > div { gap: 5px 8px; }
+body.seprigua-hoja-v4 .app-content .quote-document em { min-height: 18px; padding: 1px 6px; font-size: 10px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+body.seprigua-hoja-v4 .app-content .quote-finance { display: grid; justify-items: start; gap: 6px; }
+body.seprigua-hoja-v4 .app-content .quote-finance > strong { font-size: 13px; }
+body.seprigua-hoja-v4 .app-content .quote-row-actions { display: flex; align-items: center; flex-wrap: nowrap; gap: 6px; }
+body.seprigua-hoja-v4 .app-content .quote-row-actions > .quote-action-button { min-height: 32px; padding: 5px 8px; white-space: nowrap; }
+body.seprigua-hoja-v4 .app-content .quote-action-detail { background: #eaf3fb; }
+body.seprigua-hoja-v4 .app-content .quote-action-followup { background: #fff; }
+body.seprigua-hoja-v4 .app-content .quote-action-more { width: 32px; height: 32px; flex: none; display: inline-grid; place-items: center; border: 1px solid #c9d9ea; border-radius: 9px; background: #fff; color: #0c3e73; cursor: pointer; }
+body.seprigua-hoja-v4 .app-content .quote-action-more:hover { background: #eaf3fb; }
+body.seprigua-hoja-v4 .app-content .quote-action-more svg { width: 17px; height: 17px; }
+.quote-action-menu[popover] { position: fixed; inset: auto; margin: 0; width: max-content; min-width: 195px; max-width: min(280px, calc(100vw - 16px)); padding: 5px; border: 1px solid #d8e6f2; border-radius: 11px; background: #fff; box-shadow: 0 10px 28px rgba(12, 62, 115, .13); color: #123b68; }
+.quote-action-menu .quote-menu-action { width: 100%; min-height: 36px; display: flex; align-items: center; gap: 9px; padding: 7px 9px; border: 0; border-radius: 7px; background: transparent; color: #123b68; text-decoration: none; font: inherit; font-size: 12px; font-weight: 500; text-align: left; cursor: pointer; }
+.quote-action-menu .quote-menu-action:hover, .quote-action-menu .quote-menu-action:focus-visible { background: #eaf3fb; outline: none; }
+.quote-action-menu .quote-menu-action svg { width: 15px; height: 15px; flex: none; color: #1769aa; }
+.quote-action-menu .quote-menu-detail, .quote-action-menu .quote-menu-followup { display: none; }
+body.seprigua-hoja-v4 .app-content .quote-action-more:focus-visible { outline: 2px solid #1769aa; outline-offset: 2px; }
+@media (max-width: 2200px) {
+  body.seprigua-hoja-v4 .app-content .quote-table th:nth-child(1) { width: 37% !important; }
+  body.seprigua-hoja-v4 .app-content .quote-table th:nth-child(2) { width: 32% !important; }
+  body.seprigua-hoja-v4 .app-content .quote-table th:nth-child(3) { width: 17% !important; }
+  body.seprigua-hoja-v4 .app-content .quote-table th:nth-child(4) { width: 14% !important; }
+  body.seprigua-hoja-v4 .app-content .quote-action-followup { display: none; }
+  .quote-action-menu .quote-menu-followup { display: flex; }
+}
+@media (max-width: 820px) {
+  body.seprigua-hoja-v4 .app-content .quote-action-detail { display: none; }
+  .quote-action-menu .quote-menu-detail { display: flex; }
+}
+

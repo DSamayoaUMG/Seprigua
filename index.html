@@ -7,6 +7,7 @@
     <meta name="description"
         content="SEPRIGUA - Servicios especializados de limpieza, inspección y mantenimiento de drenajes, alcantarillados, cisternas, bombas de agua, plantas de tratamiento y plomería en Guatemala.">
     <title>SEPRIGUA | Mantenimiento profesional en Guatemala</title>
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/pwa/seprigua-192.png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,6 +34,7 @@
       <link rel="stylesheet" href="css/contact-premium.css?v=20261015-opt1" />
       <link rel="stylesheet" href="css/section-flow-fix.css?v=20261015-opt1" />
     <link rel="stylesheet" href="css/chatbot-embed.css?v=20261015-opt1">
+    <link rel="stylesheet" href="css/landing-responsive.css?v=2">
 <!-- SEPRIGUA LANDING FIX CHAT + TUKY TRANSPARENTE + HERO 2026-09-04 R2 -->
   <script src="/java/compat-performance.js?v=1"></script>
 </head>
@@ -451,7 +453,7 @@
                                     data-title="Mantenimiento de drenajes"
                                     data-title-html="Mantenimiento<br>de drenajes"
                                     data-description="Limpieza y mantenimiento de drenajes, circuitos sanitarios, áreas de rebalse y bajadas pluviales. Atendemos trabajos programados y emergencias para favorecer el funcionamiento continuo de las instalaciones."
-                                    data-image="assets/img/servicio-drenajes.webp"
+                                    data-image="/assets/img/servicio-drenajes.webp"
                                 >
                                     <img decoding="async" loading="lazy" src="assets/img/servicio-drenajes.webp" alt="Mantenimiento de drenajes">
                                     <span class="service-card-shade"></span>
@@ -471,7 +473,7 @@
                                     data-title="Cámaras endoscópicas"
                                     data-title-html="Cámaras<br>endoscópicas"
                                     data-description="Cámaras especializadas para inspección interna de tuberías y desagües, permitiendo detectar obstrucciones, daños y filtraciones."
-                                    data-image="assets/img/servicio-camaras.webp"
+                                    data-image="/assets/img/servicio-camaras.webp"
                                 >
                                     <img decoding="async" loading="lazy" src="assets/img/servicio-camaras.webp" alt="Cámaras endoscópicas">
                                     <span class="service-card-shade"></span>
@@ -491,7 +493,7 @@
                                     data-title="Succión de lodos y residuos"
                                     data-title-html="Succión de lodos<br>y residuos"
                                     data-description="Extracción y transporte seguro de lodos, sedimentos y residuos líquidos con equipo especializado de alto rendimiento."
-                                    data-image="assets/img/servicio-lodos.webp"
+                                    data-image="/assets/img/servicio-lodos.webp"
                                 >
                                     <img decoding="async" loading="lazy" src="assets/img/servicio-lodos.webp" alt="Succión de lodos y residuos">
                                     <span class="service-card-shade"></span>
@@ -511,7 +513,7 @@
                                     data-title="Limpieza de trampas de grasa"
                                     data-title-html="Limpieza de<br>trampas de grasa"
                                     data-description="Limpieza profunda de trampas de grasa para mantener su eficiencia y cumplir con normativas sanitarias y ambientales."
-                                    data-image="assets/img/servicio-grasa.webp"
+                                    data-image="/assets/img/servicio-grasa.webp"
                                 >
                                     <img decoding="async" loading="lazy" src="assets/img/servicio-grasa.webp" alt="Limpieza de trampas de grasa">
                                     <span class="service-card-shade"></span>
@@ -531,7 +533,7 @@
                                     data-title="Mantenimiento industrial"
                                     data-title-html="Mantenimiento<br>industrial"
                                     data-description="Soluciones integrales de mantenimiento preventivo y correctivo para sistemas e instalaciones industriales."
-                                    data-image="assets/img/servicio-industrial.webp"
+                                    data-image="/assets/img/servicio-industrial.webp"
                                 >
                                     <img decoding="async" loading="lazy" src="assets/img/servicio-industrial.webp" alt="Mantenimiento industrial">
                                     <span class="service-card-shade"></span>
@@ -1118,35 +1120,35 @@
                         <div class="form-row">
                             <label class="contact-field">
                                 <span>Nombre completo</span>
-                                <input type="text" name="nombre" placeholder="Tu nombre" required>
+                                <input type="text" name="nombre" autocomplete="name" maxlength="120" placeholder="Tu nombre" required>
                             </label>
 
                             <label class="contact-field">
                                 <span>Correo electrónico</span>
-                                <input type="email" name="correo" placeholder="correo@empresa.com" required>
+                                <input type="email" name="correo" autocomplete="email" maxlength="180" placeholder="correo@empresa.com" required>
                             </label>
                         </div>
 
                         <div class="form-row">
                             <label class="contact-field">
                                 <span>Teléfono</span>
-                                <input type="tel" name="telefono" placeholder="+502">
+                                <input type="tel" name="telefono" autocomplete="tel" maxlength="40" placeholder="+502">
                             </label>
 
                             <label class="contact-field">
                                 <span>Empresa</span>
-                                <input type="text" name="empresa" placeholder="Nombre de la empresa">
+                                <input type="text" name="empresa" autocomplete="organization" maxlength="160" placeholder="Nombre de la empresa">
                             </label>
                         </div>
 
                         <label class="contact-field">
                             <span>Asunto</span>
-                            <input type="text" name="asunto" placeholder="¿Qué servicio necesitas?" required>
+                            <input type="text" name="asunto" maxlength="180" placeholder="Servicio solicitado" required>
                         </label>
 
                         <label class="contact-field">
                             <span>Mensaje</span>
-                            <textarea name="mensaje" rows="5" placeholder="Cuéntanos brevemente qué necesitas atender..." required></textarea>
+                            <textarea name="mensaje" rows="5" maxlength="3000" placeholder="Cuéntanos brevemente qué necesitas atender..." required></textarea>
                         </label>
 
                         <div id="contactTurnstile" class="contact-turnstile" hidden aria-label="Verificación anti-bot"></div>
@@ -1270,7 +1272,7 @@
             <iframe
                 id="chatbotFrame"
                 title="Tuky, asistente virtual de SEPRIGUA"
-                data-src="chatbot.html?v=20261019-interactivo"
+                data-src="chatbot.html?v=20261111-movil"
                 src="about:blank"
                 loading="eager"
                 referrerpolicy="same-origin"
@@ -1284,7 +1286,7 @@
     </button>
 
   <script src="/java/vendor/lucide.min.js?v=1"></script>
-    <script src="java/script.js?v=78"></script>
+    <script src="java/script.js?v=81-turnstile"></script>
     <script src="java/button-effects.js?v=16"></script>
     <script src="java/waves.js?v=12"></script>
     <script src="java/chat-effects.js?v=20260905"></script>
@@ -1401,7 +1403,7 @@
     <script src="java/services-explorer.js?v=80"></script>
     <script src="java/navbar-gear-indicator.js?v=20260906-nav-stable"></script>
     <script src="java/coverage-premium-map.js?v=75"></script>
-    <script src="java/trabajos-gallery.js?v=20261021-visor-v1"></script>
+    <script src="java/trabajos-gallery.js?v=20261111-rutas"></script>
     <script src="java/contact-premium.js?v=77"></script>
     <script src="java/chatbot-embed.js?v=20260905"></script>
 </body>

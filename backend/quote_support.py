@@ -1,9 +1,74 @@
 """Cotizaciones que pueden preceder a una orden de trabajo."""
 
+import re
+import unicodedata
+from datetime import date
+
 from flask import jsonify
 
 
 _schema_ready = False
+
+
+def quote_document_label(item, quote_id=None, *, include_prefix=True):
+    """Identifica la propuesta por empresa, ubicación y referencia o fecha de emisión."""
+    def clean(value):
+        value = re.sub(r'[<>:"/\\|?*\x00-\x1f\x7f]', ' ', str(value or ''))
+        return ' '.join(value.split()).strip(' .')
+
+    def compact(value, length):
+        return value.encode('utf-8')[:length].decode('utf-8', errors='ignore').rstrip(' .')
+
+    def normalized_word(word):
+        decomposed = unicodedata.normalize('NFKD', word.casefold())
+        return ''.join(char for char in decomposed if char.isalnum())
+
+    company = clean(item.get('cliente') or item.get('prospecto_nombre'))
+    location = clean(item.get('sede'))
+    company_words = [normalized_word(word) for word in company.split()]
+    location_words = location.split()
+    if company_words and [normalized_word(word) for word in location_words[:len(company_words)]] == company_words:
+        location = ' '.join(location_words[len(company_words):]).lstrip(' -–—,')
+    if not location:
+        location = clean(item.get('direccion'))
+    reference = clean(item.get('numero_orden_papel'))
+    if include_prefix:
+        reference = re.sub(r'^(?:OC|OT)(?:[\s#._-]+|(?=\d)|$)', '', reference, flags=re.IGNORECASE)
+    if reference and include_prefix:
+        is_purchase_order = (
+            company_words[:1] in (['wendy'], ['wendys'], ['lc'], ['cau'])
+            or company_words[:2] in (['little', 'caesars'], ['little', 'caesar'])
+        )
+        reference = ('OC ' if is_purchase_order else 'OT ') + reference
+    if not reference:
+        issued = str(item.get('fecha_emision') or item.get('creada') or '')[:10]
+        try:
+            reference = date.fromisoformat(issued).isoformat() if issued else ''
+        except ValueError:
+            reference = ''
+        reference = reference or clean(item.get('numero_cotizacion'))
+    parts = (compact(company, 68), compact(location, 75), compact(reference, 93))
+    return ' - '.join(part for part in parts if part) or (f'Cotización {quote_id}' if quote_id else 'Cotización')
+
+
+def quote_pdf_filename(item, quote_id):
+    return quote_document_label(item, quote_id) + '.pdf'
+
+
+def quote_display_title(stored, item, *descriptions):
+    normalized = ' '.join((stored or '').split())
+    if (
+        not normalized
+        or normalized.casefold() == 'cotización de servicio'
+        or normalized == quote_document_label(item, include_prefix=False)
+    ):
+        return quote_document_label(item)
+    for description in descriptions:
+        previous_title = ' '.join((description or '').split())
+        previous_title = previous_title.encode('utf-16-le')[:500].decode('utf-16-le', errors='ignore').rstrip()
+        if normalized == previous_title:
+            return quote_document_label(item)
+    return stored
 
 
 def ensure_schema(b):
@@ -42,7 +107,8 @@ def standalone_sets(b, session, quote_id):
                q.OrdenFisicaNumero AS numero_orden_papel,
                CAST(NULL AS bigint) AS solicitud_id,
                q.SucursalClienteId AS sede_id,
-               sc.Nombre AS sede,
+               sc.Nombre AS sede, loc.Direccion AS direccion,
+               original.Descripcion AS primera_descripcion_original,
                v.VersionCotizacionId AS version_id,
                v.NumeroVersion AS numero_version,
                v.FechaEmision AS fecha_emision,
@@ -57,6 +123,17 @@ def standalone_sets(b, session, quote_id):
         FROM cot.Cotizacion q
         LEFT JOIN crm.Cliente cli ON cli.ClienteId=q.ClienteId
         LEFT JOIN crm.SucursalCliente sc ON sc.SucursalClienteId=q.SucursalClienteId
+        OUTER APPLY (
+            SELECT TOP 1 us.Direccion FROM crm.UbicacionServicio us
+            WHERE us.SucursalClienteId=sc.SucursalClienteId AND us.Activo=1
+            ORDER BY us.UbicacionServicioId
+        ) loc
+        OUTER APPLY (
+            SELECT TOP 1 d.Descripcion FROM cot.VersionCotizacion original_version
+            JOIN cot.DetalleCotizacion d ON d.VersionCotizacionId=original_version.VersionCotizacionId
+            WHERE original_version.CotizacionId=q.CotizacionId AND d.NumeroLinea=1
+            ORDER BY original_version.NumeroVersion,d.DetalleCotizacionId
+        ) original
         LEFT JOIN cot.VersionCotizacion v ON v.CotizacionId=q.CotizacionId AND v.EsActual=1
         WHERE q.CotizacionId=? AND q.OrdenTrabajoId IS NULL
     """, (quote_id,))
@@ -81,6 +158,11 @@ def standalone_sets(b, session, quote_id):
         FROM cot.DetalleCotizacion d
         WHERE d.VersionCotizacionId=? ORDER BY d.NumeroLinea
     """, (header['version_id'],))
+    header['nombre_cotizacion'] = quote_display_title(
+        header['nombre_cotizacion'], header,
+        header.pop('primera_descripcion_original', None),
+        details[0].get('descripcion') if details else None,
+    )
     return [header], [], details
 
 

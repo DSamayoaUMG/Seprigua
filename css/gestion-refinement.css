@@ -207,3 +207,15 @@ body.seprigua-hoja-v4 .app-content .vacation-period em { padding: 4px 8px; borde
   body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-users > * { grid-column: 1 !important; }
   body.seprigua-hoja-v4 .app-content .people-workspace .people-filter-grid-users .people-user-filter-actions { flex-wrap: wrap; }
 }
+
+/* Usuarios del sistema */
+.users-visibility-table .user-visibility-badge { white-space: normal; }
+@media (min-width: 761px) {
+  body.seprigua-hoja-v4 .app-content .users-visibility-table thead th:nth-child(1) { width: 20%; }
+  body.seprigua-hoja-v4 .app-content .users-visibility-table thead th:nth-child(2) { width: 10%; }
+  body.seprigua-hoja-v4 .app-content .users-visibility-table thead th:nth-child(3) { width: 16%; }
+  body.seprigua-hoja-v4 .app-content .users-visibility-table thead th:nth-child(4) { width: 19%; }
+  body.seprigua-hoja-v4 .app-content .users-visibility-table thead th:nth-child(5) { width: 15%; }
+  body.seprigua-hoja-v4 .app-content .users-visibility-table thead th:nth-child(6) { width: 9%; }
+  body.seprigua-hoja-v4 .app-content .users-visibility-table thead th:nth-child(7) { width: 11%; }
+}

@@ -472,6 +472,64 @@ html,body{
 }
 </style>
 
+<style>
+.chat-body {
+  min-height: 0;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+.chat-body > * {
+  flex-shrink: 0;
+  min-width: 0;
+}
+.user-row > div {
+  min-width: 0;
+  max-width: 85%;
+}
+.bot-row > div:last-child {
+  min-width: 0;
+  max-width: calc(100% - 44px);
+}
+.user-bubble, .bot-bubble {
+  width: fit-content;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.user-bubble {
+  margin-inline-start: auto;
+}
+.option-card.link-row, .footer-actions .action-btn, .wa-card .btn-whatsapp {
+  min-height: 44px;
+  height: auto;
+}
+.option-card.link-row .texts, .wa-card, .footer-actions .action-btn {
+  overflow-wrap: anywhere;
+}
+.footer-actions .action-btn, .wa-card .btn-whatsapp {
+  padding-block: 9px;
+}
+.chat-input input {
+  min-width: 0;
+}
+@media (max-width: 600px), (max-height: 530px) {
+  .chat-header .actions button, .chat-input button {
+    width: 44px;
+    height: 44px;
+  }
+  .chat-input input {
+    font-size: 16px;
+  }
+}
+@media (max-height: 450px) {
+  .chat-header {
+    height: 62px !important;
+    min-height: 62px !important;
+  }
+  .chat-header .avatar, .chat-header .avatar img {
+    height: 60px !important;
+  }
+}
+</style>
 </head>
 <body style="margin:0; background:#F3F5F9; min-height:100vh;">
 

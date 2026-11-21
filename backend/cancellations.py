@@ -45,8 +45,8 @@ def register_cancellations(b):
         status=str(request.args.get('estado') or '').upper()
         if status not in {'','PENDIENTE','APROBADA','RECHAZADA'}:raise ValueError('Estado inválido.')
         page,size=b.pagination_args(20,100)
-        access = "EXISTS (SELECT 1 FROM srv.SolicitudServicio so JOIN crm.UbicacionServicio ux ON ux.UbicacionServicioId=so.UbicacionServicioId JOIN seg.ufn_SucursalesPermitidas(?) ax ON ax.SucursalClienteId=ux.SucursalClienteId WHERE (datos.entidad='SolicitudServicio' AND so.SolicitudServicioId=datos.entidad_id) OR (datos.entidad='OrdenTrabajo' AND EXISTS(SELECT 1 FROM srv.OrdenTrabajo ot WHERE ot.OrdenTrabajoId=datos.entidad_id AND ot.SolicitudServicioId=so.SolicitudServicioId)))"
-        params=(session['rol'],session.get('cliente_id'),session['usuario_id'],status,status)
+        access = f"EXISTS (SELECT 1 FROM srv.SolicitudServicio so JOIN crm.UbicacionServicio ux ON ux.UbicacionServicioId=so.UbicacionServicioId JOIN seg.ufn_SucursalesPermitidas(?) ax ON ax.SucursalClienteId=ux.SucursalClienteId CROSS JOIN (SELECT CAST(? AS bigint) AS id) actor WHERE {b.request_visibility_sql('so', 'actor.id')} AND ((datos.entidad='SolicitudServicio' AND so.SolicitudServicioId=datos.entidad_id) OR (datos.entidad='OrdenTrabajo' AND EXISTS(SELECT 1 FROM srv.OrdenTrabajo ot WHERE ot.OrdenTrabajoId=datos.entidad_id AND ot.SolicitudServicioId=so.SolicitudServicioId))))"
+        params=(session['rol'],session.get('cliente_id'),session['usuario_id'],session['usuario_id'],status,status)
         guard="(?='COORDINADOR' OR (cliente_id=? AND "+access+")) AND (?='' OR estado=?)"
         query='WITH datos AS ('+BASE+') SELECT * FROM datos WHERE '+guard
         with b.get_db_connection() as conn:

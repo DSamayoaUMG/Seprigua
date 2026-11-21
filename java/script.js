@@ -4,10 +4,42 @@ document.addEventListener("DOMContentLoaded",()=>{
 
   const header=$("#header"), menuBtn=$("#mobileMenuButton"), navMenu=$("#navMenu"), scrollTopBtn=$("#scrollTop");
   const navLinks=$$(".nav-link"), sections=$$("main section[id]");
-  const closeMenu=()=>{navMenu?.classList.remove("open");menuBtn?.classList.remove("active");document.body.classList.remove("menu-open");menuBtn?.setAttribute("aria-expanded","false")};
+  const closeMenu = () => {
+    navMenu?.classList.remove("open");
+    menuBtn?.classList.remove("active");
+    document.body.classList.remove("menu-open");
+    menuBtn?.setAttribute("aria-expanded", "false");
+    menuBtn?.setAttribute("aria-label", "Abrir menú");
+  };
   const updateChrome=()=>{header?.classList.toggle("scrolled",scrollY>35);scrollTopBtn?.classList.toggle("visible",scrollY>500)};
   addEventListener("scroll",updateChrome,{passive:true}); updateChrome();
-  menuBtn?.addEventListener("click",()=>{const open=!navMenu?.classList.contains("open");if(open){navMenu?.classList.add("open");menuBtn.classList.add("active");document.body.classList.add("menu-open");menuBtn.setAttribute("aria-expanded","true")}else closeMenu()});
+  if (menuBtn && navMenu) {
+    menuBtn.addEventListener("click", () => {
+      if (navMenu.classList.contains("open")) {
+        closeMenu();
+        return;
+      }
+      navMenu.classList.add("open");
+      menuBtn.classList.add("active");
+      document.body.classList.add("menu-open");
+      menuBtn.setAttribute("aria-expanded", "true");
+      menuBtn.setAttribute("aria-label", "Cerrar menú");
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && navMenu.classList.contains("open")) {
+        closeMenu();
+        menuBtn.focus();
+      }
+    });
+    document.addEventListener("click", event => {
+      if (navMenu.classList.contains("open") &&
+          !navMenu.contains(event.target) && !menuBtn.contains(event.target)) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeMenu();
+      }
+    }, true);
+  }
   navLinks.forEach(a=>a.addEventListener("click",closeMenu));
   addEventListener("resize",()=>{if(innerWidth>820)closeMenu()},{passive:true});
 
@@ -44,6 +76,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   let turnstileWidgetId = null;
   let turnstileToken = "";
   let turnstileRequired = false;
+  let contactSending = false;
 
   const loadExternalScript = (src) => new Promise((resolve, reject) => {
     const existing = document.querySelector(`script[src="${src}"]`);
@@ -76,6 +109,8 @@ document.addEventListener("DOMContentLoaded",()=>{
       turnstileWidgetId = window.turnstile.render(turnstileContainer, {
         sitekey: siteKey,
         theme: "light",
+        action: "contact",
+        size: turnstileContainer.clientWidth < 300 ? "compact" : "flexible",
         callback: token => { turnstileToken = token || ""; },
         "expired-callback": () => { turnstileToken = ""; },
         "error-callback": () => { turnstileToken = ""; }
@@ -97,6 +132,7 @@ document.addEventListener("DOMContentLoaded",()=>{
 
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (contactSending) return;
 
     if (!form.checkValidity()) {
       form.reportValidity();
@@ -108,6 +144,7 @@ document.addEventListener("DOMContentLoaded",()=>{
       return;
     }
 
+    contactSending = true;
     const originalButton = submitButton?.innerHTML || "";
 
     if (submitButton) {
@@ -137,11 +174,12 @@ document.addEventListener("DOMContentLoaded",()=>{
 
       const data = await response.json().catch(() => null);
 
-      if (!response.ok || data?.ok === false) {
-        throw new Error(
-          data?.message ||
-          "No fue posible enviar la solicitud."
+      if (!response.ok || data?.ok !== true) {
+        showFormMessage(
+          data?.message || "No pudimos confirmar el envío. Intenta nuevamente en unos minutos.",
+          false
         );
+        return;
       }
 
       showFormMessage(
@@ -150,16 +188,14 @@ document.addEventListener("DOMContentLoaded",()=>{
       );
 
       form.reset();
-      turnstileToken = "";
-      if (turnstileWidgetId !== null && window.turnstile) {
-        window.turnstile.reset(turnstileWidgetId);
-      }
-    } catch (error) {
+    } catch {
       showFormMessage(
-        "No pudimos enviar la solicitud en este momento. Intenta nuevamente.",
+        "Se interrumpió la conexión. Comprueba tu conexión e inténtalo nuevamente.",
         false
       );
     } finally {
+      contactSending = false;
+      turnstileToken = "";
       if (submitButton) {
         submitButton.disabled = false;
         submitButton.removeAttribute("aria-busy");
@@ -168,6 +204,9 @@ document.addEventListener("DOMContentLoaded",()=>{
         if (window.lucide) {
           lucide.createIcons();
         }
+      }
+      if (turnstileWidgetId !== null && window.turnstile) {
+        window.turnstile.reset(turnstileWidgetId);
       }
     }
   });

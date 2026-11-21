@@ -2,6 +2,23 @@
 from datetime import date,timedelta
 import json
 from flask import request,jsonify
+
+try:
+    from .client_visibility import request_read_only_sql, request_visibility_sql
+except ImportError:
+    from client_visibility import request_read_only_sql, request_visibility_sql
+
+_SCOPE_REQUEST = request_visibility_sql('s', '@UsuarioId')
+_SCOPE_SERVICE = request_visibility_sql('ss', '@UsuarioId')
+_REQUEST_READ_ONLY = request_read_only_sql('s', '@UsuarioId')
+try:
+    from .operations_status import QUOTE_PENDING
+    from .quote_support import quote_display_title
+except ImportError:
+    from operations_status import QUOTE_PENDING
+    from quote_support import quote_display_title
+
+
 SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreComercial AS cliente,\n'
                         "           COALESCE(sc.Nombre,u.NombreReferencia,N'Sin sede') AS sede,ts.Nombre AS "
                         'tipo,\n'
@@ -9,6 +26,7 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
                         '           s.NumeroTicketCliente AS ticket,s.DescripcionProblema AS descripcion,s.FechaPreferida AS '
                         'fecha_preferida,\n'
                         '           s.Estado,s.Observaciones,s.CreadoEn AS creada,\n'
+                        f'           {_REQUEST_READ_ONLY} AS solo_lectura,\n' 
                         '           ot.OrdenTrabajoId AS orden_id,ot.NumeroOrden AS orden_numero,\n'
                         '           ot.EstadoOrden AS orden_estado,ot.CodigoEstadoOrden AS '
                         'orden_estado_codigo,\n'
@@ -35,7 +53,7 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
                         'vc.CotizacionId=cq.CotizacionId AND vc.EsActual=1\n'
                         "                 WHERE cq.OrdenTrabajoId=ot.OrdenTrabajoId AND (@Rol=N'COORDINADOR' "
                         "OR cq.Estado NOT IN ('BORRADOR','ANULADA')) ORDER BY cq.CotizacionId DESC) q\n"
-                        "    WHERE @Rol=N'COORDINADOR' OR s.ClienteId=@ClienteId AND EXISTS(SELECT 1 FROM crm.UbicacionServicio ua JOIN seg.ufn_SucursalesPermitidas(@UsuarioId) pa ON pa.SucursalClienteId=ua.SucursalClienteId WHERE ua.UbicacionServicioId=s.UbicacionServicioId)",
+                        f"    WHERE @Rol=N'COORDINADOR' OR s.ClienteId=@ClienteId AND {_SCOPE_REQUEST} AND EXISTS(SELECT 1 FROM crm.UbicacionServicio ua JOIN seg.ufn_SucursalesPermitidas(@UsuarioId) pa ON pa.SucursalClienteId=ua.SucursalClienteId WHERE ua.UbicacionServicioId=s.UbicacionServicioId)",
                  'columns': ['id',
                              'cliente',
                              'sede',
@@ -53,6 +71,7 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
                     'AS programada,\n'
                     '           o.IniciadaEn AS iniciada,o.FinalizadaEn AS finalizada,o.CreadoEn AS creada,\n'
                      "           CASE WHEN EXISTS(SELECT 1 FROM cot.Cotizacion cq WHERE cq.OrdenTrabajoId=o.OrdenTrabajoId) THEN 1 ELSE 0 END AS tiene_cotizacion,\n"
+                     f"           CASE WHEN @Rol=N'COORDINADOR' AND {QUOTE_PENDING} THEN 1 ELSE 0 END AS cotizacion_pendiente,\n"
                      "           (SELECT TOP(1) tx.AsignadoEn FROM srv.TecnicoOrden tx WHERE tx.OrdenTrabajoId=o.OrdenTrabajoId AND tx.EmpleadoId=@EmpleadoId AND tx.Estado IN ('ASIGNADO','CONFIRMADO','FINALIZADO') ORDER BY tx.AsignadoEn) AS asignado_en,\n"
                      "           CASE WHEN EXISTS(SELECT 1 FROM srv.IncidenciaOrden ri WHERE ri.OrdenTrabajoId=o.OrdenTrabajoId AND ri.Estado='PENDIENTE' AND JSON_VALUE(CASE WHEN ISJSON(ri.AccionTomada)=1 THEN ri.AccionTomada ELSE '{}' END,'$.portal_tipo')='REPROGRAMACION_OT') THEN 1 ELSE 0 END AS suspendida\n"
                     '    FROM srv.OrdenTrabajo o\n'
@@ -64,7 +83,7 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
                     '    LEFT JOIN crm.SucursalCliente sc ON sc.SucursalClienteId=ub.SucursalClienteId\n'
                     '    INNER JOIN srv.TipoServicio ts ON ts.TipoServicioId=s.TipoServicioId\n'
                     "    WHERE @Rol=N'COORDINADOR'\n"
-                    "       OR (@Rol=N'CLIENTE' AND s.ClienteId=@ClienteId AND EXISTS(SELECT 1 FROM crm.UbicacionServicio ua JOIN seg.ufn_SucursalesPermitidas(@UsuarioId) pa ON pa.SucursalClienteId=ua.SucursalClienteId WHERE ua.UbicacionServicioId=s.UbicacionServicioId))\n"
+                    f"       OR (@Rol=N'CLIENTE' AND s.ClienteId=@ClienteId AND {_SCOPE_REQUEST} AND EXISTS(SELECT 1 FROM crm.UbicacionServicio ua JOIN seg.ufn_SucursalesPermitidas(@UsuarioId) pa ON pa.SucursalClienteId=ua.SucursalClienteId WHERE ua.UbicacionServicioId=s.UbicacionServicioId))\n"
                     "       OR (@Rol=N'TECNICO' AND EXISTS(SELECT 1 FROM srv.TecnicoOrden t WHERE "
                     't.OrdenTrabajoId=o.OrdenTrabajoId AND t.EmpleadoId=@EmpleadoId AND t.Estado '
                     "IN('ASIGNADO','CONFIRMADO','FINALIZADO')))",
@@ -169,7 +188,9 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
                          '        v.FechaExpiracion AS expiracion,\n'
                          '        v.Moneda,\n'
                          '        v.Total,\n'
-                         '        v.Estado AS estado_version\n'
+                         '        v.Estado AS estado_version, ub.Direccion AS direccion,\n'
+                         '        original.Descripcion AS primera_descripcion_original,\n'
+                         '        actual.Descripcion AS primera_descripcion_actual\n'
                          '    FROM cot.Cotizacion c\n'
                          '    LEFT JOIN srv.OrdenTrabajo o ON o.OrdenTrabajoId = c.OrdenTrabajoId\n'
                          '    LEFT JOIN srv.SolicitudServicio ss ON ss.SolicitudServicioId = '
@@ -181,18 +202,25 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
                          '    LEFT JOIN cot.VersionCotizacion v\n'
                          '        ON v.CotizacionId = c.CotizacionId\n'
                          '       AND v.EsActual = 1\n'
+                         '    OUTER APPLY (SELECT TOP 1 d.Descripcion FROM cot.VersionCotizacion original_version\n'
+                         '        JOIN cot.DetalleCotizacion d ON d.VersionCotizacionId=original_version.VersionCotizacionId\n'
+                         '        WHERE original_version.CotizacionId=c.CotizacionId AND d.NumeroLinea=1\n'
+                         '        ORDER BY original_version.NumeroVersion,d.DetalleCotizacionId) original\n'
+                         '    OUTER APPLY (SELECT TOP 1 d.Descripcion FROM cot.DetalleCotizacion d\n'
+                         '        WHERE d.VersionCotizacionId=v.VersionCotizacionId AND d.NumeroLinea=1\n'
+                         '        ORDER BY d.DetalleCotizacionId) actual\n'
                          '    WHERE\n'
                          "        @Rol = N'COORDINADOR'\n"
                          '        OR (\n'
                          "            @Rol = N'CLIENTE'\n"
-                         '            AND cli.ClienteId = @ClienteId AND (o.OrdenTrabajoId IS NULL AND (c.SucursalClienteId IS NULL OR EXISTS(SELECT 1 FROM seg.ufn_SucursalesPermitidas(@UsuarioId) pa WHERE pa.SucursalClienteId=c.SucursalClienteId)) OR o.OrdenTrabajoId IS NOT NULL AND EXISTS(SELECT 1 FROM seg.ufn_SucursalesPermitidas(@UsuarioId) pa WHERE pa.SucursalClienteId=ub.SucursalClienteId))\n'
+                         f'            AND cli.ClienteId = @ClienteId AND (o.OrdenTrabajoId IS NULL AND (c.SucursalClienteId IS NULL OR EXISTS(SELECT 1 FROM seg.ufn_SucursalesPermitidas(@UsuarioId) pa WHERE pa.SucursalClienteId=c.SucursalClienteId)) OR o.OrdenTrabajoId IS NOT NULL AND {_SCOPE_SERVICE} AND EXISTS(SELECT 1 FROM seg.ufn_SucursalesPermitidas(@UsuarioId) pa WHERE pa.SucursalClienteId=ub.SucursalClienteId))\n'
                          "            AND c.Estado IN (N'ENVIADA', N'OBSERVADA', N'ACEPTADA', N'RECHAZADA', "
                          "N'ANULADA')\n"
                          '        )',
                   'columns': ['id', 'numero', 'nombre', 'cliente', 'sede', 'orden', 'orden_fisica', 'estado'],
                   'date': 'creada',
                   'status': 'estado'},
- 'documentos': {'sql': """
+ 'documentos': {'sql': f"""
     SELECT
         d.DocumentoServicioId AS id,
         COALESCE(d.NumeroDocumento, CONCAT(N'DOC-', d.DocumentoServicioId)) AS numero,
@@ -214,9 +242,12 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
     INNER JOIN srv.SolicitudServicio ss ON ss.SolicitudServicioId=o.SolicitudServicioId
     INNER JOIN crm.Cliente c ON c.ClienteId=ss.ClienteId
     WHERE d.Estado<>'ANULADO' AND (@Rol=N'COORDINADOR'
-       OR (@Rol=N'CLIENTE' AND ss.ClienteId=@ClienteId AND EXISTS(SELECT 1 FROM crm.UbicacionServicio ua JOIN seg.ufn_SucursalesPermitidas(@UsuarioId) pa ON pa.SucursalClienteId=ua.SucursalClienteId WHERE ua.UbicacionServicioId=ss.UbicacionServicioId)
+       OR (@Rol=N'CLIENTE' AND ss.ClienteId=@ClienteId AND {_SCOPE_SERVICE} AND EXISTS(SELECT 1 FROM crm.UbicacionServicio ua JOIN seg.ufn_SucursalesPermitidas(@UsuarioId) pa ON pa.SucursalClienteId=ua.SucursalClienteId WHERE ua.UbicacionServicioId=ss.UbicacionServicioId)
            AND d.EsSeguimientoInterno=0
-           AND d.Estado IN ('GENERADO','ENTREGADO','ACEPTADO','OBSERVADO')))
+           AND d.Estado IN ('GENERADO','ENTREGADO','ACEPTADO','OBSERVADO'))
+       OR (@Rol=N'TECNICO' AND d.EsSeguimientoInterno=0 AND EXISTS(
+           SELECT 1 FROM srv.TecnicoOrden tx WHERE tx.OrdenTrabajoId=o.OrdenTrabajoId
+             AND tx.EmpleadoId=@EmpleadoId AND tx.Estado IN ('ASIGNADO','CONFIRMADO','FINALIZADO'))))
 
     UNION ALL
 
@@ -241,7 +272,68 @@ SPECS = {'solicitudes': {'sql': 'SELECT s.SolicitudServicioId AS id,c.NombreCome
     INNER JOIN crm.Cliente c ON c.ClienteId=ss.ClienteId
     WHERE e.Categoria='DOCUMENTO_CLIENTE'
       AND e.Origen='CLIENTE'
-      AND (@Rol=N'COORDINADOR' OR (@Rol=N'CLIENTE' AND e.SubidaPorUsuarioId=@UsuarioId AND ss.ClienteId=@ClienteId AND EXISTS(SELECT 1 FROM crm.UbicacionServicio ua JOIN seg.ufn_SucursalesPermitidas(@UsuarioId) pa ON pa.SucursalClienteId=ua.SucursalClienteId WHERE ua.UbicacionServicioId=ss.UbicacionServicioId)))
+      AND (@Rol=N'COORDINADOR' OR (@Rol=N'CLIENTE' AND e.SubidaPorUsuarioId=@UsuarioId AND ss.ClienteId=@ClienteId AND {_SCOPE_SERVICE} AND EXISTS(SELECT 1 FROM crm.UbicacionServicio ua JOIN seg.ufn_SucursalesPermitidas(@UsuarioId) pa ON pa.SucursalClienteId=ua.SucursalClienteId WHERE ua.UbicacionServicioId=ss.UbicacionServicioId))
+           OR (@Rol=N'TECNICO' AND EXISTS(SELECT 1 FROM srv.TecnicoOrden tx WHERE tx.OrdenTrabajoId=o.OrdenTrabajoId AND tx.EmpleadoId=@EmpleadoId AND tx.Estado IN ('ASIGNADO','CONFIRMADO','FINALIZADO'))))
+
+    UNION ALL
+
+    -- Expediente documental digital: el PDF se genera desde los datos existentes.
+    -- No se duplica en SQL Server ni requiere otra tabla.
+    SELECT
+        CAST(-q.CotizacionId AS bigint) AS id,
+        q.NumeroCotizacion AS numero,
+        CAST(COALESCE(v.NumeroVersion, 1) AS smallint) AS version,
+        CAST(N'Cotización PDF' AS nvarchar(180)) AS formato,
+        CAST(N'COTIZACION' AS nvarchar(80)) AS categoria,
+        CAST(N'Cotización aceptada, disponible en PDF' AS nvarchar(600)) AS descripcion,
+        o.NumeroOrden AS orden,
+        cl.NombreComercial AS cliente,
+        CAST(N'ACEPTADA' AS varchar(20)) AS estado,
+        CONCAT('/api/cotizaciones/',q.CotizacionId,'/pdf') AS ruta,
+        q.CreadoEn AS generado,
+        q.CreadoEn AS entregado,
+        CAST(N'SEPRIGUA' AS nvarchar(20)) AS origen,
+        CAST(N'COTIZACION_PDF' AS nvarchar(30)) AS tipo_registro
+    FROM cot.Cotizacion q
+    LEFT JOIN srv.OrdenTrabajo o ON o.OrdenTrabajoId=q.OrdenTrabajoId
+    LEFT JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId
+    LEFT JOIN crm.UbicacionServicio ub ON ub.UbicacionServicioId=s.UbicacionServicioId
+    JOIN crm.Cliente cl ON cl.ClienteId=COALESCE(q.ClienteId,s.ClienteId)
+    LEFT JOIN cot.VersionCotizacion v ON v.CotizacionId=q.CotizacionId AND v.EsActual=1
+    WHERE q.Estado=N'ACEPTADA' AND (@Rol=N'COORDINADOR' OR
+       (@Rol=N'CLIENTE' AND cl.ClienteId=@ClienteId AND
+         (o.OrdenTrabajoId IS NULL AND (q.SucursalClienteId IS NULL OR EXISTS(SELECT 1 FROM seg.ufn_SucursalesPermitidas(@UsuarioId) pa WHERE pa.SucursalClienteId=q.SucursalClienteId))
+          OR o.OrdenTrabajoId IS NOT NULL AND {_SCOPE_REQUEST} AND EXISTS(SELECT 1 FROM seg.ufn_SucursalesPermitidas(@UsuarioId) pa WHERE pa.SucursalClienteId=ub.SucursalClienteId))))
+
+    UNION ALL
+
+    -- Reporte digital de OT finalizada: mismo PDF existente, indexado en Documentos.
+    SELECT
+        CAST(-1000000000 - o.OrdenTrabajoId AS bigint) AS id,
+        o.NumeroOrden AS numero,
+        CAST(1 AS smallint) AS version,
+        CAST(N'Orden de trabajo PDF' AS nvarchar(180)) AS formato,
+        CAST(N'REPORTE_OT' AS nvarchar(80)) AS categoria,
+        CAST(N'Reporte de servicio finalizado' AS nvarchar(600)) AS descripcion,
+        o.NumeroOrden AS orden,
+        cl.NombreComercial AS cliente,
+        CAST(N'GENERADO' AS varchar(20)) AS estado,
+        CONCAT('/api/ordenes/',o.OrdenTrabajoId,'/reporte.pdf') AS ruta,
+        o.FinalizadaEn AS generado,
+        o.FinalizadaEn AS entregado,
+        CAST(N'SEPRIGUA' AS nvarchar(20)) AS origen,
+        CAST(N'REPORTE_OT_PDF' AS nvarchar(30)) AS tipo_registro
+    FROM srv.OrdenTrabajo o
+    JOIN srv.EstadoOrdenTrabajo st ON st.EstadoOrdenTrabajoId=o.EstadoOrdenTrabajoId
+    JOIN srv.SolicitudServicio s ON s.SolicitudServicioId=o.SolicitudServicioId
+    JOIN crm.Cliente cl ON cl.ClienteId=s.ClienteId
+    JOIN crm.UbicacionServicio ub ON ub.UbicacionServicioId=s.UbicacionServicioId
+    WHERE st.Codigo='COMPLETADA' AND (@Rol=N'COORDINADOR'
+      OR (@Rol=N'CLIENTE' AND cl.ClienteId=@ClienteId AND {_SCOPE_REQUEST} AND
+           EXISTS(SELECT 1 FROM seg.ufn_SucursalesPermitidas(@UsuarioId) pa WHERE pa.SucursalClienteId=ub.SucursalClienteId))
+      OR (@Rol=N'TECNICO' AND EXISTS(SELECT 1 FROM srv.TecnicoOrden tx
+           WHERE tx.OrdenTrabajoId=o.OrdenTrabajoId AND tx.EmpleadoId=@EmpleadoId
+             AND tx.Estado IN ('ASIGNADO','CONFIRMADO','FINALIZADO'))))
     """,
                 'columns': ['id', 'numero', 'formato', 'categoria', 'descripcion', 'orden', 'cliente', 'estado', 'origen', 'tipo_registro'],
                 'date': 'generado',
@@ -356,10 +448,12 @@ def audit_listing_lite(b, session):
                    hay_mas=has_more)
 
 
-def listing(b,session,module):
+def listing(b,session,module,*,quote_pending=False):
     if module=='auditoria' and request.args.get('ligera')=='1':
         return audit_listing_lite(b,session)
     spec=SPECS[module];page,size=b.pagination_args();where=[];params=[]
+    if quote_pending:
+        where.append('cotizacion_pendiente=1')
     term=str(request.args.get('q') or '').strip()[:150]
     if term:
         term=term.replace('~','~~').replace('%','~%').replace('_','~_').replace('[','~[')
@@ -410,4 +504,12 @@ def listing(b,session,module):
                 facets[field]=[r['value'] for r in b.exec_proc_rows(cur,base+'SELECT DISTINCT ['+field+'] AS value FROM datos WHERE ['+field+'] IS NOT NULL ORDER BY ['+field+']',context)]
             if module in SUMMARY:summary=b.exec_proc_row(cur,base+'SELECT '+SUMMARY[module]+' FROM datos',context) or {}
 
+    if module=='cotizaciones':
+        for item in items:
+            item['nombre']=quote_display_title(item.get('nombre'),{
+                'cliente':item.get('cliente'),'sede':item.get('sede'),
+                'numero_orden_papel':item.get('orden_fisica'),'fecha_emision':item.get('emision'),
+                'creada':item.get('creada'),'numero_cotizacion':item.get('numero'),
+                'direccion':item.pop('direccion',None),
+            },item.pop('primera_descripcion_original',None),item.pop('primera_descripcion_actual',None))
     return jsonify(ok=True,items=items,total=total,pagina=page,tamano=size,paginas=pages,facetas=facets,resumen=summary)

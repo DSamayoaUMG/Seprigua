@@ -75,20 +75,20 @@
   state.agenda = { fecha: "", data: null, draft: new Map(), dirty: false, selectedOrderId: null, technicianFilter: "TODOS", onlyEmergencies: false, showAllStaff: false };
   window.addEventListener("beforeunload", event => { if(state.agenda?.dirty){ event.preventDefault(); event.returnValue=""; } });
   let smartSearchTimer = null;
-  let userSearchTimer = null;
+  let filterRevision = 0;
 
   const rolePaths = { COORDINADOR: "/sistema/coordinador", TECNICO: "/sistema/tecnico", CLIENTE: "/sistema/cliente" };
   const modules = {
     COORDINADOR: [
       ["dashboard", "layout-dashboard", "Panel"], ["solicitudes", "inbox", "Solicitudes"], ["ordenes", "clipboard-list", "Órdenes"], ["agenda", "calendar-range", "Agenda operativa"],
       ["clientes", "building-2", "Clientes"], ["personal", "users", "Personal"], ["usuarios", "users-round-cog", "Usuarios"], ["equipos", "wrench", "Equipo"],
-      ["vacaciones","calendar-days","Vacaciones"],["produccion","chart-column","Producción"],["cancelaciones","circle-x","Cancelaciones"],
+      ["vacaciones","calendar-days","Horarios y vacaciones"],["produccion","chart-column","Producción"],["cancelaciones","circle-x","Cancelaciones"],
       ["mantenimientos", "settings", "Mantenimiento"], ["catalogo", "book-open-check", "Catálogo maestro"], ["cotizaciones", "file-text", "Cotizaciones"], ["documentos", "files", "Documentos"], ["garantia", "shield-check", "Garantías"],
       ["notificaciones", "bell", "Notificaciones"], ["roles", "shield-user", "Roles y accesos"], ["cuenta", "user-cog", "Mi cuenta"], ["auditoria", "shield-check", "Auditoría"]
     ],
     TECNICO: [
       ["dashboard", "layout-dashboard", "Mi panel"], ["ordenes", "clipboard-check", "Mis órdenes"], ["agenda", "route", "Mi agenda"], ["equipos", "wrench", "Equipo"],
-      ["mantenimientos", "settings", "Mantenimiento"], ["vacaciones", "calendar-days", "Vacaciones"], ["documentos", "files", "Mis documentos"], ["notificaciones", "bell", "Notificaciones"], ["cuenta", "user-cog", "Mi cuenta"]
+      ["mantenimientos", "settings", "Mantenimiento"], ["vacaciones", "calendar-days", "Horarios y vacaciones"], ["documentos", "files", "Mis documentos"], ["notificaciones", "bell", "Notificaciones"], ["cuenta", "user-cog", "Mi cuenta"]
     ],
     CLIENTE: [
       ["dashboard", "layout-dashboard", "Mi panel"], ["solicitudes", "circle-plus", "Solicitudes"], ["sedes", "map-pinned", "Mis sedes"], ["ordenes", "clipboard-list", "Mis servicios"],
@@ -107,7 +107,7 @@
         members: [
           ["clientes", "building-2", "Clientes"],
           ["personal", "users", "Empleados"],
-          ["usuarios", "key-round", "Usuarios del sistema"],["vacaciones","calendar-days","Vacaciones"],["produccion","chart-column","Resumen semanal"]
+          ["usuarios", "key-round", "Usuarios del sistema"],["vacaciones","calendar-days","Horarios y vacaciones"],["produccion","chart-column","Resumen semanal"]
         ]
       },
       equipo_mantenimiento: {
@@ -156,7 +156,7 @@
       ["ordenes", "clipboard-check", "Mis órdenes"],
       ["agenda", "route", "Mi agenda"],
       ["equipo_mantenimiento", "wrench", "Equipo y mantenimiento"],
-      ["vacaciones", "calendar-days", "Vacaciones"],
+      ["vacaciones", "calendar-days", "Horarios y vacaciones"],
       ["documentos", "files", "Mis documentos"],
       ["cuenta", "user-cog", "Mi cuenta"]
     ],
@@ -259,15 +259,16 @@
       "BORRADOR", "OBSERVADA", "CONFIRMADA", "ENVIADA", "ACEPTADA", "ANULADA", "POR CONFIRMAR", "EN REVISIÓN",
       "REGISTRADA", "SOLICITUD REGISTRADA", "OT CREADA", "SIN ESTADO", "SIN PRIORIDAD", "SIN CLASE", "FUERA DE USO",
       "CRITICA", "CRÍTICA", "ALTA", "MEDIA", "BAJA", "EMERGENCIA", "PROGRAMADO", "FINALIZADO", "CANCELADO",
-      "OPERARIO", "SUPERVISOR", "COORDINADOR", "TECNICO", "TECNICO RESPONSABLE", "CLIENTE", "DURANTE", "DESPUES",
+      "OPERARIO", "SUPERVISOR", "COORDINADOR", "ENCARGADO", "TECNICO", "TECNICO RESPONSABLE", "CLIENTE", "DURANTE", "DESPUES",
       "ANTES", "LLAMADA", "MENSAJE", "CORREO", "OTRO", "OTRA", "ACCESO", "RETRASO", "SEGURIDAD", "EQUIPO",
       "PERSONAL", "SERVICIO", "DOCUMENTO", "AUTORIZADO", "RECHAZADO", "ALTERNATIVA", "EN VERIFICACION",
       "PENDIENTE AUTORIZACION", "CORRECCION", "DIAGNOSTICO", "REPORTADA", "CORREGIDA", "FUNCIONA",
-      "CON OBSERVACIONES", "FALLA CONTINUA", "POR REVISAR", "EN MANTENIMIENTO", "SOLICITUD PENDIENTE"
+      "CON OBSERVACIONES", "FALLA CONTINUA", "POR REVISAR", "EN MANTENIMIENTO", "SOLICITUD PENDIENTE", "GARANTIA APROBADA"
   ]);
   const displayEnumAccents = {
     CRITICA: "Crítica", TECNICO: "Técnico", DESPUES: "Después", DIAGNOSTICO: "Diagnóstico",
-    CORRECCION: "Corrección", "EN VERIFICACION": "En verificación", "PENDIENTE AUTORIZACION": "Pendiente de autorización"
+    CORRECCION: "Corrección", "EN VERIFICACION": "En verificación", "PENDIENTE AUTORIZACION": "Pendiente de autorización",
+    "GARANTIA APROBADA": "Garantía aprobada"
   };
   function displayEnumText(value) {
     const source = String(value ?? "").trim();
@@ -277,6 +278,11 @@
     if (!displayEnumWords.has(raw) && !source.includes("_")) return raw;
     if (displayEnumAccents[raw]) return displayEnumAccents[raw];
     return raw.toLocaleLowerCase("es-GT").replace(/^\p{L}/u, initial => initial.toLocaleUpperCase("es-GT"))
+      .replace(/\b(ot|oc|pdf|nit|iva|ip|gtq|dpi)\b/gi, acronym => acronym.toLocaleUpperCase("es-GT"));
+  }
+  function displayDetailValue(value) {
+    return String(value ?? "—").trim().replaceAll("_", " ").toLocaleLowerCase("es-GT")
+      .replace(/^\p{L}/u, initial => initial.toLocaleUpperCase("es-GT"))
       .replace(/\b(ot|oc|pdf|nit|iva|ip|gtq|dpi)\b/gi, acronym => acronym.toLocaleUpperCase("es-GT"));
   }
   function badge(v) {
@@ -407,6 +413,36 @@
     modalBackdrop.classList.toggle("document-share-open", !!modalBody.querySelector("#documentShareForm"));
     modalBody.scrollTop = 0;
     decorateModalVisuals(name);
+    const detailHeader = options.detailHeader;
+    const shell = modalBackdrop.querySelector('.modal-seprigua');
+    shell.classList.toggle('se-detail-modal', !!detailHeader);
+    const oldKicker = shell.querySelector('.se-detail-modal-kicker');
+    const oldStatus = shell.querySelector('.se-detail-modal-status');
+    oldKicker?.remove(); oldStatus?.remove();
+    if (detailHeader) {
+      modalTitle.textContent = detailHeader.title || name;
+      const kicker = document.createElement('span');
+      kicker.className = 'se-detail-modal-kicker';
+      kicker.textContent = detailHeader.kicker || name;
+      modalTitle.before(kicker);
+      const subtitle = $('#modalSubtitle');
+      subtitle.textContent = detailHeader.meta || '';
+      subtitle.hidden = !subtitle.textContent;
+      if (detailHeader.status) {
+        const status = document.createElement('span');
+        status.className = 'se-detail-modal-status';
+        status.textContent = String(detailHeader.status).replaceAll('_', ' ').toLocaleLowerCase('es').replace(/^./, letter => letter.toLocaleUpperCase('es'));
+        if (/cancel|rechaz|vencid|inactiv|falla/i.test(status.textContent)) status.classList.add('is-danger');
+        else if (/pend|proceso|media|alta|emergen/i.test(status.textContent)) status.classList.add('is-warning');
+        const statusIcon = document.createElement('i');
+        statusIcon.dataset.lucide = status.classList.contains('is-danger') ? 'circle-x' : status.classList.contains('is-warning') ? 'circle-alert' : 'circle-check';
+        status.prepend(statusIcon);
+        $('#modalClose').before(status);
+      }
+      if (detailHeader.icon) $('#modalIcon').innerHTML = `<i data-lucide="${esc(detailHeader.icon)}"></i>`;
+      const hasLongContent = modalBody.querySelectorAll('.se-detail-row').length > 6 || !!modalBody.querySelector('table, form, .se-detail-timeline');
+      shell.dataset.modalSize = detailHeader.size || (hasLongContent ? 'lg' : 'md');
+    }
 
     // Los modales con formularios se consideran principales por defecto.
     // No se cierran por clic accidental fuera ni con Escape.
@@ -688,6 +724,8 @@
     // Cualquier encabezado horario genérico de una versión anterior se elimina al renderizar.
     content.querySelectorAll(":scope > .se-module-time-generic").forEach(el => el.remove());
 
+    if (state.current === "cuenta") return;
+
     const host = moduleHeaderTarget(state.current);
     if (host) {
       decorateStaticModuleHeader(host);
@@ -857,7 +895,7 @@
     const people = Array.isArray(state.catalogs?.tecnicos) ? state.catalogs.tecnicos : [];
     const normalized = people.map(person => {
       const roleText = [person?.puesto, person?.rol, person?.tipo].filter(Boolean).join(" ").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-      const availability = String(person?.disponibilidad || person?.estado_operativo || "").toUpperCase();
+      const availability = String(person?.estado_operativo || person?.disponibilidad || "").toUpperCase();
       const status = String(person?.estado || "ACTIVO").toUpperCase();
       const active = !/INACTIVO|BAJA|DESHABILIT/.test(status);
       const available = active && availability === "DISPONIBLE";
@@ -1467,7 +1505,7 @@
     const tabs=[
       ["clientes","Clientes y sedes"],
       ["personal","Personal"],
-      ["usuarios","Usuarios del sistema"],["vacaciones","Vacaciones"],["produccion","Resumen semanal"]
+      ["usuarios","Usuarios del sistema"],["vacaciones","Horarios y vacaciones"],["produccion","Resumen semanal"]
     ].map(([key,label])=>`<button class="people-tab ${active===key?"active":""}" type="button" data-context-module="${key}" aria-current="${active===key?"page":"false"}"><span>${label}</span>${peopleCountBadge(key)}</button>`).join("");
     return `<header class="people-page-header">
       <div class="people-page-title-row">
@@ -1656,14 +1694,33 @@
         options.headers = { "Content-Type": "application/json", ...(options.headers || {}) };
         options.body = JSON.stringify(options.body);
       }
-      const r = await fetch(url, options);
+      let r;
+      try {
+        r = await fetch(url, options);
+      } catch (cause) {
+        const fallo = new Error(cause?.name === "AbortError"
+          ? "La petición tardó demasiado en responder."
+          : "No se pudo establecer comunicación con el servidor.");
+        fallo.connectionError = true;
+        throw fallo;
+      }
       let data = {};
-      try { data = await r.json(); } catch (_) { data = { ok: false, message: "Respuesta inválida del servidor." }; }
+      try { data = await r.json(); } catch (_) { data = { ok: false }; }
       if (r.status === 401) { location.replace("/login"); throw new Error("Sesión vencida"); }
       if (!r.ok || data.ok === false) {
-        const base = data.message || `Error HTTP ${r.status}`;
-        const detail = data.detail ? `\n${String(data.detail).slice(0,900)}` : "";
-        throw new Error(base + detail);
+        const mensajePorCodigo = {
+          400: "Revisa los datos enviados.", 403: "Tu cuenta no tiene permiso para acceder.",
+          404: "No encontramos el recurso solicitado.", 409: "La operación entra en conflicto con los datos actuales.",
+          413: "El archivo supera el tamaño permitido.", 429: "Demasiados intentos. Espera un momento.",
+          500: "Ocurrió un problema en el servidor.", 502: "No se pudo conectar con el servicio.",
+          503: "El servicio no está disponible temporalmente.", 504: "El servidor tardó demasiado en responder."
+        };
+        const texto = typeof data.message === "string" && data.message.trim() && r.status < 500
+          ? data.message : (mensajePorCodigo[r.status] || "No fue posible completar la operación.");
+        const fallo = new Error(texto);
+        fallo.httpStatus = Number(r.status) || null;
+        fallo.requestPath = String(url).split("?")[0];
+        throw fallo;
       }
       if (cacheable && seCache !== "no-store") setApiCache(url, data);
       if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
@@ -1701,15 +1758,23 @@
           credentials: "same-origin", cache: "no-store", signal: controller.signal,
           headers: { Accept: "application/json" }
         });
-        if (!response.ok) throw new Error(response.status === 503
-          ? "La base de datos no está disponible. Revisa la conexión y vuelve a intentar."
-          : "No se pudo comunicar con el sistema. Reinicia Flask y vuelve a intentar.");
+        if (!response.ok) {
+          const fallo = new Error(response.status === 503
+            ? "El servicio de datos no está disponible temporalmente."
+            : "El sistema no pudo completar la verificación de conexión.");
+          fallo.httpStatus = response.status;
+          throw fallo;
+        }
         const health = await response.json();
         dbBadge.classList.toggle("error", !health.system_migration);
         dbBadgeText.textContent = health.system_migration ? "Sistema conectado" : "Configuración pendiente";
       } catch (error) {
         if (error instanceof TypeError || error?.name === "AbortError") {
-          throw new Error("No se pudo comunicar con el sistema. Reinicia Flask y vuelve a intentar.");
+          const fallo = new Error(error?.name === "AbortError"
+            ? "El servidor tardó demasiado en responder. Comprueba la conexión e inténtalo de nuevo."
+            : "No se pudo establecer comunicación con el servidor. Comprueba la conexión e inténtalo de nuevo.");
+          fallo.connectionError = true;
+          throw fallo;
         }
         throw error;
       } finally {
@@ -1718,6 +1783,37 @@
     })();
     try { return await liveBackendCheck; }
     finally { liveBackendCheck = null; }
+  }
+
+  // Presentación de fallos de módulos: HTTP real cuando existe respuesta,
+  // mensaje de conexión independiente cuando nunca se recibió una respuesta.
+  function sepriguaModuleError(module, error) {
+    const status = Number(error?.httpStatus) || 0;
+    const conexion = Boolean(error?.connectionError) || !status;
+    const codigo = conexion ? "SIN CONEXIÓN" : `HTTP ${status}`;
+    const titulo = conexion ? "No pudimos conectar con SEPRIGUA"
+      : status === 403 ? "Acceso restringido"
+      : status === 404 ? "Contenido no encontrado"
+      : status === 429 ? "Demasiados intentos"
+      : status >= 500 ? "El servicio está temporalmente indisponible"
+      : "No fue posible cargar esta sección";
+    const descripcion = String(error?.message || (conexion
+      ? "Comprueba tu conexión y que el servidor de pruebas esté encendido."
+      : "Vuelve a intentarlo dentro de unos momentos.")).slice(0, 350);
+    const ruta = state.role === "CLIENTE" ? "/sistema/cliente"
+      : state.role === "TECNICO" ? "/sistema/tecnico" : "/sistema/coordinador";
+    return `<section class="se-http-module" role="alert" aria-live="polite">
+      <div class="se-http-module__art" aria-hidden="true"><span class="se-http-module__ring"></span><span class="se-http-module__symbol">${conexion ? "⌁" : status === 403 ? "🔒" : "!"}</span></div>
+      <div class="se-http-module__content">
+        <div class="se-http-module__eyebrow"><span></span> SEPRIGUA / ESTADO DEL SISTEMA</div>
+        <div class="se-http-module__code">${esc(codigo)}</div>
+        <h2>${esc(titulo)}</h2><p>${esc(descripcion)}</p>
+        <div class="se-http-module__actions"><button class="btn primary" type="button" data-action="reintentar-modulo" data-module="${esc(module)}"><i data-lucide="refresh-cw"></i> Reintentar</button>
+        <a class="btn" href="${ruta}"><i data-lucide="house"></i> Ir al inicio</a></div>
+        <div class="se-http-module__help">${conexion
+          ? "No se recibió una respuesta HTTP. Revisa Waitress, el túnel SSH y la conexión de red."
+          : "Se recibió una respuesta del servidor. Si el fallo persiste, informa este código al administrador."}</div>
+      </div></section>`;
   }
 
   function showUnavailableModule(module, error) {
@@ -1732,7 +1828,7 @@
     renderNav();
     content.removeAttribute("data-rendered-module");
     content.dataset.offline = "1";
-    content.innerHTML = `<div class="empty-state"><h3>No se pudo cargar</h3><p>${esc(error.message || "No se pudo comunicar con el sistema.")}</p><button class="btn" type="button" data-action="reintentar-modulo" data-module="${esc(module)}"><i data-lucide="refresh-cw"></i> Reintentar</button></div>`;
+    content.innerHTML = sepriguaModuleError(module, error);
     window.lucide?.createIcons();
   }
 
@@ -1795,15 +1891,16 @@
     if (pushClient.inFlight) return pushClient.inFlight;
     pushClient.inFlight = (async () => {
     try {
+      if (isIosDevice() && !isStandalonePwa()) throw new Error("En iPhone/iPad, primero agrega SEPRIGUA a la pantalla de inicio y ábrela desde su icono.");
       if (!pushBrowserSupported()) throw new Error("Este navegador no admite notificaciones Web Push.");
       if (!window.isSecureContext) throw new Error("Las notificaciones requieren HTTPS. En la PC local también funcionan usando localhost.");
-      if (isIosDevice() && !isStandalonePwa()) throw new Error("En iPhone/iPad, primero agrega SEPRIGUA a la pantalla de inicio y ábrela desde su icono.");
-      const config = await getPushConfig();
-      if (!config.enabled || !config.public_key) throw new Error("Las notificaciones todavía no están configuradas en el servidor.");
+      if (pushClient.config && (!pushClient.config.enabled || !pushClient.config.public_key)) throw new Error("Las notificaciones todavía no están configuradas en el servidor.");
       let permission = Notification.permission;
       if (permission === "default" && prompt) permission = await Notification.requestPermission();
       if (permission === "denied") throw new Error("Las notificaciones están bloqueadas para SEPRIGUA en este navegador.");
       if (permission !== "granted") throw new Error("Debes permitir las notificaciones en el navegador para activarlas.");
+      const config = await getPushConfig();
+      if (!config.enabled || !config.public_key) throw new Error("Las notificaciones todavía no están configuradas en el servidor.");
       const registration = await getPushRegistration();
       let subscription = await registration.pushManager.getSubscription();
       if (!subscription) {
@@ -1858,9 +1955,9 @@
     let statusTitle = "Listas para activar";
     let statusText = "Activa los avisos importantes en este dispositivo.";
     let statusClass = "pending";
-    if (!supported) { statusTitle="No disponible"; statusText="Este navegador no admite Web Push."; statusClass="off"; }
-    else if (!secure) { statusTitle="Requiere HTTPS"; statusText="Para celular/VM debes abrir SEPRIGUA mediante HTTPS."; statusClass="off"; }
-    else if (iosNeedsInstall) { statusTitle="Instala SEPRIGUA en inicio"; statusText="En iPhone/iPad usa Compartir → Agregar a pantalla de inicio y abre SEPRIGUA desde el icono."; statusClass="pending"; }
+    if (iosNeedsInstall) { statusTitle="Agrega SEPRIGUA al inicio"; statusText="En Safari, toca Compartir → Agregar a pantalla de inicio. Si aparece Abrir como app web, actívalo. Luego abre SEPRIGUA desde su icono."; }
+    else if (!supported) { statusTitle="No disponible"; statusText="Este navegador no admite Web Push. En iPhone y iPad necesitas la versión 16.4 o posterior."; statusClass="off"; }
+    else if (!secure) { statusTitle="Requiere HTTPS"; statusText="Abre SEPRIGUA mediante HTTPS para activar los avisos."; statusClass="off"; }
     else if (permission === "denied") { statusTitle="Bloqueadas en el navegador"; statusText="Debes volver a permitir notificaciones desde la configuración del navegador."; statusClass="off"; }
     else if (!serverConfig.enabled) { statusTitle="Configuración pendiente"; statusText="El servidor todavía no tiene Web Push disponible."; statusClass="off"; }
     else if (activeHere) { statusTitle="Activadas en este dispositivo"; statusText="Recibirás únicamente avisos importantes cuando SEPRIGUA no esté al frente."; statusClass="on"; }
@@ -2041,7 +2138,7 @@
       [/\/api\/equipos/, ["equipos", "mantenimientos", "ordenes", "dashboard"]],
       [/\/api\/mantenimientos/, ["mantenimientos", "equipos", "dashboard"]],
       [/\/api\/catalogo-maestro/, ["catalogo", "cotizaciones"]],
-      [/\/api\/cotizaciones/, ["cotizaciones", "solicitudes", "documentos", "dashboard"]],
+      [/\/api\/cotizaciones/, ["cotizaciones", "ordenes", "solicitudes", "documentos", "dashboard"]],
       [/\/api\/documentos/, ["documentos", "dashboard"]],
       [/\/api\/garantias/, ["garantia"]],
       [/\/api\/notificaciones/, ["notificaciones"]],
@@ -2059,6 +2156,7 @@
     }
     if(/\/api\/(clientes|personal|usuarios)(?:\/|$)/.test(path)) state.peopleCountsLoadedAt=0;
     invalidateApiCacheForMutation(path);
+    if (/^\/api\/(?:ordenes(?:\/\d+(?:\/estado)?$|$)|cotizaciones(?:\/|$)|garantias(?:\/|$))/.test(path)) scheduleModulePending();
   }
 
   function smartClone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -2103,11 +2201,13 @@
 
   function listCount(key,name,fallback){return state.listCache[key]?.meta?.resumen?.[name]??fallback;}
   function listFacet(key,name,fallback){return state.listCache[key]?.meta?.facetas?.[name]||fallback;}
-  async function loadAllPaged(key, endpoint, force = false) {
+  async function loadAllPaged(key, endpoint, force = false, isCurrent = () => true) {
     if(['personal','equipos','mantenimientos','vacaciones'].includes(key)){
       const defaults={personal:{orden:'nombre',direccion:'ASC',filtros:{peopleQuick:'TODOS'}},equipos:{orden:'nombre',direccion:'ASC'},mantenimientos:{orden:'programada',direccion:'DESC'},vacaciones:{orden:'solicitada',direccion:'DESC'}};
       const p=smartPrefs(key,defaults[key]);const d=await api(smartWithParams(endpoint,{q:p.q,pagina:p.pagina,tamano:p.tamano,orden:p.orden==='fallas'?'fallas_abiertas':p.orden,direccion:p.direccion,filtros:JSON.stringify(p.filtros),resumen:1}),force?{seCache:'reload'}:{});
-      state.listCache[key]={items:d.items,meta:d,server:true,loadedAt:Date.now()};return state.listCache[key];
+      const result = {items:d.items,meta:d,server:true,loadedAt:Date.now()};
+      if (isCurrent()) state.listCache[key] = result;
+      return result;
     }
     if (!force && state.listCache[key] && Date.now()-state.listCache[key].loadedAt<30000) return state.listCache[key];
     if (!force && state.listInflight.has(key)) return state.listInflight.get(key);
@@ -2200,11 +2300,13 @@
       const pills = [["TODOS","Todos"], ...quickOptions].map(([value,label], index) => {
         const active = value === "TODOS" ? allActive : selectedSet.has(String(value).toUpperCase());
         const tone = index === 0 ? "all" : (index % 4 === 1 ? "blue" : index % 4 === 2 ? "red" : index % 4 === 3 ? "cyan" : "green");
-        return `<button class="smart-quick-pill ${tone} ${active?"active":""}" type="button" data-action="smart-quick-filter" data-list-key="${esc(key)}" data-filter-name="${esc(quickDef.name)}" data-value="${esc(value)}"><span>${esc(label)}</span></button>`;
+        const visibleLabel = key === "equipos" || key === "garantiaSolicitudes" ? displayEnumText(label) : label;
+        return `<button class="smart-quick-pill ${tone} ${active?"active":""}" type="button" data-action="smart-quick-filter" data-list-key="${esc(key)}" data-filter-name="${esc(quickDef.name)}" data-value="${esc(value)}"><span>${esc(visibleLabel)}</span></button>`;
       }).join("");
       const chips = selected.map(value => {
         const row = quickOptions.find(([optionValue]) => String(optionValue).toUpperCase() === value);
-        const label = row ? row[1] : value.replaceAll("_", " ");
+        const rawLabel = row ? row[1] : value.replaceAll("_", " ");
+        const label = key === "equipos" || key === "garantiaSolicitudes" ? displayEnumText(rawLabel) : rawLabel;
         return `<button class="smart-quick-active" type="button" data-action="smart-quick-filter" data-list-key="${esc(key)}" data-filter-name="${esc(quickDef.name)}" data-value="${esc(value)}" aria-label="Quitar filtro ${esc(label)}"><span>${esc(label)}</span><i data-lucide="x"></i></button>`;
       }).join("");
       quickMarkup = `<div class="smart-quick-area"><div class="smart-quick-row"><span class="smart-quick-label">Filtros rápidos:</span><div class="smart-quick-pills">${pills}</div><span class="smart-quick-hint">Puedes combinar varios.</span></div>${chips?`<div class="smart-quick-active-row"><span>${selected.length} filtro${selected.length===1?"":"s"} activo${selected.length===1?"":"s"}</span><div>${chips}</div></div>`:""}</div>`;
@@ -2236,36 +2338,76 @@
     return `<div class="smart-results-meta"><span><strong>${normalizeNumber(result.total)}</strong> ${esc(label)}</span><span>Página <strong>${normalizeNumber(result.pagina)}</strong> de <strong>${normalizeNumber(result.paginas)}</strong></span></div>`;
   }
 
-  async function rerenderSmartList(key, keepSearchFocus = false) {
+  const filterSearchSelector = '#userReportFilters [name="q"], [data-smart-q], [data-audit-filter]';
+
+  function filterFocus() {
+    const input = document.activeElement;
+    if (!content.contains(input) || !input.matches(filterSearchSelector)) return null;
+    const selector = input.dataset.auditFilter
+      ? `[data-audit-filter="${input.dataset.auditFilter}"]`
+      : input.dataset.smartQ ? `[data-smart-q="${input.dataset.smartQ}"]` : '#userReportFilters [name="q"]';
+    return {selector, start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection};
+  }
+
+  function restoreFilterFocus(focus) {
+    if (!focus) return;
+    const input = content.querySelector(focus.selector);
+    if (!input) return;
+    input.focus({preventScroll:true});
+    if (focus.start !== null) input.setSelectionRange(focus.start, focus.end, focus.direction);
+  }
+
+  async function refreshFilteredView(render, revision, module) {
+    let focus = null;
+    let mobilePanelId = null;
+    let mobileScroll = 0;
+    const isCurrent = () => {
+      if (revision !== filterRevision || module !== state.current) return false;
+      focus = filterFocus();
+      const panel = content.querySelector(".mobile-filter-panel.is-open");
+      mobilePanelId = panel?.id;
+      mobileScroll = panel?.scrollTop || 0;
+      return true;
+    };
+    try {
+      if (!isCurrent()) return;
+      await render(isCurrent);
+      if (revision !== filterRevision || module !== state.current) return;
+      renderRoleModuleHero();
+      decorateModuleHeader();
+      enhanceRenderedContent();
+      saveViewSnapshot(module);
+      if (mobilePanelId) {
+        const panel = document.getElementById(mobilePanelId);
+        if (panel) {
+          openMobileFilters(panel, false);
+          panel.scrollTop = mobileScroll;
+        } else {
+          closeMobileFilters();
+        }
+      }
+      restoreFilterFocus(focus);
+    } catch (error) {
+      if (revision === filterRevision && module === state.current) throw error;
+    }
+  }
+
+  async function rerenderSmartList(key, revision = ++filterRevision) {
     const map = {
       solicitudes: renderSolicitudes, ordenes: renderOrdenes, sedes: renderMisSedes, clientes: renderClientes,
       personal: renderPersonal, equipos: renderEquipos, mantenimientos: renderMantenimientos, vacaciones: renderVacaciones,
       catalogo: renderCatalogoMaestro, cotizaciones: renderCotizaciones, documentos: renderDocumentos, "expediente-unico": renderDocumentos,
       notificaciones: renderNotificaciones, auditoria: renderAuditoria, garantia: renderGarantia, garantiaSolicitudes: renderGarantia,
     };
-    const fn = map[key]; if (!fn) return;
+    const render = map[key];
+    if (!render) return;
+    const module = state.current;
     try { await verifyLiveBackend(); }
-    catch (error) { showUnavailableModule(state.current, error); return; }
-    const active = keepSearchFocus ? document.activeElement : null;
-    const focusSelector = active?.matches?.(`[data-audit-filter]`) && key === "auditoria"
-      ? `[data-audit-filter="${active.dataset.auditFilter}"]`
-      : `[data-smart-q="${key}"]`;
-    const focusInput = keepSearchFocus ? document.querySelector(focusSelector) : null;
-    const caret = focusInput?.selectionStart ?? null;
-    const reopenMobileFilters = window.innerWidth <= 820 && document.body.classList.contains("mobile-filters-open");
-    closeMobileFilters();
-    await fn();
-    // Los filtros reconstruyen #appContent; restaurar la cabecera del módulo
-    // antes de guardar la vista para que no desaparezca al filtrar o paginar.
-    renderRoleModuleHero();
-    decorateModuleHeader();
-    enhanceRenderedContent();
-    if (state.current === normalizeViewCacheKey(key)) saveViewSnapshot(state.current);
-    if (reopenMobileFilters) openMobileFilters(content.querySelector(".mobile-filter-panel"));
-    if (keepSearchFocus) {
-      const next = document.querySelector(focusSelector);
-      if (next) { next.focus(); if (caret !== null && next.setSelectionRange) next.setSelectionRange(caret, caret); }
+    catch (error) {
+      if (revision === filterRevision && module === state.current) showUnavailableModule(module, error);
+      return;
     }
+    await refreshFilteredView(render, revision, module);
   }
 
   function closeTopPopovers(except = null) {
@@ -2612,8 +2754,9 @@
       dbBadgeText.textContent = health.system_migration ? "Sistema conectado" : "Configuración pendiente";
       dbBadge.classList.toggle("error", !health.system_migration);
       refreshNotificationBadge().catch(()=>{});
+      refreshModulePending();
       clearInterval(init.notificationTimer);
-      init.notificationTimer = setInterval(()=>{if(document.hidden)return;refreshNotificationBadge().catch(()=>{});refreshNotificationAttention();}, window.SEPRIGUA_LIGHT_MODE ? 30000 : 15000);
+      init.notificationTimer = setInterval(()=>{if(document.hidden)return;refreshNotificationBadge().catch(()=>{});refreshNotificationAttention();refreshModulePending();}, window.SEPRIGUA_LIGHT_MODE ? 30000 : 15000);
       const key = `seprigua_modulo_${state.roleName || state.role}`;
       const saved = sessionStorage.getItem(key);
       const valid = new Set((modules[state.role] || []).filter(([module])=>moduleAllowed(module)).map(([module]) => module));
@@ -2677,6 +2820,55 @@
     return sidebarNavigationGroups[state.role]?.[module] || "";
   }
 
+  const modulePending = Object.create(null);
+  let pendingRefreshTimer, pendingUpdatedAt = -Infinity, pendingRevision = 0;
+  function scheduleModulePending() {
+    ++pendingRevision;
+    pendingUpdatedAt = -Infinity;
+    clearTimeout(pendingRefreshTimer);
+    pendingRefreshTimer = setTimeout(refreshModulePending, 350);
+  }
+  async function refreshModulePending() {
+    if (!state.role || Date.now()-pendingUpdatedAt < 90000) return;
+    pendingUpdatedAt = Date.now();
+    const revision = ++pendingRevision;
+    const count = async (module, filters) => normalizeNumber((await api(`/api/${module}?tamano=1&${filters}`, {seCache:"reload"})).total);
+    const byState = (module, code) => count(module, "estado="+encodeURIComponent(code));
+    const coord = state.role === "COORDINADOR", tech = state.role === "TECNICO";
+    const tasks = [];
+    if (moduleAllowed("ordenes") && (coord || tech)) {
+      const states = coord ? ["PENDIENTE","POR_CONFIRMAR"] : ["PENDIENTE","PROGRAMADA","EN_PROCESO","POR_CONFIRMAR"];
+      tasks.push(["ordenes", Promise.all(states.map(code=>byState("ordenes", code))).then(results=>results.reduce((a,b)=>a+b,0))]);
+    }
+    if (moduleAllowed("cotizaciones") && !tech) {
+      const states = coord ? ["BORRADOR","OBSERVADA","CONFIRMADA"] : ["ENVIADA"];
+      tasks.push(["cotizaciones", count("cotizaciones","filtros="+encodeURIComponent(JSON.stringify({estado:states})))]);
+      if (coord) tasks.push(["ordenes_sin_cotizar", count("cotizaciones/ordenes-pendientes","")]);
+    }
+    if (coord && moduleAllowed("garantia")) {
+      tasks.push(["garantia", api("/api/garantias", {seCache:"reload"}).then(data=>warrantyPendingTotal(data.resumen))]);
+    }
+    const results = await Promise.allSettled(tasks.map(([,task])=>task));
+    if (revision !== pendingRevision) return;
+    results.forEach((result,index)=>{if(result.status==="fulfilled") modulePending[tasks[index][0]]=result.value;});
+    renderNav();
+  }
+  function warrantyPendingTotal(summary={}) {
+    return normalizeNumber(summary.pendientes_configurar)+normalizeNumber(summary.solicitudes_pendientes);
+  }
+  function navCount(key) {
+    if (key==="notificaciones") return state.unreadNotifications;
+    if (key==="cotizaciones_comercial"||key==="cotizaciones") return (modulePending.cotizaciones||0)+(modulePending.ordenes_sin_cotizar||0);
+    return modulePending[key]||0;
+  }
+  function navCountText(key, count) {
+    if (key==="notificaciones") return `${count} sin leer`;
+    if ((key==="cotizaciones_comercial"||key==="cotizaciones") && state.role==="COORDINADOR" && modulePending.ordenes_sin_cotizar) {
+      return `${count} pendientes · ${modulePending.ordenes_sin_cotizar} OT por cotizar`;
+    }
+    return `${count} ${count===1?"pendiente":"pendientes"}`;
+  }
+
   function renderNav() {
     const items = navigationEntries();
     const buttons = [...nav.querySelectorAll(":scope > .nav-button")];
@@ -2694,9 +2886,9 @@
         const group = groupByKey(key);
         const active = key === state.current || Boolean(group?.[1].members.some(([member]) => member === state.current));
         const displayName = key === "dashboard" ? "Centro de control" : name;
-        const count = key === "notificaciones" && state.unreadNotifications > 0
-          ? `<b class="nav-notification-count">${state.unreadNotifications > 99 ? "99+" : state.unreadNotifications}</b>`
-          : "";
+        const total = navCount(key);
+        const label = total ? `${displayName} · ${navCountText(key,total)}` : displayName;
+        const count = total ? `<b class="nav-notification-count" aria-hidden="true">${total>99?"99+":total}</b>` : "";
 
         const sidebarGroup = sidebarGroupForModule(key);
         const groupTitle = sidebarGroup && sidebarGroup !== lastGroup
@@ -2705,7 +2897,7 @@
 
         if (sidebarGroup) lastGroup = sidebarGroup;
 
-        return `${groupTitle}<button class="nav-button ${active ? "active" : ""}" type="button" data-module="${key}" title="${esc(displayName)}" aria-label="${esc(displayName)}"><i data-lucide="${icon}"></i><span>${esc(displayName)}</span>${count}</button>`;
+        return `${groupTitle}<button class="nav-button ${active ? "active" : ""}" type="button" data-module="${key}" title="${esc(label)}" aria-label="${esc(label)}"><i data-lucide="${icon}"></i><span>${esc(displayName)}</span>${count}</button>`;
       }).join("");
 
       // Lucide se ejecuta únicamente cuando la estructura se crea de verdad.
@@ -2723,20 +2915,23 @@
 
       button.classList.toggle("active", active);
 
-      if (button.title !== displayName) button.title = displayName;
-      if (button.getAttribute("aria-label") !== displayName) button.setAttribute("aria-label", displayName);
+      const total = navCount(key);
+      const accessibleName = total ? `${displayName} · ${navCountText(key,total)}` : displayName;
+      if (button.title !== accessibleName) button.title = accessibleName;
+      if (button.getAttribute("aria-label") !== accessibleName) button.setAttribute("aria-label", accessibleName);
 
       const label = button.querySelector("span");
       if (label && label.textContent !== displayName) label.textContent = displayName;
 
-      const shouldShowCount = key === "notificaciones" && state.unreadNotifications > 0;
+      const shouldShowCount = total > 0;
       let count = button.querySelector(".nav-notification-count");
 
       if (shouldShowCount) {
-        const value = state.unreadNotifications > 99 ? "99+" : String(state.unreadNotifications);
+        const value = total > 99 ? "99+" : String(total);
         if (!count) {
           count = document.createElement("b");
           count.className = "nav-notification-count";
+          count.setAttribute("aria-hidden","true");
           button.appendChild(count);
         }
         if (count.textContent !== value) count.textContent = value;
@@ -2777,13 +2972,13 @@
     document.body.classList.remove("mobile-filters-open");
   }
 
-  function openMobileFilters(panel) {
+  function openMobileFilters(panel, focusInput = true) {
     if(!panel) return;
     closeMobileFilters();
     panel.classList.add("is-open");
     ensureMobileFilterScrim().classList.add("is-open");
     document.body.classList.add("mobile-filters-open");
-    panel.querySelector("input,select,button:not(.mobile-filter-close)")?.focus?.({preventScroll:true});
+    if (focusInput) panel.querySelector("input,select,button:not(.mobile-filter-close)")?.focus?.({preventScroll:true});
   }
 
   function enhanceResponsiveTables(root=content) {
@@ -2826,7 +3021,7 @@
   function enhanceRenderedContent(root=content) {
     enhanceResponsiveTables(root);
     enhanceMobileFilters(root);
-    if (!root.querySelector('.se-date-view-note') && historicalDate() && ["dashboard","solicitudes","ordenes","cotizaciones","documentos","notificaciones","auditoria","agenda"].includes(state.current)) {
+    if (!root.querySelector('.se-date-view-note') && historicalDate() && ["dashboard","solicitudes","ordenes","cotizaciones","notificaciones","auditoria","agenda"].includes(state.current)) {
       const banner = document.createElement("div");
       banner.innerHTML = historicalDateNotice();
       const note = banner.firstElementChild;
@@ -2890,6 +3085,8 @@
       if (!window.confirm("Hay cambios de planificación sin guardar. ¿Deseas salir y descartarlos?")) return;
       state.agenda.draft.clear(); state.agenda.dirty = false;
     }
+    clearTimeout(smartSearchTimer);
+    filterRevision++;
     if (state.warrantyTimer) { clearInterval(state.warrantyTimer); state.warrantyTimer = null; }
 
     module = resolveGroupedModule(module);
@@ -3021,11 +3218,11 @@
       applyModuleVisualMode(module);
       if (globalLoaderToken && window.SEPRIGUALoader?.fail) {
         window.SEPRIGUALoader.fail(globalLoaderToken, e, { retry: () => navigate(module, { force: true }) });
-        content.innerHTML = `<div class="empty-state"><h3>No se pudo cargar</h3><p>${esc(e.message)}</p><button class="btn" type="button" data-action="reintentar-modulo" data-module="${esc(module)}"><i data-lucide="refresh-cw"></i> Reintentar</button></div>`;
+        content.innerHTML = sepriguaModuleError(module, e);
         window.lucide?.createIcons();
       } else {
         if (globalLoaderToken) window.SEPRIGUALoader?.cancel(globalLoaderToken);
-        content.innerHTML = `<div class="empty-state"><h3>No se pudo cargar</h3><p>${esc(e.message)}</p><button class="btn" type="button" data-action="reintentar-modulo" data-module="${esc(module)}"><i data-lucide="refresh-cw"></i> Reintentar</button></div>`;
+        content.innerHTML = sepriguaModuleError(module, e);
         window.lucide?.createIcons();
       }
       if(['solicitudes','ordenes'].includes(module)&&['COORDINADOR','CLIENTE'].includes(state.role)&&moduleAllowed('cancelaciones')&&!content.querySelector('[data-context-module="cancelaciones"]')){
@@ -3093,7 +3290,26 @@
     finally{if(button.isConnected)button.disabled=false;}
   }
 
+  document.addEventListener("change", event=>{
+    if(!event.target.matches("[data-dashboard-anchor]")||!event.target.value||!event.target.validity.valid)return;
+    state.dashboardAnchor=event.target.value;
+    state.dashboardRecentPage=1;
+    renderDashboard().catch(error=>showToast(error.message,"error"));
+  });
+  let dashboardRevision=0;
+  function dashboardPeriodMarkup(kind,anchor,period) {
+    const buttons=[["actual","General"],["dia","Día"],["semana","Semana"],["mes","Mes"]];
+    return `<div class="se-operation-period" aria-label="Período del centro de control">
+      <div class="actions" role="group" aria-label="Intervalo">${buttons.map(([key,label])=>`<button type="button" class="btn small" data-action="dashboard-period" data-value="${key}" aria-pressed="${kind===key}">${label}</button>`).join("")}</div>
+      ${period?`<label>Fecha de referencia<input type="date" data-dashboard-anchor min="2000-01-01" max="2100-12-31" value="${esc(anchor)}"></label><span>${esc(period.desde===period.hasta?period.desde:period.desde+" a "+period.hasta)}</span>`:""}
+    </div>`;
+  }
+
   async function renderDashboard() {
+    const revision=++dashboardRevision;
+    const kind=state.dashboardPeriod || (historicalDate()?"dia":"actual");
+    const anchor=state.dashboardAnchor || historicalDate() || gtDateKey(new Date());
+    const endpoint=kind==="actual"?"/api/dashboard":"/api/dashboard?"+new URLSearchParams({periodo:kind,fecha:anchor});
     await refreshCatalogs();
     // Los portales de Cliente y Técnico comparten la misma calidad visual del Centro de Control,
     // pero conservan únicamente la información y acciones permitidas para cada rol.
@@ -3101,11 +3317,13 @@
       const isClient = state.role === "CLIENTE";
       const firstName = dashboardFirstName();
       setHeading("Centro de control", isClient ? "Resumen de solicitudes, servicios y documentos de tu cuenta." : "Resumen de órdenes, agenda y actividad asignada.");
-      const d = await api("/api/dashboard");
+      const d = await api(endpoint);
+      if(revision!==dashboardRevision||state.current!=="dashboard")return;
+      const periodControls=dashboardPeriodMarkup(kind,anchor,d.periodo);
       const cards = d.cards || {};
       const labels = {
         solicitudes_pendientes:"Solicitudes pendientes", ordenes_activas:"Órdenes activas", emergencias:"Emergencias", tecnicos_disponibles:"Técnicos disponibles", equipos_disponibles:"Equipos disponibles", clientes_activos:"Clientes activos", cotizaciones_pendientes:"Cotizaciones pendientes", mantenimientos_pendientes:"Mantenimientos",
-        hoy:"Órdenes de hoy", finalizadas:"Finalizadas", incidencias:"Incidencias", solicitudes:"Solicitudes", servicios_activos:"Servicios activos", completados:"Completados", documentos:"Documentos"
+        hoy:d.periodo?"Programadas en el período":"Órdenes de hoy", finalizadas:"Finalizadas", incidencias:"Incidencias", solicitudes:"Solicitudes", servicios_activos:"Servicios activos", completados:"Completados", documentos:"Documentos"
       };
       const icons = {
         solicitudes_pendientes:"inbox", ordenes_activas:"clipboard-check", emergencias:"siren", equipos_disponibles:"wrench", cotizaciones_pendientes:"receipt-text",
@@ -3125,11 +3343,11 @@
 
       const quicks = (isClient
         ? [["solicitudes","circle-plus","Nueva solicitud","Solicita un servicio"],["ordenes","clipboard-list","Mis servicios","Revisa tus trabajos"],["garantia","shield-check","Garantía","Consulta cobertura"],["cotizaciones","file-text","Cotizaciones","Revisa propuestas"]]
-        : [["ordenes","clipboard-check","Mis órdenes","Trabajos asignados"],["agenda","route","Mi agenda","Ruta y programación"],["equipos","wrench","Equipo","Inventario técnico"],["vacaciones","calendar-days","Vacaciones","Consulta solicitudes"]]
+        : [["ordenes","clipboard-check","Mis órdenes","Trabajos asignados"],["agenda","route","Mi agenda","Ruta y programación"],["equipos","wrench","Equipo","Inventario técnico"],["vacaciones","calendar-days","Horarios y vacaciones","Consulta tu calendario"]]
       ).filter(([module]) => moduleAllowed(module));
       const quickMarkup = quicks.map(([module,icon,label,description]) => `<button class="role-quick-action" type="button" data-role-nav="${esc(module)}"><span><i data-lucide="${esc(icon)}"></i></span><div><strong>${esc(label)}</strong><small>${esc(description)}</small></div><i data-lucide="chevron-right"></i></button>`).join("");
 
-      const recent = historicalDate() ? filterSelectedDate("ordenes",(await loadAllPaged("ordenes","/api/ordenes")).items).slice(0,6) : (d.recent || []).slice(0,6);
+      const recent = (d.recent || []).slice(0,6);
       const recentMarkup = recent.length ? recent.map(x => `<article class="role-activity-item">
         <span class="role-activity-icon"><i data-lucide="${x.numero ? "clipboard-list" : "activity"}"></i></span>
         <div class="role-activity-copy"><strong>${esc(x.numero || x.tipo || `#${x.id || "—"}`)}</strong><span>${esc(x.cliente || x.descripcion || (isClient ? "Servicio SEPRIGUA" : "Actividad operativa"))}</span><small>${esc(x.sede || x.clasificacion || "Sin sede")} · ${fmt(x.programada || x.fecha)}</small></div>
@@ -3159,6 +3377,7 @@
         </header>`;
       content.innerHTML = `<div class="role-dashboard role-dashboard-${isClient ? "client" : "tech"}">
         ${dashboardHero}
+        ${periodControls}
         <section class="role-kpi-grid">${kpis || `<div class="role-empty-state"><span>Sin indicadores disponibles.</span></div>`}</section>
         <div class="role-dashboard-layout">
           <section class="panel role-activity-panel"><div class="panel-header"><div><span class="role-section-kicker">MOVIMIENTO RECIENTE</span><h2>Actividad reciente</h2></div></div><div class="role-activity-list">${recentMarkup}</div></section>
@@ -3173,29 +3392,15 @@
     setHeading("Centro de control", "Resumen operativo del centro de control");
     document.dispatchEvent(new CustomEvent("seprigua:center-sync-state", { detail: { state: "syncing" } }));
 
-    const d = await api("/api/dashboard");
+    const d = await api(endpoint);
+      if(revision!==dashboardRevision||state.current!=="dashboard")return;
+      const periodControls=dashboardPeriodMarkup(kind,anchor,d.periodo);
     const cards = d.cards || {};
-    // Vista por día: estos cuatro indicadores pasan a representar registros
-    // del día seleccionado. No se presentan como estados históricos reconstruidos.
-    let dailyRecords = null;
-    if (historicalDate()) {
-      try {
-        const [requests,orders,quotes] = await Promise.all([
-          loadAllPaged("solicitudes","/api/solicitudes"),
-          loadAllPaged("ordenes","/api/ordenes"),
-          loadAllPaged("cotizaciones","/api/cotizaciones")
-        ]);
-        dailyRecords = {
-          requests:filterSelectedDate("solicitudes",requests.items || []),
-          orders:filterSelectedDate("ordenes",orders.items || []),
-          quotes:filterSelectedDate("cotizaciones",quotes.items || [])
-        };
-      } catch (_) { dailyRecords = null; }
-    }
-    const emergencyCount = dailyRecords ? dailyRecords.requests.filter(requestIsEmergency).length : normalizeNumber(cards.emergencias);
-    const pendingRequests = dailyRecords ? dailyRecords.requests.length : normalizeNumber(cards.solicitudes_pendientes);
-    const activeOrders = dailyRecords ? dailyRecords.orders.length : normalizeNumber(cards.ordenes_activas);
-    const pendingQuotes = dailyRecords ? dailyRecords.quotes.length : normalizeNumber(cards.cotizaciones_pendientes);
+    const emergencyCount=normalizeNumber(cards.emergencias);
+    const pendingRequests=normalizeNumber(cards.solicitudes_pendientes);
+    const activeOrders=normalizeNumber(cards.ordenes_activas);
+    const pendingQuotes=normalizeNumber(cards.cotizaciones_pendientes);
+    const unquotedOrders=normalizeNumber(cards.ordenes_sin_cotizar);
     const availableTechs = normalizeNumber(cards.tecnicos_disponibles);
     const staffCapacity = dashboardStaffCapacity();
     const availableEquipment = normalizeNumber(cards.equipos_disponibles);
@@ -3226,7 +3431,7 @@
       cards.mantenimientos_tendencia
     );
 
-    const recent = historicalDate() ? filterSelectedDate("ordenes",(await loadAllPaged("ordenes","/api/ordenes")).items) : (d.recent || []);
+    const recent = d.recent || [];
     const recentPageSize = 4;
     const recentPages = Math.max(1, Math.ceil(recent.length / recentPageSize));
     state.dashboardRecentPage = Math.min(Math.max(1, Number(state.dashboardRecentPage || 1)), recentPages);
@@ -3254,16 +3459,17 @@
     });
 
     const chartItems = Array.isArray(d.chart) ? d.chart : [];
+    const chartLabel=x=>x.dia?x.dia.slice(8,10)+"/"+x.dia.slice(5,7):dashboardMonthLabel(x.mes);
     const chartMax = Math.max(1, ...chartItems.map(x => normalizeNumber(x.ordenes)));
     const chartTotal = chartItems.reduce((sum, x) => sum + normalizeNumber(x.ordenes), 0);
     const chartMarkup = chartItems.length
-      ? `<div class="cc-chart-body"><div class="cc-chart-summary"><strong>${chartTotal}</strong><span>${chartTotal === 1 ? "orden registrada" : "órdenes registradas"} en el período</span></div>
-          <div class="cc-column-chart" role="img" aria-label="${chartTotal} órdenes registradas en los últimos seis meses">
+      ? `<div class="cc-chart-body ${d.periodo?"se-period-graph":""}"><div class="cc-chart-summary"><strong>${chartTotal}</strong><span>${chartTotal === 1 ? "orden registrada" : "órdenes registradas"} en el período</span></div>
+          <div class="cc-column-chart" role="img" aria-label="${chartTotal} órdenes registradas en el período">
             ${chartItems.map(x => {
               const value = normalizeNumber(x.ordenes);
               const percentage = value <= 0 ? 0 : Math.max(4, Math.round(value / chartMax * 100));
               return `<div class="cc-chart-column ${value > 0 && value === chartMax ? "cc-chart-column-leading" : ""} ${value === 0 ? "cc-chart-column-zero" : ""}">
-                <span class="cc-chart-value">${value}</span><div class="cc-chart-track"><span class="cc-chart-bar" style="height:${percentage}%" title="${esc(dashboardMonthLabel(x.mes))}: ${value} ${value === 1 ? "orden" : "órdenes"}"></span></div><span class="cc-chart-label">${esc(dashboardMonthLabel(x.mes))}</span>
+                <span class="cc-chart-value">${value}</span><div class="cc-chart-track"><span class="cc-chart-bar" style="height:${percentage}%" title="${esc(chartLabel(x))}: ${value} ${value === 1 ? "orden" : "órdenes"}"></span></div><span class="cc-chart-label">${esc(chartLabel(x))}</span>
               </div>`;
             }).join("")}
           </div>
@@ -3292,6 +3498,7 @@
         </header>
 
 
+        ${periodControls}
         <section class="cc-kpi-grid" aria-label="Indicadores operativos principales">
           <article class="cc-kpi cc-kpi-emergency ${emergencyCount > 0 ? "cc-kpi-alert" : "cc-kpi-idle"}">
             <button class="cc-kpi-more" type="button" data-action="dashboard-ver-emergencias" aria-label="Ver más emergencias">
@@ -3299,9 +3506,9 @@
             </button>
             <div class="cc-kpi-icon"><i data-lucide="triangle-alert"></i></div>
             <div class="cc-kpi-copy">
-              <span>${dailyRecords ? "Emergencias registradas" : "Emergencias"}</span>
+              <span>Emergencias</span>
               <strong>${emergencyCount}</strong>
-              <small>${dailyRecords ? "En la fecha seleccionada" : "Requieren atención"}</small>
+              <small>${d.periodo ? "Registros del período" : "Requieren atención"}</small>
             </div>
           </article>
 
@@ -3311,9 +3518,9 @@
             </button>
             <div class="cc-kpi-icon"><i data-lucide="inbox"></i></div>
             <div class="cc-kpi-copy">
-              <span>${dailyRecords ? "Solicitudes registradas" : "Solicitudes pendientes"}</span>
+              <span>Solicitudes pendientes</span>
               <strong>${pendingRequests}</strong>
-              <small>${dailyRecords ? "En la fecha seleccionada" : "Por gestionar"}</small>
+              <small>${d.periodo ? "Registros del período" : "Por gestionar"}</small>
             </div>
           </article>
 
@@ -3323,21 +3530,21 @@
             </button>
             <div class="cc-kpi-icon"><i data-lucide="clipboard-check"></i></div>
             <div class="cc-kpi-copy">
-              <span>${dailyRecords ? "Órdenes registradas" : "Órdenes activas"}</span>
+              <span>Órdenes activas</span>
               <strong>${activeOrders}</strong>
-              <small>${dailyRecords ? "En la fecha seleccionada" : "Operación en curso"}</small>
+              <small>${d.periodo ? "Registros del período" : "Operación en curso"}</small>
             </div>
           </article>
 
           <article class="cc-kpi cc-kpi-quote">
-            <button class="cc-kpi-more" type="button" data-action="dashboard-ver-cotizaciones" aria-label="Ver más cotizaciones pendientes">
+            <button class="cc-kpi-more" type="button" data-action="dashboard-ver-cotizaciones" aria-label="Ver órdenes por cotizar y cotizaciones">
               <span>Ver más</span><i data-lucide="arrow-right"></i>
             </button>
             <div class="cc-kpi-icon"><i data-lucide="receipt-text"></i></div>
             <div class="cc-kpi-copy">
-              <span>${dailyRecords ? "Cotizaciones registradas" : "Cotizaciones pendientes"}</span>
-              <strong>${pendingQuotes}</strong>
-              <small>${dailyRecords ? "En la fecha seleccionada" : "Pendientes de gestión"}</small>
+              <span>Órdenes por cotizar</span>
+              <strong>${unquotedOrders}</strong>
+              <small>${pendingQuotes} ${pendingQuotes===1?"cotización por gestionar":"cotizaciones por gestionar"}</small>
             </div>
           </article>
         </section>
@@ -3476,7 +3683,7 @@
               <article class="cc-bento-panel cc-chart-panel">
                 <div class="cc-panel-heading">
                   <div>
-                    <h2>Órdenes · Últimos 6 meses</h2>
+                    <h2>${d.periodo?"Órdenes del período":"Órdenes · Últimos 6 meses"}</h2>
                   </div>
                   <i data-lucide="chart-column"></i>
                 </div>
@@ -3734,7 +3941,7 @@
     const summary=data.resumen||{};
     const selected=agendaOrder(state.agenda.selectedOrderId);
     content.innerHTML=`<div class="agenda-shell agenda-role-${String(state.role||"").toLowerCase()}">
-      <section class="agenda-command"><div class="agenda-command-copy"><span class="agenda-command-icon"><i data-lucide="${state.role==="TECNICO"?"route":"calendar-range"}"></i></span><div><h2>${state.role==="TECNICO"?"Mi agenda de trabajo":"Agenda operativa"}</h2><p>${state.role==="TECNICO"?"Tu trabajo actual, la siguiente orden y lo que queda en cola, todo en una sola vista.":"Planifica la secuencia de atención. Los bloques se mueven primero en pantalla y la base de datos cambia únicamente al guardar."}</p></div></div><div class="agenda-command-actions">
+      <section class="agenda-command"><div class="agenda-command-copy"><div><h2>${state.role==="TECNICO"?"Mi agenda de trabajo":"Agenda operativa"}</h2><p>${state.role==="TECNICO"?"Tu trabajo actual, la siguiente orden y lo que queda en cola, todo en una sola vista.":"Planifica la secuencia de atención. Los bloques se mueven primero en pantalla y la base de datos cambia únicamente al guardar."}</p></div></div><div class="agenda-command-actions">
         <button class="btn" id="agendaTodayButton" type="button"><i data-lucide="locate-fixed"></i> Hoy</button>
         ${state.role==="COORDINADOR"?`<button class="btn" id="agendaResetButton" type="button" ${state.agenda.dirty?"":"disabled"}><i data-lucide="rotate-ccw"></i> Restablecer</button><button class="btn primary agenda-save" id="agendaSaveButton" type="button" ${state.agenda.dirty?"":"disabled"}><i data-lucide="save"></i> Guardar planificación</button>`:""}
       </div></section>
@@ -3742,11 +3949,12 @@
         ${state.role==="TECNICO"?(()=>{const tech=(data.tecnicos||[])[0]||{};return `<article class="agenda-summary-card"><small>Órdenes del día</small><strong>${Number(summary.ordenes||0)}</strong><span>${esc(agendaDateLabel(data.fecha))}</span></article><article class="agenda-summary-card live"><small>Ahora</small><strong>${Number(summary.en_servicio||0)}</strong><span>${summary.en_servicio?"Servicio en ejecución":"Sin servicio iniciado"}</span></article><article class="agenda-summary-card"><small>En cola</small><strong>${Number(tech.cola_cantidad||0)}</strong><span>Trabajos pendientes de atención</span></article><article class="agenda-summary-card alert"><small>Emergencias</small><strong>${Number(summary.emergencias||0)}</strong><span>Prioridad de tu ruta</span></article><article class="agenda-summary-card pending"><small>Sin hora</small><strong>${Number(summary.sin_hora||0)}</strong><span>Pendientes de programación</span></article>`})():`<article class="agenda-summary-card"><small>Personal técnico</small><strong>${Number(summary.tecnicos||0)}</strong><span>Supervisor y operarios habilitados</span></article><article class="agenda-summary-card"><small>Órdenes visibles</small><strong>${Number(summary.ordenes||0)}</strong><span>${esc(agendaDateLabel(data.fecha))}</span></article><article class="agenda-summary-card live"><small>En servicio</small><strong>${Number(summary.en_servicio||0)}</strong><span>Trabajos actualmente iniciados</span></article><article class="agenda-summary-card alert"><small>Emergencias</small><strong>${Number(summary.emergencias||0)}</strong><span>Prioridad operativa inmediata</span></article><article class="agenda-summary-card pending"><small>Sin hora</small><strong>${Number(summary.sin_hora||0)}</strong><span>Asignadas pendientes de programación</span></article>`}
       </section>
       <section class="agenda-tools">
-        <div class="agenda-date-nav"><button class="btn" id="agendaPrevDay" type="button" title="Día anterior"><i data-lucide="chevron-left"></i></button><button class="btn" id="agendaNextDay" type="button" title="Día siguiente"><i data-lucide="chevron-right"></i></button></div>
         <div class="agenda-tool-field"><label>Fecha</label><input id="agendaDateInput" type="date" value="${esc(data.fecha)}"></div>
         ${state.role==="COORDINADOR"?`<div class="agenda-tool-field"><label>Técnico / supervisor</label><select id="agendaTechnicianFilter"><option value="TODOS">Todos</option>${techOptions}</select></div><button class="btn agenda-staff-toggle ${state.agenda.showAllStaff?"active":""}" id="agendaStaffToggle" type="button"><i data-lucide="${state.agenda.showAllStaff?"users":"briefcase-business"}"></i>${state.agenda.showAllStaff?"Solo con trabajo":"Mostrar todo el personal"}</button>`:`<div class="agenda-tool-field"><label>Vista</label><select disabled><option>Mi ruta asignada</option></select></div>`}
-        <label class="agenda-switch"><input id="agendaEmergencyOnly" type="checkbox" ${state.agenda.onlyEmergencies?"checked":""}><span>Solo emergencias</span></label>
-        <div class="agenda-live-legend"><span class="agenda-legend-item"><i class="agenda-legend-dot live"></i>En servicio</span><span class="agenda-legend-item"><i class="agenda-legend-dot"></i>Programado</span><span class="agenda-legend-item"><i class="agenda-legend-dot emergency"></i>Emergencia</span><span class="agenda-legend-item"><i class="agenda-legend-dot queue"></i>En cola</span></div>
+        <div class="agenda-tools-meta">
+          <div class="agenda-live-legend"><span class="agenda-legend-item"><i class="agenda-legend-dot live"></i>En servicio</span><span class="agenda-legend-item"><i class="agenda-legend-dot"></i>Programado</span><span class="agenda-legend-item"><i class="agenda-legend-dot emergency"></i>Emergencia</span><span class="agenda-legend-item"><i class="agenda-legend-dot queue"></i>En cola</span></div>
+          <label class="agenda-switch"><input id="agendaEmergencyOnly" type="checkbox" ${state.agenda.onlyEmergencies?"checked":""}><span>Solo emergencias</span></label>
+        </div>
       </section>
       <div class="agenda-dirty-bar" id="agendaDirtyBar" ${state.agenda.dirty?"":"hidden"}><i data-lucide="circle-alert"></i><span><strong><span id="agendaDirtyCount">${state.agenda.draft.size}</span> cambio(s) sin guardar.</strong> Podés seguir moviendo bloques; nada se escribe en la base hasta pulsar Guardar planificación.</span></div>
       ${agendaMobileRoute(data)}
@@ -3784,8 +3992,6 @@
   function agendaBindControls() {
     const dateInput=content.querySelector("#agendaDateInput");
     const changeDay=async next=>{if(!agendaConfirmDiscard())return;state.agenda.fecha=next;state.agenda.draft.clear();state.agenda.dirty=false;state.agenda.selectedOrderId=null;await renderAgendaOperativa();};
-    content.querySelector("#agendaPrevDay")?.addEventListener("click",()=>changeDay(agendaDateShift(state.agenda.fecha,-1)));
-    content.querySelector("#agendaNextDay")?.addEventListener("click",()=>changeDay(agendaDateShift(state.agenda.fecha,1)));
     content.querySelector("#agendaTodayButton")?.addEventListener("click",()=>changeDay(state.agenda.data?.hoy||new Date().toISOString().slice(0,10)));
     dateInput?.addEventListener("change",()=>changeDay(dateInput.value));
     content.querySelector("#agendaTechnicianFilter")?.addEventListener("change",e=>{state.agenda.technicianFilter=e.currentTarget.value||"TODOS";agendaPaint();});
@@ -3854,8 +4060,9 @@
     agendaPaint();
   }
 
-  async function renderSolicitudes() {
+  async function renderSolicitudes(isCurrent = () => true) {
     const all=filterSelectedDate("solicitudes",(await loadAllPaged("solicitudes","/api/solicitudes")).items);
+    if (!isCurrent()) return;
     if (state.role !== "COORDINADOR") {
       setHeading("Solicitudes de servicio", state.role === "CLIENTE" ? "Crea una solicitud, adjunta imágenes y consulta su estado." : "Recepción de solicitudes programadas y emergencias.");
       const states=listFacet(state.current,"estado",smartUnique(all,x=>String(x.Estado||x.estado||"").toUpperCase()));
@@ -3874,7 +4081,7 @@
         <td><div class="se-cell-stack"><strong>${esc(x.tipo || "—")}</strong>${requestClassBadge(x.Clasificacion||x.clasificacion)}</div></td>
         <td>${x.urgencia?requestUrgencyBadge(x.urgencia):"—"}</td>
         <td>${requestStatusView(x)}</td>
-        <td class="se-table-actions">${button("Ver seguimiento","ver-solicitud",x.id,"primary")+(state.role==="CLIENTE"&&!x.orden_id&&String(x.estado||x.Estado)!=="CANCELADA"?button("Solicitar cancelación","solicitar-cancelacion","SolicitudServicio:"+x.id):"")}</td>
+        <td class="se-table-actions">${button("Ver seguimiento","ver-solicitud",x.id,"primary")+(state.role==="CLIENTE"&&!x.solo_lectura&&!x.orden_id&&String(x.estado||x.Estado)!=="CANCELADA"?button("Solicitar cancelación","solicitar-cancelacion","SolicitudServicio:"+x.id):"")}</td>
       </tr>`);
       content.innerHTML = `<div class="toolbar"><div class="toolbar-left"><h2>Solicitudes</h2><p class="muted">Búsqueda y filtros disponibles para ${state.role==="CLIENTE"?"tus solicitudes":"todas las solicitudes visibles"}.</p></div><div class="toolbar-right">${button("Nueva solicitud","nueva-solicitud","","primary")}</div></div><section class="panel smart-list-panel"><div class="panel-body">${smartControls("solicitudes",{placeholder:"ID, cliente, sede, servicio o descripción",filters:[{name:"estado",label:"Estado",options:states},{name:"clase",label:"Clase",options:classes},{name:"urgencia",label:"Urgencia",options:urgencies}],sorts:[["creada","Fecha"],["cliente","Cliente"],["tipo","Servicio"],["estado","Estado"]]})}${smartResultsMeta(result,"solicitudes")}</div>${table(["Solicitud","Cliente / sede","Descripción","Servicio","Urgencia","Estado y seguimiento","Acción"], rows,"No hay solicitudes que coincidan con los filtros.")}${smartPager("solicitudes",result)}</section>`;
       window.lucide?.createIcons();
@@ -3927,7 +4134,7 @@
 
     const quicks=requestQuickDefinitions(all);
     const activeQuickSet = new Set(normalizeQuickFilters(prefs.filtros.rapidos || prefs.filtros.rapido || "TODAS"));
-    const quickMarkup=quicks.length>1?`<div class="request-quick-row"><span class="request-quick-label">Filtros rápidos:</span><div class="request-quick-filters">${quicks.map(item=>`<button class="request-quick-pill ${activeQuickSet.has(item.key)?"active":""} ${item.tone}" type="button" data-action="request-quick-filter" data-list-key="solicitudes" data-value="${esc(item.key)}"><span>${esc(item.label)}</span>${item.count?`<strong>${item.count}</strong>`:""}</button>`).join("")}</div><span class="request-quick-hint">Puedes elegir uno o varios.</span></div>`:"";
+    const quickMarkup=quicks.length>1?`<div class="request-quick-row"><span class="request-quick-label">Filtros rápidos:</span><div class="request-quick-filters">${quicks.map(item=>`<button class="request-quick-pill ${activeQuickSet.has(item.key)?"active":""} ${item.tone}" type="button" data-action="request-quick-filter" data-list-key="solicitudes" data-value="${esc(item.key)}"><span>${esc(item.label)}</span><strong>${item.count}</strong></button>`).join("")}</div><span class="request-quick-hint">Puedes elegir uno o varios.</span></div>`:"";
     const activeFiltersMarkup=requestActiveFilterChips(prefs);
 
     const rows=result.items.map(x => `
@@ -3941,6 +4148,7 @@
         <td class="se-table-actions"><button class="request-follow-button" type="button" data-action="ver-solicitud" data-id="${esc(x.id)}" aria-label="Ver seguimiento de solicitud #${esc(x.id)}"><i data-lucide="eye"></i><span>Ver</span></button></td>
       </tr>`);
 
+    if (!isCurrent()) return;
     const filtersPanel = `
       <section class="solicitudes-filter-panel">
         <div class="solicitudes-filter-grid">
@@ -3972,7 +4180,7 @@
 
     const empty = "No hay solicitudes que coincidan con los filtros seleccionados.";
     const tableHtml = table(["Solicitud","Cliente / sede","Descripción","Servicio","Urgencia","Seguimiento","Acción"], rows, empty);
-    const warrantyPanel=warrantyRequests.length?`<section class="request-warranty-panel"><div class="request-warranty-head"><div><span class="solicitudes-eyebrow">Garantías</span><h3>Solicitudes de garantía pendientes</h3><p>Estas revisiones también requieren coordinación operativa y asignación de personal.</p></div><button class="btn" type="button" data-action="dashboard-ver-garantias">Ver módulo de garantías <i data-lucide="arrow-right"></i></button></div><div class="request-warranty-list">${warrantyRequests.slice(0,5).map(x=>`<article><span class="request-warranty-icon"><i data-lucide="shield-alert"></i></span><div><strong>${esc(x.numero_orden)} · ${esc(x.cliente)}</strong><span>${esc(x.sede||'Sede')} · ${esc(x.tipo_servicio||'Servicio')}</span><small>${esc(x.descripcion||'')}</small></div>${badge(x.estado)}<button class="btn small primary" type="button" data-action="estado-solicitud-garantia" data-id="${esc(x.solicitud_garantia_id)}">Gestionar</button></article>`).join('')}</div>${warrantyRequests.length>5?`<div class="request-warranty-more">+ ${warrantyRequests.length-5} solicitud(es) adicionales en el módulo de Garantías.</div>`:''}</section>`:'';
+    const warrantyPanel=warrantyRequests.length?`<section class="request-warranty-panel request-warranty-strip" aria-label="Garantías pendientes"><div class="request-warranty-head"><span class="request-warranty-message"><i data-lucide="shield-alert" aria-hidden="true"></i><span><strong>Garantías pendientes:</strong> ${warrantyRequests.length} ${warrantyRequests.length===1?'solicitud de garantía por gestionar':'solicitudes de garantía por gestionar'}.</span></span><button class="btn" type="button" data-action="dashboard-ver-garantias">Ver garantías <i data-lucide="arrow-right" aria-hidden="true"></i></button></div><details class="request-warranty-details"><summary>Ver solicitudes pendientes</summary><div class="request-warranty-list">${warrantyRequests.slice(0,5).map(x=>`<article><span class="request-warranty-icon"><i data-lucide="shield-alert"></i></span><div><strong>${esc(x.numero_orden)} · ${esc(x.cliente)}</strong><span>${esc(x.sede||'Sede')} · ${esc(x.tipo_servicio||'Servicio')}</span><small>${esc(x.descripcion||'')}</small></div>${badge(x.estado)}<button class="btn small primary" type="button" data-action="estado-solicitud-garantia" data-id="${esc(x.solicitud_garantia_id)}">Gestionar</button></article>`).join('')}</div>${warrantyRequests.length>5?`<div class="request-warranty-more">+ ${warrantyRequests.length-5} solicitud(es) adicionales en el módulo de Garantías.</div>`:''}</details></section>`:'';
 
     content.innerHTML = `
       <section class="solicitudes-workspace">
@@ -4014,7 +4222,7 @@
       {label:"Orden de trabajo creada",done:!!x.orden_id,detail:x.orden_id?`${x.orden_numero||`OT #${x.orden_id}`} · ${x.orden_estado||"En seguimiento"}`:"Pendiente de coordinación"},
       {label:"Cotización vinculada",done:!!x.cotizacion_id,detail:x.cotizacion_id?`${x.cotizacion_numero||`Cotización #${x.cotizacion_id}`} · ${x.cotizacion_estado||""}`:"Se genera cuando corresponda, antes o después del servicio"}
     ];
-    return `<div class="timeline">${steps.map(s=>`<div class="timeline-item"><strong>${s.done?"✓":"○"} ${esc(s.label)}</strong><br><span class="muted">${esc(s.detail||"")}</span></div>`).join("")}</div>`;
+    return `<ol class="se-detail-timeline">${steps.map(s=>`<li class="${s.done?'is-complete':'is-pending'}"><strong>${esc(s.label)}</strong><span>${esc(s.detail||"")}</span></li>`).join("")}</ol>`;
   }
 
   function evidenceCard(e) {
@@ -4024,39 +4232,67 @@
 
   async function openRequest(id) {
     const d = await api(`/api/solicitudes/${id}`), x=d.item;
-    const evidence=(d.evidencias||[]).map(evidenceCard).join("")||`<div class="muted">Sin imágenes o archivos adjuntos.</div>`;
+    const detail=window.SepriguaDetail;
+    const evidence=(d.evidencias||[]).map(evidenceCard).join("")||detail.empty('Sin evidencias adjuntas','Todavía no se han agregado imágenes o archivos.','paperclip');
     const canCreate = state.role==="COORDINADOR" && !x.orden_id && !["CANCELADA","CONVERTIDA"].includes(String(x.Estado||x.estado).toUpperCase());
-    openModal(`Solicitud #${x.id}`, `<div class="info-grid">
-      <div class="info-item"><span>Cliente</span><strong>${esc(x.cliente)}</strong></div>
-      <div class="info-item"><span>Sede</span><strong>${esc(x.sede)}</strong></div>
-      <div class="info-item"><span>Servicio</span><strong>${esc(x.tipo)}</strong></div>
-      <div class="info-item"><span>Clasificación</span><strong>${esc(x.Clasificacion||x.clasificacion)}</strong></div>
-      <div class="info-item"><span>Urgencia</span><strong>${esc(x.urgencia||"No aplica")}</strong></div>
-      <div class="info-item"><span>Estado</span><strong>${esc(x.orden_id?"CONVERTIDA A OT":(x.Estado||x.estado))}</strong></div>
-      <div class="info-item"><span>Fecha preferida</span><strong>${fmt(x.fecha_preferida)}</strong></div>
-      <div class="info-item"><span>Ticket del cliente</span><strong>${esc(x.ticket||"No indicado")}</strong></div>
-      <div class="info-item"><span>Ubicación</span><strong>${esc([x.Direccion||x.direccion,x.Municipio||x.municipio].filter(Boolean).join(", ")||x.sede)}</strong></div>
-    </div>
-    <h3 class="section-title">Descripción</h3><p>${esc(x.descripcion)}</p>
-    ${x.orden_id?`<div class="panel"><div class="panel-body"><strong>La solicitud ya continúa como ${esc(x.orden_numero||`OT #${x.orden_id}`)}.</strong><br><span class="muted">La solicitud se conserva como origen; el avance operativo continúa en la orden de trabajo.</span></div></div>`:""}
-    <div class="actions">${button("Agregar imagen / archivo","evidencia-solicitud",id)}${canCreate?button("Crear OT","crear-ot-solicitud",id,"primary"):""}${x.orden_id?button("Abrir OT","ver-orden",x.orden_id,"primary"):""}${x.cotizacion_id?button("Ver cotizaciones","ir-cotizaciones",x.cotizacion_id):""}</div>
-    <h3 class="section-title">Seguimiento</h3>${requestFollowupView(x)}
-    <h3 class="section-title">Evidencias iniciales</h3><div class="evidence-grid">${evidence}</div>`);
+    const classification=displayDetailValue(x.Clasificacion||x.clasificacion);
+    openModal(`Solicitud #${x.id}`, `${detail.section('Información de la solicitud',[
+      ['Cliente',esc(x.cliente)],
+      [!x.solicitante_nombre && x.registrada_por_nombre ? 'Registrada por' : 'Solicitante',esc(x.solicitante_nombre || x.registrada_por_nombre || 'No registrado')],['Sede',esc(x.sede)],['Clasificación',esc(classification)],
+      ['Estado',badge(x.orden_id?'Convertida a OT':displayDetailValue(x.Estado||x.estado))],
+      ['Urgencia',x.urgencia?badge(x.urgencia):'No aplica'],['Fecha preferida',fmt(x.fecha_preferida)],
+      ['Ticket del cliente',esc(x.ticket||'No indicado')],
+      ['Ubicación',esc([x.Direccion||x.direccion,x.Municipio||x.municipio].filter(Boolean).join(', ')||x.sede)]
+    ])}
+    ${detail.prose('Descripción',esc(x.descripcion))}
+    ${x.orden_id?detail.notice(`La solicitud continúa como ${esc(x.orden_numero||`OT #${x.orden_id}`)}`,'La solicitud se conserva como origen; el avance operativo continúa en la orden de trabajo.','workflow'):''}
+    ${detail.block('Seguimiento',requestFollowupView(x),'route','se-detail-followup')}
+    ${detail.block('Evidencias iniciales',`<div class="se-detail-evidence-list">${evidence}</div>`,'paperclip','se-detail-evidence')}
+    ${detail.actions(`${x.solo_lectura?"":button("Agregar imagen / archivo","evidencia-solicitud",id)}${x.cotizacion_id?button("Ver cotizaciones","ir-cotizaciones",x.cotizacion_id):""}${canCreate?button("Crear OT","crear-ot-solicitud",id,"primary"):""}${x.orden_id?button("Abrir OT","ver-orden",x.orden_id,"primary"):""}`)}`, {detailHeader:{kicker:`Solicitud #${x.id}`,title:x.tipo||'Solicitud de servicio',meta:`Creada el ${fmt(x.creada)}${x.orden_id?' · Convertida a OT':''}`,status:classification,icon:'wrench'}});
     document.dispatchEvent(new CustomEvent("seprigua:tour-record",{detail:{type:"solicitud",id:Number(id)}}));
   }
 
-  async function uploadRequestFiles(solicitudId, files, description="") {
-    const summary={guardados:0,duplicados:0,omitidos:0},seen=new Set();
-    for (const file of [...files]) {
-      const fingerprint=[file.name,file.size,file.lastModified,file.type].join("|");
-      if(seen.has(fingerprint)){summary.omitidos++;continue;}seen.add(fingerprint);
-      const fd=new FormData();
-      fd.append("archivo",file);
-      if(description) fd.append("descripcion",description);
-      const result=await api(`/api/solicitudes/${solicitudId}/evidencias`,{method:"POST",body:fd});
-      if(result?.duplicada)summary.duplicados++;else summary.guardados++;
+  async function uploadEvidenceFiles(url, files, fields) {
+    const ids = new Map(), failures = [];
+    for (const file of Array.from(files)) {
+      const form = new FormData();
+      form.append("archivo", file);
+      for (const [key, value] of Object.entries(fields)) if (value) form.append(key, value);
+      try {
+        const result = await api(url, {method:"POST", body:form});
+        const id = Number(result.id);
+        if (!Number.isSafeInteger(id) || id <= 0) throw new Error("El servidor no confirmó el archivo.");
+        // Si dos envíos devuelven el mismo ID, cuenta el archivo una sola vez.
+        ids.set(id, ids.get(id) === true || result.duplicada !== true);
+      } catch (err) {
+        failures.push(`${file.name}: ${err.message}`);
+      }
     }
-    return summary;
+    const guardados = [...ids.values()].filter(Boolean).length;
+    return {guardados, existentes:ids.size-guardados, ids:[...ids.keys()], failures};
+  }
+
+  function evidenceUploadMessage(result) {
+    const parts = [];
+    if (result.ids.length) {
+      parts.push(`${result.ids.length} ${result.ids.length === 1 ? "archivo disponible" : "archivos disponibles"}.`);
+      if (result.existentes) {
+        if (result.guardados) parts.push(`${result.guardados} ${result.guardados === 1 ? "nuevo" : "nuevos"}.`);
+        parts.push(`${result.existentes} ${result.existentes === 1 ? "ya estaba guardado" : "ya estaban guardados"}.`);
+      }
+    }
+    if (result.failures.length) parts.push(`${result.failures.length} sin subir. ${result.failures[0]}`);
+    return parts.join(" ");
+  }
+
+  function ensureEvidenceBatch(result) {
+    const message = evidenceUploadMessage(result);
+    if (result.failures.length) throw new Error(message);
+    return message;
+  }
+
+  function uploadRequestFiles(solicitudId, files, description="") {
+    return uploadEvidenceFiles(`/api/solicitudes/${solicitudId}/evidencias`, files, {descripcion:description});
   }
 
   async function requestForm() {
@@ -4069,9 +4305,9 @@
       ${isCoord ? `<div class="field"><label>Cliente</label><select name="cliente_id" id="requestClient" required><option value="">Seleccione...</option>${optionList(clients)}</select></div>` : ""}
       <div class="field"><label>Sede / ubicación</label><select name="ubicacion_id" id="requestLocation" required><option value="">${isCoord ? "Seleccione primero un cliente" : "Cargando..."}</option></select>${!isCoord?`<div class="field-helper-action"><span>¿Necesitas otra tienda o sede?</span><button class="btn small" type="button" data-action="ir-mis-sedes">Administrar sedes</button></div>`:""}</div>
       <div class="field"><label>Tipo de servicio</label><select name="tipo_servicio_id" id="requestType" required><option value="">Seleccione...</option>${optionList(types,"id",x=>x.nombre)}</select></div>
-      <div class="field"><label>Clasificación</label><select name="clasificacion" id="requestClass" required><option value="">Seleccione...</option><option value="PROGRAMADA">PROGRAMADA</option><option value="EMERGENCIA">EMERGENCIA</option></select></div>
-      <div class="field field-disabled" id="urgencyField"><label>Urgencia <small>(solo emergencia)</small></label><select name="urgencia" id="requestUrgency" disabled><option value="">Seleccione...</option><option>BAJA</option><option>MEDIA</option><option>ALTA</option><option>CRITICA</option></select></div>
-      ${isCoord ? `<div class="field"><label>Canal</label><select name="canal"><option value="">Seleccione...</option><option>LLAMADA</option><option>MENSAJE</option><option>CORREO</option><option>OTRO</option></select></div>` : ""}
+      <div class="field"><label>Clasificación</label><select name="clasificacion" id="requestClass" required><option value="">Seleccione...</option><option value="PROGRAMADA">Programada</option><option value="EMERGENCIA">Emergencia</option></select></div>
+      <div class="field field-disabled" id="urgencyField"><label>Urgencia <small>(solo emergencia)</small></label><select name="urgencia" id="requestUrgency" disabled><option value="">Seleccione...</option><option value="BAJA">Baja</option><option value="MEDIA">Media</option><option value="ALTA">Alta</option><option value="CRITICA">Crítica</option></select></div>
+      ${isCoord ? `<div class="field"><label>Canal</label><select name="canal"><option value="">Seleccione...</option><option value="LLAMADA">Llamada</option><option value="MENSAJE">Mensaje</option><option value="CORREO">Correo</option><option value="OTRO">Otro</option></select></div>` : ""}
       <div class="field"><label>Fecha preferida</label><input type="datetime-local" name="fecha_preferida" autocomplete="off"></div>
       <div class="field"><label>Ticket del cliente <small>(opcional)</small></label><input name="ticket" maxlength="60" placeholder="Ej. número interno de tu empresa"><small>Puedes usar el mismo ticket para varios trabajos.</small></div>
       <div class="field full"><label>Descripción del problema</label><textarea name="descripcion" required placeholder="Describe el trabajo o problema..." autocomplete="off"></textarea></div>
@@ -4139,7 +4375,7 @@
         const result=await api("/api/solicitudes", { method:"POST", body });
         const solicitudId=result.item?.SolicitudServicioId || result.item?.solicitudServicioId || result.item?.id;
         if(solicitudId)document.dispatchEvent(new CustomEvent("seprigua:tour-record",{detail:{type:"solicitud-creada",id:Number(solicitudId)}}));
-        if (solicitudId && files.length) await uploadRequestFiles(solicitudId,files,body.descripcion||"");
+        if (solicitudId && files.length) ensureEvidenceBatch(await uploadRequestFiles(solicitudId,files,body.descripcion||""));
         showToast(files.length ? "Solicitud e imágenes registradas." : "Solicitud registrada.");
         closeModal(); navigate("solicitudes");
         refreshNotificationBadge(!notificationPopover?.hidden).catch(() => {});
@@ -4169,7 +4405,7 @@
     return positions;
   }
 
-  async function renderOrdenes() {
+  async function renderOrdenes(isCurrent = () => true) {
     setHeading(state.role === "TECNICO" ? "Mis órdenes" : state.role === "CLIENTE" ? "Mis servicios" : "Órdenes de trabajo", "Flujo real de solicitud → coordinación → ejecución → cierre, usando los estados configurados en el sistema.");
     const all=filterSelectedDate("ordenes",(await loadAllPaged("ordenes","/api/ordenes")).items);
 
@@ -4198,6 +4434,7 @@
     }
 
     const details = await loadOrderListDetails(all);
+    if (!isCurrent()) return;
     const defaults = {
       orden:"fecha", direccion:"DESC", tamano:20,
       filtros:{ estado:"TODOS", prioridad:"TODOS", tecnico:"TODOS", fecha:"TODAS", rapidos:["TODAS"] },
@@ -4287,7 +4524,7 @@
         <td class="order-client-cell"><div class="se-cell-stack">${clientIdentity}${entityDetailButton(item.sede || "Sin sede","ver-orden",item.id,"se-entity-secondary")}</div></td>
         <td class="order-service-cell"><span>${esc(item.tipo || "Sin servicio")}</span></td>
         <td>${orderCrewCell(detail)}</td>
-        <td><div class="se-cell-stack">${item.suspendida?badge("SUSPENDIDA · EN REVISIÓN"):orderStatePill(item.estado)}${orderPriorityPill(item.Prioridad || item.prioridad)}</div></td>
+        <td><div class="se-cell-stack">${item.suspendida?badge("SUSPENDIDA · EN REVISIÓN"):orderStatePill(item.estado)}${orderPriorityPill(item.Prioridad || item.prioridad)}${item.cotizacion_pendiente&&moduleAllowed("cotizaciones")?`<button class="btn small se-pending-dot" type="button" data-action="cotizar-orden" data-id="${esc(item.id)}">Realizar cotización</button>`:""}</div></td>
         ${extraCells}
         <td class="order-action-cell se-table-actions"><button class="order-view-button" type="button" data-action="ver-orden" data-id="${esc(item.id)}"><i data-lucide="eye"></i><span>Ver</span></button></td>
       </tr>`;
@@ -4386,7 +4623,7 @@
     const techMeta=(t,checked=false)=>{const activeHere=Number(t.orden_activa_id||0)===Number(id);const busy=String(t.estado_operativo||"").toUpperCase()==="EN_SERVICIO"&&!activeHere;let queued=Number(t.cola_cantidad||0);if(checked&&!activeHere)queued=Math.max(0,queued-1);const parts=[];if(activeHere)parts.push("En esta OT");else if(busy&&t.orden_activa_numero)parts.push(`Atendiendo ${t.orden_activa_numero}`);else if(queued>0)parts.push("Con trabajos asignados");else parts.push(String(t.disponibilidad||"DISPONIBLE").replaceAll("_"," "));if(queued>0)parts.push(`${queued} en cola`);if(t.siguiente_orden_numero&&Number(t.siguiente_orden_id||0)!==Number(id))parts.push(`Siguiente: ${t.siguiente_orden_numero}${String(t.siguiente_clasificacion||"").toUpperCase()==="EMERGENCIA"?" · emergencia":""}`);return parts.join(" · ");};
     const cards=technicians.map(t=>{
       const fn=assigned.get(String(t.id))||"TECNICO",checked=assigned.has(String(t.id));
-      const unavailable=["VACACIONES","INACTIVO","NO_DISPONIBLE"].includes(String(t.disponibilidad||"").toUpperCase());
+      const unavailable=["INACTIVO","NO_DISPONIBLE"].includes(String(t.disponibilidad||"").toUpperCase());
       const initials=String(t.nombre||"?").trim().split(/\s+/).slice(0,2).map(x=>x.charAt(0)).join("").toUpperCase()||"?";
       const stateLabel=String(t.estado_operativo||t.disponibilidad||"DISPONIBLE").replaceAll("_"," ");
       return `<article class="crew-person-card ${checked?"selected":""} ${unavailable&&!checked?"unavailable":""}" data-crew-card="${esc(t.id)}">
@@ -4402,6 +4639,7 @@
     }).join("");
     openModal(created?"Asignar cuadrilla de la nueva OT":"Gestionar cuadrilla",`<form id="crewForm" class="crew-manager">
       <div class="crew-manager-intro"><span><i data-lucide="users-round"></i></span><div><strong>Selecciona al personal de campo</strong><p>Debe existir exactamente un <b>Encargado</b>. Si alguien ya está atendiendo otra OT, esta asignación queda en su cola; las emergencias se priorizan.</p></div></div>
+      <label class="se-extra-approval"><input type="checkbox" name="autorizar_extra"><span><strong>Autorizar trabajo extra durante vacaciones</strong><br><small>Aplica a esta OT y al personal seleccionado con vacaciones aprobadas para hoy o para la fecha programada.</small></span></label>
       <div class="crew-manager-list">${cards||`<div class="empty-state"><h3>No hay personal disponible</h3><p>Revisa el estado laboral y disponibilidad del personal.</p></div>`}</div>
       <div class="crew-manager-footer"><div class="crew-manager-help"><i data-lucide="info"></i><span>Los cambios no se aplican hasta presionar <strong>Guardar cuadrilla</strong>.</span></div><div class="form-actions"><button class="btn" type="button" data-action="ver-orden" data-id="${id}">Volver a la OT</button><button class="btn primary" type="submit"><i data-lucide="save"></i> Guardar cuadrilla</button></div></div>
     </form>`);
@@ -4412,7 +4650,7 @@
       if(!integrantes.length)return showToast("Selecciona al menos un integrante.","error");
       if(integrantes.filter(x=>x.funcion==="ENCARGADO").length!==1)return showToast("Debes dejar exactamente un ENCARGADO.","error");
       const submit=e.currentTarget.querySelector('button[type="submit"]');submit.disabled=true;
-      try{const result=await api(`/api/ordenes/${id}/cuadrilla`,{method:"PUT",body:{integrantes}});const queued=integrantes.filter(x=>{const t=technicians.find(v=>Number(v.id)===Number(x.empleado_id));if(!t)return false;const wasAlready=assigned.has(String(x.empleado_id));const busyElsewhere=String(t.estado_operativo||"").toUpperCase()==="EN_SERVICIO"&&Number(t.orden_activa_id||0)!==Number(id);const otherQueue=Math.max(0,Number(t.cola_cantidad||0)-(wasAlready?1:0));return busyElsewhere||otherQueue>0;}).length;showToast(queued?`Cuadrilla actualizada. ${queued} integrante(s) tienen trabajo en cola.`:(result.message||"Cuadrilla actualizada."));state.listCache.ordenes=null;await openOrder(id);}catch(err){showToast(err.message,"error");submit.disabled=false;}
+      try{const result=await api(`/api/ordenes/${id}/cuadrilla`,{method:"PUT",body:{integrantes,autorizar_extra:e.currentTarget.elements.autorizar_extra.checked}});const queued=integrantes.filter(x=>{const t=technicians.find(v=>Number(v.id)===Number(x.empleado_id));if(!t)return false;const wasAlready=assigned.has(String(x.empleado_id));const busyElsewhere=String(t.estado_operativo||"").toUpperCase()==="EN_SERVICIO"&&Number(t.orden_activa_id||0)!==Number(id);const otherQueue=Math.max(0,Number(t.cola_cantidad||0)-(wasAlready?1:0));return busyElsewhere||otherQueue>0;}).length;showToast(queued?`Cuadrilla actualizada. ${queued} integrante(s) tienen trabajo en cola.`:(result.message||"Cuadrilla actualizada."));state.listCache.ordenes=null;await openOrder(id);}catch(err){showToast(err.message,"error");submit.disabled=false;}
     });
   }
 
@@ -4461,21 +4699,8 @@
     return `<div class="signature-gallery">${signatures.map(e=>{const label=String(e.Descripcion||e.descripcion||"FIRMA").replace(/^FIRMA:\s*/i,"")||"Firma";return `<article class="signature-preview-card"><div class="signature-preview-image"><img src="${esc(e.ruta)}" alt="Firma de ${esc(label)}" loading="lazy"></div><div class="signature-preview-copy"><small>Firma de conformidad</small><strong>${esc(label)}</strong><span>${fmt(e.creada||e.CreadoEn||e.tomada)}</span><a href="${esc(e.ruta)}" target="_blank" rel="noopener">Ver imagen completa</a></div></article>`;}).join("")}</div>`;
   }
 
-  async function uploadOrderFiles(id,files,{etapa="DURANTE",categoria="FOTO_TRABAJO",descripcion=""}={}){
-    const summary={guardados:0,duplicados:0,omitidos:0,ids:[]};
-    const seen=new Set();
-    for(const file of [...files]){
-      const fingerprint=[file.name,file.size,file.lastModified,file.type].join("|");
-      if(seen.has(fingerprint)){summary.omitidos++;continue;}
-      seen.add(fingerprint);
-      const fd=new FormData();
-      fd.append("archivo",file); fd.append("etapa",etapa); if(categoria)fd.append("categoria",categoria);
-      if(descripcion)fd.append("descripcion",descripcion);
-      const result=await api(`/api/ordenes/${id}/evidencias`,{method:"POST",body:fd});
-       if(result?.id)summary.ids.push(Number(result.id));
-      if(result?.duplicada)summary.duplicados++;else summary.guardados++;
-    }
-    return summary;
+  function uploadOrderFiles(id,files,{etapa="DURANTE",categoria="FOTO_TRABAJO",descripcion=""}={}){
+    return uploadEvidenceFiles(`/api/ordenes/${id}/evidencias`, files, {etapa,categoria,descripcion});
   }
 
   function orderHeader(id,x){
@@ -4497,6 +4722,7 @@
     const techs=activeTechs.map(t=>`${esc(t.nombre)} (${esc(t.funcion||"TECNICO")})`).join(", ")||"Sin técnicos asignados";
     const quoteList=d.cotizaciones||[],currentQuote=quoteList[0]||null;
     const orderCode=String(x.estado_codigo||"").toUpperCase();
+    const warrantySetup = orderCode==="COMPLETADA" && coord && moduleAllowed("garantia") ? `<div class="notice-card"><strong>Garantía del servicio</strong><p>Define el plazo desde la fecha de finalización. Puedes dejarlo pendiente y resolverlo desde Garantías.</p><button class="btn primary" type="button" data-action="configurar-garantia" data-id="${esc(id)}"><i data-lucide="shield-check"></i> Configurar garantía</button></div>` : "";
     const reschedules=d.reprogramaciones||[],pendingReschedule=reschedules.find(r=>r.estado==="PENDIENTE");
     const p=d.progress||{},photos=normalizeNumber(p.fotos_trabajo),acts=normalizeNumber(p.actividades),docs=normalizeNumber(p.documentos_ot),pendingScopes=normalizeNumber(p.cambios_pendientes);
     const isCoralsa=/CORALSA/i.test(String(x.cliente||""));
@@ -4517,7 +4743,22 @@
         </form>
         <h3 class="section-title">Documentos cargados</h3><div class="evidence-grid">${docEvidence.map(evidenceCard).join("")||`<div class="muted">No se ha cargado hoja física. Esto no bloquea el cierre de la OT.</div>`}</div>
       </div></section>${shellEnd}`;
-      $("#orderDocForm")?.addEventListener("submit",async e=>{e.preventDefault();const form=e.currentTarget,fd=new FormData(form),files=form.querySelector('[name="archivos"]').files;try{await api(`/api/ordenes/${id}`,{method:"PATCH",body:{ticket:fd.get("ticket"),orden_papel:fd.get("orden_papel")}});if(files.length)await uploadOrderFiles(id,files,{etapa:"DOCUMENTO",categoria:"ORDEN_FISICA",descripcion:fd.get("descripcion")||""});showToast("Paso 1 guardado.");await openOrder(id,"evidencia",true);}catch(err){showToast(err.message,"error");}});
+      $("#orderDocForm")?.addEventListener("submit",async e=>{
+        e.preventDefault();const form=e.currentTarget;
+        if(form.dataset.saving==="1")return;
+        const fd=new FormData(form),files=form.querySelector('[name="archivos"]').files;
+        const paperNumber=String(fd.get("orden_papel")||"").trim();
+        const existingPhysicalDocs=Number(d.progress?.documentos_ot||0);
+        if(!paperNumber && (files.length || existingPhysicalDocs>0)){showToast("Introduce el número de OT/OC física para identificar el documento adjunto.","error");form.querySelector('[name="orden_papel"]')?.focus();return;}
+        if(paperNumber && !files.length && existingPhysicalDocs===0){showToast("Adjunta una foto o PDF de la OT/OC física antes de continuar.","error");form.querySelector('[name="archivos"]')?.focus();return;}
+        if(d.reglas_cierre?.ticket_obligatorio && !String(fd.get("ticket")||"").trim()){showToast("Registra el número de ticket para continuar.","error");form.querySelector('[name="ticket"]')?.focus();return;}
+        form.dataset.saving="1";const submit=form.querySelector('[type="submit"]');if(submit)submit.disabled=true;
+        try{await api(`/api/ordenes/${id}`,{method:"PATCH",body:{ticket:fd.get("ticket"),orden_papel:paperNumber}});
+          if(files.length)ensureEvidenceBatch(await uploadOrderFiles(id,files,{etapa:"DOCUMENTO",categoria:"ORDEN_FISICA",descripcion:fd.get("descripcion")||""}));
+          showToast("Paso 1 guardado.");await openOrder(id,"evidencia",true);
+        }catch(err){showToast(err.message,"error");if(submit?.isConnected)submit.disabled=false;}
+        finally{delete form.dataset.saving;}
+      });
       window.lucide?.createIcons(); return;
     }
 
@@ -4542,8 +4783,7 @@
         form.dataset.uploading="1";if(submit){submit.disabled=true;submit.dataset.originalText=submit.textContent;submit.textContent="Subiendo...";}
         try{
           const r=await uploadOrderFiles(id,files,{etapa:fd.get("etapa")||"DURANTE",categoria:"FOTO_TRABAJO",descripcion:fd.get("descripcion")||""});
-          const extras=r.duplicados+r.omitidos;
-          showToast(extras?`${r.guardados} fotografía(s) guardada(s). ${extras} duplicada(s) omitida(s).`:`${r.guardados} fotografía(s) guardada(s).`);
+          showToast(ensureEvidenceBatch(r));
           await openOrder(id,"descripcion",true);
         }catch(err){showToast(err.message,"error");form.dataset.uploading="0";if(submit){submit.disabled=false;submit.textContent=submit.dataset.originalText||"Subir y continuar";}}
       });
@@ -4579,20 +4819,22 @@
        else if((coord||tech) && ["PENDIENTE","PROGRAMADA"].includes(orderCode)) finishAction=`<div class="notice-card"><strong>Primero inicia el trabajo</strong><p>La OT debe estar EN PROCESO antes de poder finalizarla.</p><button class="btn primary" type="button" data-action="iniciar-orden" data-id="${esc(id)}">Iniciar trabajo</button></div>`;
       else if((coord||tech) && ["EN_PROCESO","POR_CONFIRMAR"].includes(orderCode)) finishAction=`<div class="final-action"><button class="btn finish-button" type="button" data-action="finalizar-tecnico" data-id="${esc(id)}" ${ready?"":"disabled"}>✓ Marcar OT como finalizada</button><p class="muted">${ready?"Coordinación o el técnico pueden cerrar la OT; no se necesita confirmación del cliente ni una cotización previa.":"Completa los puntos pendientes antes de finalizar."}</p></div>`;
       const canSign=["EN_PROCESO","POR_CONFIRMAR","COMPLETADA"].includes(orderCode);
-      content.innerHTML=`${shellStart}<section class="panel order-screen"><div class="panel-header"><div><span class="eyebrow">PASO 4 DE 4</span><h2>Finalizar orden de trabajo</h2></div></div><div class="panel-body"><div class="check-list">${checks.map(([ok,label])=>`<div class="check-item ${ok?"ok":"pending"}"><span>${ok?"✓":"○"}</span><strong>${esc(label)}</strong></div>`).join("")}</div>${finishAction}<section class="order-signature-block"><div class="order-signature-head"><div><span class="eyebrow">CONFORMIDAD</span><h3>Firma del cliente o responsable</h3><p>La firma queda guardada como evidencia y sigue visible incluso después de cerrar la OT.</p></div>${canSign?button(orderCode==="COMPLETADA"?"Agregar firma de conformidad":"Guardar firma","firma-orden",id,"primary"):""}</div>${orderSignatureGallery(d,{showEmpty:true})}</section><div class="form-actions"><button class="btn" type="button" data-action="orden-paso" data-id="${esc(id)}" data-step="descripcion">Anterior</button><button class="btn" type="button" data-action="orden-paso" data-id="${esc(id)}" data-step="resumen">Ir al resumen</button></div></div></section>${shellEnd}`;
+      content.innerHTML=`${shellStart}<section class="panel order-screen"><div class="panel-header"><div><span class="eyebrow">PASO 4 DE 4</span><h2>Finalizar orden de trabajo</h2></div></div><div class="panel-body"><div class="check-list">${checks.map(([ok,label])=>`<div class="check-item ${ok?"ok":"pending"}"><span>${ok?"✓":"○"}</span><strong>${esc(label)}</strong></div>`).join("")}</div>${finishAction}${warrantySetup}<section class="order-signature-block"><div class="order-signature-head"><div><span class="eyebrow">CONFORMIDAD</span><h3>Firma del cliente o responsable</h3><p>La firma queda guardada como evidencia y sigue visible incluso después de cerrar la OT.</p></div>${canSign?button(orderCode==="COMPLETADA"?"Agregar firma de conformidad":"Guardar firma","firma-orden",id,"primary"):""}</div>${orderSignatureGallery(d,{showEmpty:true})}</section><div class="form-actions"><button class="btn" type="button" data-action="orden-paso" data-id="${esc(id)}" data-step="descripcion">Anterior</button><button class="btn" type="button" data-action="orden-paso" data-id="${esc(id)}" data-step="resumen">Ir al resumen</button></div></div></section>${shellEnd}`;
       window.lucide?.createIcons(); return;
     }
 
+    const extraCrew=(d.tecnicos||[]).filter(member=>member.trabajo_extra&&(coord||Number(member.empleado_id)===Number(state.user?.empleado_id)));
+    const extraSummary=(coord||tech)&&extraCrew.length?`<div class="notice-card"><span class="se-extra-label">Trabajo extra</span><p>${esc(extraCrew.map(member=>member.nombre).join(", "))} · fuera de horario o durante vacaciones aprobadas.</p></div>`:"";
     const quoteSummary=currentQuote
       ? `<div class="timeline-item"><strong>${esc(currentQuote.numero||`Cotización #${currentQuote.id}`)}</strong> ${badge(currentQuote.estado||"BORRADOR")}<br><span class="muted">Versión ${esc(currentQuote.version||"—")} · ${money(currentQuote.total,currentQuote.moneda)}</span></div>`
       : `<div class="muted">Todavía no hay cotización vinculada. Puede crearse antes o después de finalizar la OT.</div>`;
     const quoteActions=coord
-      ? `<div class="actions" style="margin-top:10px">${currentQuote?button("Ir a cotizaciones","ir-cotizaciones",currentQuote.id):button("Crear cotización","cotizar-orden",id,"primary")}</div>`
+      ? `<div class="actions" style="margin-top:10px">${currentQuote?button("Ir a cotizaciones","ir-cotizaciones",currentQuote.id):x.cotizacion_pendiente&&moduleAllowed("cotizaciones")?button("Realizar cotización","cotizar-orden",id,"primary"):""}</div>`
       : currentQuote?`<div class="actions" style="margin-top:10px">${button("Ver cotización","ir-cotizaciones",currentQuote.id,"primary")}</div>`:"";
     const correction=Number(x.requiere_correccion||0)?`<section class="panel"><div class="panel-body"><strong>Corrección solicitada por cliente</strong><p>${esc(x.motivo_correccion||"Pendiente de corrección")}</p></div></section>`:"";
     const recentHistory=(d.historial||[]).slice(0,8).map(h=>`<div class="timeline-item">${esc(h.anterior||"Inicio")} → <strong>${esc(h.nuevo)}</strong><br><span class="muted">${fmt(h.fecha)} · ${esc(h.Comentario||h.comentario||"")}</span></div>`).join("")||`<div class="muted">Sin historial.</div>`;
     const incidents=(d.incidencias||[]).slice(0,6).map(i=>`<div class="timeline-item"><strong>${esc(i.tipo)}</strong> ${badge(i.Estado||i.estado)}<br>${esc(i.Descripcion||i.descripcion)}${i.accion?`<br><span class="muted">Acción: ${esc(i.accion)}</span>`:""}${coord&&!i.resuelta?`<div class="actions">${button("Resolver","resolver-incidencia",i.id)}</div>`:""}</div>`).join("")||`<div class="muted">Sin incidencias.</div>`;
-    const scopes=(d.cambios_alcance||[]).slice(0,6).map(c=>`<div class="timeline-item"><strong>${badge(c.estado)} Cambio de alcance</strong><br>${esc(c.detectado)}<br><span class="muted">${esc(c.motivo||"")}</span><div class="actions">${coord&&String(c.estado).toUpperCase()==="PENDIENTE"&&!c.informado_por?button("Enviar al cliente","enviar-cambio",c.id):""}${client&&String(c.estado).toUpperCase()==="PENDIENTE"&&c.informado_por?button("Responder","responder-cambio",c.id,"primary"):""}</div></div>`).join("")||`<div class="muted">Sin cambios de alcance.</div>`;
+    const scopes=(d.cambios_alcance||[]).slice(0,6).map(c=>`<div class="timeline-item"><strong>${badge(c.estado)} Cambio de alcance</strong><br>${esc(c.detectado)}<br><span class="muted">${esc(c.motivo||"")}</span><div class="actions">${coord&&String(c.estado).toUpperCase()==="PENDIENTE"&&!c.informado_por?button("Enviar al cliente","enviar-cambio",c.id):""}${client&&!x.solo_lectura&&String(c.estado).toUpperCase()==="PENDIENTE"&&c.informado_por?button("Responder","responder-cambio",c.id,"primary"):""}</div></div>`).join("")||`<div class="muted">Sin cambios de alcance.</div>`;
     const allowedCoordStates=(state.catalogs.estados_orden||[]).filter(s=>!["COMPLETADA","POR_CONFIRMAR"].includes(String(s.codigo||"").toUpperCase()));
     const stateControl=coord&&orderCode!=="COMPLETADA"&&!pendingReschedule?`<select class="inline-select" id="stateSelect"><option value="">Cambiar estado...</option>${optionList(allowedCoordStates)}</select><button class="btn small primary" data-action="cambiar-estado" data-id="${esc(id)}">Aplicar</button>`:"";
     const startButton=tech&&!pendingReschedule&&["PENDIENTE","PROGRAMADA"].includes(orderCode)?button("Iniciar trabajo","iniciar-orden",id,"primary"):"";
@@ -4604,9 +4846,16 @@
     const noChargeWarranty=/GARANT[IÍ]A\s+APROBADA.*SIN\s+COBRO/i.test(String(x.observaciones||""));
     const warrantyChargeBanner=noChargeWarranty?`<div class="order-no-charge-banner"><i data-lucide="shield-check"></i><div><strong>GARANTÍA APROBADA · SIN COBRO</strong><span>Esta atención quedó identificada como trabajo cubierto por garantía.</span></div></div>`:"";
 
-    content.innerHTML=`${shellStart}${warrantyChargeBanner}<section class="panel"><div class="panel-header"><h2>Resumen de la orden</h2></div><div class="panel-body"><div class="info-grid"><div class="info-item"><span>Cliente</span><strong>${esc(x.cliente)}</strong></div><div class="info-item"><span>Sede</span><strong>${esc(x.sede)}</strong></div><div class="info-item"><span>Estado</span><strong>${esc(x.estado)}</strong></div><div class="info-item"><span>Prioridad</span><strong>${esc(x.Prioridad||x.prioridad)}</strong></div><div class="info-item"><span>Servicio</span><strong>${esc(x.tipo)}</strong></div><div class="info-item"><span>Atención aproximada</span><strong>${fmt(x.programada)}</strong></div><div class="info-item"><span>Ticket</span><strong>${esc(x.ticket||"—")}</strong></div><div class="info-item"><span>OT / OC</span><strong>${esc(x.orden_papel||"—")}</strong></div><div class="info-item"><span>Ubicación</span><strong>${esc([x.Direccion||x.direccion,x.Municipio||x.municipio].filter(Boolean).join(", ")||x.sede)}</strong></div><div class="info-item"><span>Cuadrilla</span><strong>${techs}</strong></div></div>${state.role==="CLIENTE"&&["PENDIENTE","PROGRAMADA"].includes(orderCode)&&!(x.iniciada||x.iniciada_en)?button("Solicitar cancelación","solicitar-cancelacion","OrdenTrabajo:"+id):""}<h3 class="section-title">Solicitud</h3><p>${esc(x.solicitud)}</p></div></section>
+    content.innerHTML=`${shellStart}${warrantyChargeBanner}${warrantySetup}${extraSummary}<section class="se-detail-page-section">${window.SepriguaDetail.section('Información de la orden',[
+      ['Cliente',esc(x.cliente)],
+      [!x.solicitante_nombre && x.registrada_por_nombre ? 'Registrada por' : 'Solicitante',esc(x.solicitante_nombre || x.registrada_por_nombre || 'No registrado')],
+      ['Sede',esc(x.sede)],['Estado',badge(x.estado)],
+      ['Prioridad',esc(displayDetailValue(x.Prioridad||x.prioridad))],['Atención aproximada',fmt(x.programada)],
+      ['Cuadrilla',techs],['Ubicación',esc([x.Direccion||x.direccion,x.Municipio||x.municipio].filter(Boolean).join(', ')||x.sede)],
+      ['Ticket',esc(x.ticket||'—')],['OT / OC',esc(x.orden_papel||'—')]
+    ])}${client&&!x.solo_lectura&&["PENDIENTE","PROGRAMADA"].includes(orderCode)&&!(x.iniciada||x.iniciada_en)?button("Solicitar cancelación","solicitar-cancelacion","OrdenTrabajo:"+id):""}${window.SepriguaDetail.prose('Solicitud',esc(x.solicitud))}</section>
       ${correction}${pendingReschedule?`<div class="notice-card"><strong>Trabajo suspendido</strong><p>La solicitud de reprogramación está pendiente de decisión. Las evidencias y actividades anteriores permanecen en esta OT.</p></div>`:""}${reschedulePanel}${opActions}${signatureSummary}
-      ${tech?"":`<section class="panel"><div class="panel-header"><h2>Cotización</h2><span class="muted">Independiente del cierre técnico</span></div><div class="panel-body">${quoteSummary}${quoteActions}</div></section>`}
+      ${tech?"":`<section class="panel"><div class="panel-header"><h2 class="${coord&&x.cotizacion_pendiente&&moduleAllowed("cotizaciones")?"se-pending-dot":""}">Cotización</h2><span class="muted">Independiente del cierre técnico</span></div><div class="panel-body">${quoteSummary}${quoteActions}</div></section>`}
       <div class="two-col"><section class="panel"><div class="panel-header"><h2>Historial reciente</h2></div><div class="panel-body"><div class="timeline">${recentHistory}</div></div></section><section class="panel"><div class="panel-header"><h2>Incidencias</h2></div><div class="panel-body"><div class="timeline">${incidents}</div></div></section></div>
       <section class="panel"><div class="panel-header"><h2>Cambios de alcance</h2></div><div class="panel-body"><div class="timeline">${scopes}</div></div></section>${shellEnd}`;
     try {
@@ -4645,6 +4894,7 @@
       try{
         const fd=new FormData(form);
         const uploads=await uploadOrderFiles(id,files,{categoria:"FOTO_TRABAJO",etapa:"DURANTE",descripcion:"Evidencia de suspensión y reprogramación"});
+        ensureEvidenceBatch(uploads);
         await api(`/api/ordenes/${id}/reprogramaciones`,{method:"POST",body:{
           motivo:fd.get("motivo"),trabajo_realizado:fd.get("trabajo_realizado"),pendiente:fd.get("pendiente"),
           propuesta:fd.get("propuesta"),confirmada_para:fd.get("confirmada_para")||null,evidencias:uploads.ids
@@ -4719,7 +4969,7 @@
     }
     if(action==="evidencia-solicitud"){
       openModal("Agregar evidencia a solicitud",`<form id="requestEvidenceForm"><div class="field"><label>Imágenes / archivos</label><input type="file" name="archivos" multiple accept="image/*,video/mp4,video/quicktime,application/pdf" required></div><div class="field"><label>Descripción</label><textarea name="descripcion"></textarea></div><div class="form-actions"><button class="btn" type="button" data-action="ver-solicitud" data-id="${id}">Volver</button><button class="btn primary">Subir</button></div></form>`);
-      $("#requestEvidenceForm").addEventListener("submit",async e=>{e.preventDefault();const form=e.currentTarget;if(form.dataset.uploading==="1")return;const files=form.querySelector('[name="archivos"]').files,desc=form.querySelector('[name="descripcion"]').value,submit=form.querySelector('button[type="submit"]');form.dataset.uploading="1";if(submit){submit.disabled=true;submit.textContent="Subiendo...";}try{const r=await uploadRequestFiles(id,files,desc);const skipped=r.duplicados+r.omitidos;showToast(skipped?`${r.guardados} archivo(s) agregado(s). ${skipped} duplicado(s) omitido(s).`:`${r.guardados} archivo(s) agregado(s).`);await openRequest(id);}catch(err){showToast(err.message,"error");form.dataset.uploading="0";if(submit){submit.disabled=false;submit.textContent="Subir";}}});return;
+      $("#requestEvidenceForm").addEventListener("submit",async e=>{e.preventDefault();const form=e.currentTarget;if(form.dataset.uploading==="1")return;const files=form.querySelector('[name="archivos"]').files,desc=form.querySelector('[name="descripcion"]').value,submit=form.querySelector('button[type="submit"]');form.dataset.uploading="1";if(submit){submit.disabled=true;submit.textContent="Subiendo...";}try{const r=await uploadRequestFiles(id,files,desc);showToast(ensureEvidenceBatch(r));await openRequest(id);}catch(err){showToast(err.message,"error");form.dataset.uploading="0";if(submit){submit.disabled=false;submit.textContent="Subir";}}});return;
     }
     if(action==="evidencia"){
       openModal("Subir evidencias",`<form id="evidenceForm"><div class="field"><label>Archivos</label><input type="file" name="archivos" multiple accept="image/*,video/mp4,video/quicktime,application/pdf" required></div><div class="field"><label>Etapa</label><select name="etapa"><option>ANTES</option><option selected>DURANTE</option><option>DESPUES</option><option>DOCUMENTO</option></select><small>Para la OT física o PDF usa DOCUMENTO.</small></div><div class="field"><label>Descripción</label><textarea name="descripcion"></textarea></div><div class="form-actions">${backToOrder(id)}<button class="btn primary">Subir</button></div></form>`);
@@ -4727,15 +4977,16 @@
         e.preventDefault();const form=e.currentTarget;if(form.dataset.uploading==="1")return;
         const files=form.querySelector('[name="archivos"]').files,etapa=form.querySelector('[name="etapa"]').value,descripcion=form.querySelector('[name="descripcion"]').value,submit=form.querySelector('button[type="submit"]');
         form.dataset.uploading="1";if(submit){submit.disabled=true;submit.dataset.originalText=submit.textContent;submit.textContent="Subiendo...";}
-        try{const r=await uploadOrderFiles(id,files,{etapa,categoria:etapa==="DOCUMENTO"?"ORDEN_FISICA":"",descripcion});const extras=r.duplicados+r.omitidos;showToast(extras?`${r.guardados} evidencia(s) guardada(s). ${extras} duplicada(s) omitida(s).`:`${r.guardados} evidencia(s) guardada(s).`);await openOrder(id);}catch(err){showToast(err.message,"error");form.dataset.uploading="0";if(submit){submit.disabled=false;submit.textContent=submit.dataset.originalText||"Subir";}}
+        try{const r=await uploadOrderFiles(id,files,{etapa,categoria:etapa==="DOCUMENTO"?"ORDEN_FISICA":"",descripcion});showToast(ensureEvidenceBatch(r));await openOrder(id);}catch(err){showToast(err.message,"error");form.dataset.uploading="0";if(submit){submit.disabled=false;submit.textContent=submit.dataset.originalText||"Subir";}}
       });return;
     }
   }
 
-  async function renderMisSedes() {
+  async function renderMisSedes(isCurrent = () => true) {
     if (state.role !== "CLIENTE") return navigate("dashboard");
     setHeading("Mis sedes", "Agrega y administra las tiendas o ubicaciones de tu empresa para utilizarlas en nuevas solicitudes.");
     const all=(await loadAllPaged("sedes","/api/mis-sedes")).items;
+    if (!isCurrent()) return;
     state.clientSites=all;
     const active=all.filter(x=>x.activo).length,inactive=all.length-active;
     const result=smartListData("sedes",all,{
@@ -4793,11 +5044,12 @@
     window.lucide?.createIcons();
   }
 
-  async function renderClientes() {
+  async function renderClientes(isCurrent = () => true) {
     setHeading("Clientes y personal", "Administra clientes, sedes, colaboradores y accesos del sistema.");
     const all=(await loadAllPaged("clientes","/api/clientes")).items;
     state.peopleCounts.clientes=all.length;
     await ensurePeopleCounts("clientes");
+    if (!isCurrent()) return;
     const activeCount=all.filter(x=>!!x.activo).length;
     const inactiveCount=all.length-activeCount;
     const siteCount=all.reduce((sum,x)=>sum+normalizeNumber(x.sedes),0);
@@ -4880,26 +5132,17 @@
   async function openClientDetail(id){
     openModal("Detalle del cliente", `<div class="loading-card">Cargando información del cliente...</div>`, {lockBackdrop:false});
     const x=await fetchClientDetail(id);
-    openModal("Detalle del cliente",`<div class="info-grid">
-      <div class="info-item"><span>Código</span><strong>${esc(x.codigo||"—")}</strong></div>
-      <div class="info-item"><span>Estado</span><strong>${x.activo?`<span class="badge green">ACTIVO</span>`:`<span class="badge red">INACTIVO</span>`}</strong></div>
-      <div class="info-item"><span>Nombre comercial</span><strong>${esc(x.nombre_comercial||"—")}</strong></div>
-      <div class="info-item"><span>Razón social</span><strong>${esc(x.razon_social||"—")}</strong></div>
-      <div class="info-item"><span>NIT</span><strong>${esc(x.nit||"—")}</strong></div>
-      <div class="info-item"><span>Teléfono</span><strong>${esc(x.telefono||"—")}</strong></div>
-      <div class="info-item"><span>Correo</span><strong>${esc(x.correo||"—")}</strong></div>
-      <div class="info-item"><span>Dirección fiscal</span><strong>${esc(x.direccion_fiscal||"—")}</strong></div>
-      <div class="info-item"><span>Sedes</span><strong>${normalizeNumber(x.sedes)}</strong></div>
-      <div class="info-item"><span>Contactos</span><strong>${normalizeNumber(x.contactos)}</strong></div>
-      <div class="info-item"><span>Fecha de registro del cliente</span><strong>${x.creado_en?fmt(x.creado_en):"—"}</strong></div>
-      <div class="info-item"><span>Contacto principal</span><strong>${esc(x.contacto_principal?.nombre||"Sin registrar")}</strong></div>
-      <div class="info-item"><span>Cargo del contacto</span><strong>${esc(x.contacto_principal?.cargo||"—")}</strong></div>
-      <div class="info-item"><span>Teléfono del contacto</span><strong>${esc(x.contacto_principal?.telefono||"—")}</strong></div>
-      <div class="info-item"><span>Correo del contacto</span><strong>${esc(x.contacto_principal?.correo||"—")}</strong></div>
-      <div class="info-item"><span>Solicitudes</span><strong>${normalizeNumber(x.solicitudes)}</strong></div>
-      <div class="info-item"><span>Última actualización</span><strong>${fmt(x.actualizado_en)}</strong></div>
-    </div>${x.observaciones?`<div class="notice-card"><strong>Observaciones</strong><p>${esc(x.observaciones)}</p></div>`:""}
-    <div class="form-actions"><button class="btn" type="button" data-action="ver-sedes" data-id="${esc(id)}">Ver sedes</button><button class="btn" type="button" data-action="editar-cliente" data-id="${esc(id)}">Editar</button><button class="btn ${x.activo?"danger":"primary"}" type="button" data-action="toggle-cliente" data-id="${esc(id)}" data-active="${x.activo?0:1}" data-name="${esc(x.nombre_comercial||"")}">${x.activo?"Desactivar":"Reactivar"}</button></div>`);
+    openModal("Detalle del cliente",`${window.SepriguaDetail.section('Información del cliente',[
+      ['Código',esc(x.codigo||'—')],['Estado',x.activo?'<span class="badge green">Activo</span>':'<span class="badge red">Inactivo</span>'],
+      ['Nombre comercial',esc(x.nombre_comercial||'—')],['Razón social',esc(x.razon_social||'—')],['NIT',esc(x.nit||'—')],
+      ['Teléfono',esc(x.telefono||'—')],['Correo',esc(x.correo||'—')],['Dirección fiscal',esc(x.direccion_fiscal||'—')],
+      ['Sedes',normalizeNumber(x.sedes)],['Contactos',normalizeNumber(x.contactos)],
+      ['Fecha de registro',x.creado_en?fmt(x.creado_en):'—'],['Contacto principal',esc(x.contacto_principal?.nombre||'Sin registrar')],
+      ['Cargo del contacto',esc(x.contacto_principal?.cargo||'—')],['Teléfono del contacto',esc(x.contacto_principal?.telefono||'—')],
+      ['Correo del contacto',esc(x.contacto_principal?.correo||'—')],['Solicitudes',normalizeNumber(x.solicitudes)],
+      ['Última actualización',fmt(x.actualizado_en)]
+    ],'building-2')}${x.observaciones?window.SepriguaDetail.prose('Observaciones',esc(x.observaciones)):''}
+    <div class="form-actions"><button class="btn" type="button" data-action="ver-sedes" data-id="${esc(id)}">Ver sedes</button><button class="btn" type="button" data-action="editar-cliente" data-id="${esc(id)}">Editar</button><button class="btn ${x.activo?"danger":"primary"}" type="button" data-action="toggle-cliente" data-id="${esc(id)}" data-active="${x.activo?0:1}" data-name="${esc(x.nombre_comercial||"")}">${x.activo?"Desactivar":"Reactivar"}</button></div>`, {detailHeader:{kicker:`Cliente ${x.codigo||''}`,title:x.nombre_comercial||x.razon_social||'Cliente',meta:x.razon_social||'Cuenta empresarial',status:x.activo?'Activo':'Inactivo',icon:'building-2'}});
     window.lucide?.createIcons();
   }
 
@@ -4983,8 +5226,7 @@
   }
 
   // Coordinación administra las sedes desde la empresa sin crear una cuenta Cliente.
-  // Si el alta parte de "Sucursales autorizadas", asignamos la nueva sede a esa cuenta.
-  async function adminSedeForm(clienteId, sedeId = null, usuarioId = null){
+  async function adminSedeForm(clienteId, sedeId = null, options = {}){
     if(!clienteId){showToast("Seleccioná primero una empresa cliente.","error");return;}
     let current=null;
     if(sedeId){
@@ -4994,8 +5236,8 @@
     }
     const editing=!!current;
     openModal(editing?"Editar sucursal":"Agregar sucursal a la empresa",`<form id="coordSiteForm" class="form-grid se-sede-form" autocomplete="off">
-      <div class="se-sede-form-heading full"><i data-lucide="store"></i><div><strong>Datos de la sucursal</strong><p>${usuarioId?"La nueva sede quedará asignada a la cuenta seleccionada.":"Registrala en esta empresa y administrá sus accesos posteriormente."}</p></div></div>
-      <div class="field full"><label>Nombre de la sede / tienda <span class="se-required">*</span></label><input name="nombre" maxlength="180" required placeholder="Ej. Restaurante Zona 10" value="${esc(current?.nombre||"")}"></div>
+      <div class="se-sede-form-heading full"><i data-lucide="store"></i><div><strong>Datos de la sucursal</strong><p>${options.clientName?`La sucursal se registrará para ${esc(options.clientName)}.`:"Registrá la sucursal en esta empresa."}</p></div></div>
+      <div class="field full"><label>Nombre de la sede / tienda <span class="se-required">*</span></label><input name="nombre" maxlength="180" required placeholder="Ej. Restaurante Zona 10" value="${esc(current?.nombre||options.siteName||"")}"></div>
       <div class="field"><label>Código interno</label><input name="codigo" maxlength="30" placeholder="Ej. Z10-01" value="${esc(current?.codigo||"")}"></div>
       <div class="field"><label>Teléfono</label><input name="telefono" maxlength="20" inputmode="tel" placeholder="Ej. 2424-0000" value="${esc(current?.telefono||"")}"></div>
       <div class="se-sede-form-section full"><i data-lucide="map-pin"></i><strong>Ubicación</strong></div>
@@ -5004,7 +5246,7 @@
       <div class="field full"><label>Dirección completa <span class="se-required">*</span></label><textarea name="direccion" maxlength="450" rows="2" required placeholder="Avenida, calle, zona, local o centro comercial">${esc(current?.direccion||"")}</textarea></div>
       <div class="field full"><label>Referencia para llegar</label><textarea name="referencia_llegada" maxlength="400" rows="2" placeholder="Entrada, nivel, local o punto de referencia">${esc(current?.referencia_llegada||"")}</textarea></div>
       <div class="field full"><label>Observaciones</label><textarea name="observaciones" maxlength="500" rows="2" placeholder="Indicaciones adicionales (opcional)">${esc(current?.observaciones||"")}</textarea></div>
-      <div class="se-sede-form-footer full"><span>* Campos obligatorios</span><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit">${editing?"Guardar cambios":usuarioId?"Crear y asignar sede":"Crear sucursal"}</button></div></div>
+      <div class="se-sede-form-footer full"><span>* Campos obligatorios</span><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit">${editing?"Guardar cambios":"Crear sucursal"}</button></div></div>
     </form>`);
     const form=$("#coordSiteForm");
     form?.addEventListener("submit",async e=>{
@@ -5013,17 +5255,14 @@
       try{
         const body=Object.fromEntries(new FormData(form).entries());
         const result=await api(editing?`/api/clientes/${clienteId}/sedes/${sedeId}`:`/api/clientes/${clienteId}/sedes`,{method:editing?"PATCH":"POST",body});
-        if(!editing&&usuarioId){
-          try{
-            await api(`/api/usuarios/${usuarioId}/sedes-autorizadas/${result.id}`,{method:"POST",body:{activo:true}});
-          }catch(error){
-            showToast("La sede se creó, pero no pudo asignarse: "+error.message,"error");
-            return manageUserBranches(usuarioId);
-          }
-        }
         showToast(result.message||(editing?"Sucursal actualizada.":"Sucursal creada."));
         state.userAdmin.catalogos=null;state.catalogs={};
-        return usuarioId?manageUserBranches(usuarioId):openSedes(clienteId);
+        if(options.onSaved){
+          if(form.isConnected)closeModal();
+          await options.onSaved(result,body);
+          return;
+        }
+        return openSedes(clienteId);
       }catch(error){showToast(error.message,"error");}
       finally{submit.disabled=false;}
     });
@@ -5062,11 +5301,43 @@
   }
 
 
-  async function renderPersonal(){
+  const personnelAvailabilityOptions = ["DISPONIBLE","ASIGNADO","VACACIONES","NO_DISPONIBLE","INACTIVO"];
+  const personnelAvailabilityPending = new Set();
+
+  async function savePersonalAvailability(select) {
+    const {id, savedValue} = select.dataset;
+    if (personnelAvailabilityPending.has(id) || !select.value || select.value === savedValue) return;
+    const value = select.value;
+    let confirmedValue = savedValue;
+    personnelAvailabilityPending.add(id);
+    select.disabled = true;
+    try {
+      const result = await api(`/api/personal/${id}/disponibilidad`, {method:"PATCH", body:{disponibilidad:value}});
+      confirmedValue = value;
+      showToast(result.message || "Disponibilidad actualizada.");
+    } catch (error) {
+      showToast(error.message, "error");
+      return;
+    } finally {
+      personnelAvailabilityPending.delete(id);
+      const rendered = content.querySelector(`select[data-personnel-availability][data-id="${CSS.escape(id)}"]`);
+      if (rendered) {
+        rendered.value = confirmedValue;
+        rendered.dataset.savedValue = confirmedValue;
+        rendered.disabled = false;
+      }
+    }
+    if (state.current === "personal") {
+      await rerenderSmartList("personal");
+    }
+  }
+
+  async function renderPersonal(isCurrent = () => true){
     setHeading("Clientes y personal", "Administra clientes, sedes, colaboradores y accesos del sistema.");
-    const all=(await loadAllPaged("personal","/api/personal")).items;
+    const all=(await loadAllPaged("personal","/api/personal", false, isCurrent)).items;
     state.peopleCounts.personal=listCount("personal","total",all.length);
     await ensurePeopleCounts("personal");
+    if (!isCurrent()) return;
     const jobs=smartUnique(all,x=>x.puesto||"");
     const states=smartUnique(all,x=>String(x.estado||"").toUpperCase());
     const availability=smartUnique(all,x=>String(x.disponibilidad||"").toUpperCase());
@@ -5088,13 +5359,15 @@
     });
     const rows=result.items.map(x=>{
       const menu=peopleActionMenu([
-        {label:"Detalle",icon:"user-round",action:"detalle-personal",id:x.id},{label:"Historial de trabajos",icon:"history",action:"historial-personal",id:x.id},{label:"Guardar disponibilidad",icon:"save",action:"guardar-disponibilidad",id:x.id}
+        {label:"Detalle",icon:"user-round",action:"detalle-personal",id:x.id},{label:"Historial de trabajos",icon:"history",action:"historial-personal",id:x.id}
       ]);
+      const storedAvailability = String(x.disponibilidad || "").toUpperCase();
+      const currentAvailability = personnelAvailabilityOptions.includes(storedAvailability) ? storedAvailability : "";
       return `<tr>
         <td>${entityAvatarLink(x.nombre||"Empleado",{entity:x,subtitle:x.codigo||"Empleado",className:"people-employee-identity"},"detalle-personal",x.id)}</td>
         <td><div class="people-primary-cell"><strong>${esc(formatDisplayLabel(x.puesto||"Sin cargo registrado"))}</strong></div></td>
         <td><div class="people-contact-cell">${x.telefono?`<strong>${esc(x.telefono)}</strong>`:""}${x.correo?`<span class="people-contact-detail" title="${esc(x.correo)}">${esc(x.correo)}</span>`:""}${!x.telefono&&!x.correo?`<span class="people-muted">Sin contacto registrado</span>`:""}</div></td>
-        <td><select class="people-availability availability" data-id="${esc(x.id)}" aria-label="Disponibilidad de ${esc(x.nombre||"empleado")}">${["DISPONIBLE","ASIGNADO","VACACIONES","INACTIVO"].map(v=>`<option value="${v}" ${String(x.disponibilidad||"").toUpperCase()===v?"selected":""}>${esc(formatDisplayLabel(v))}</option>`).join("")}</select></td>
+        <td><select class="people-availability" data-personnel-availability data-id="${esc(x.id)}" data-saved-value="${esc(currentAvailability)}" aria-label="Disponibilidad de ${esc(x.nombre||"empleado")}. Se guarda al cambiarla." ${personnelAvailabilityPending.has(String(x.id))?"disabled":""}>${!currentAvailability?'<option value="" selected disabled>Sin registrar</option>':""}${personnelAvailabilityOptions.map(v=>`<option value="${v}" ${currentAvailability===v?"selected":""}>${esc(formatDisplayLabel(v))}</option>`).join("")}</select></td>
         <td>${peopleStatusBadge(x.estado||"INACTIVO")}</td>
         <td><div class="people-row-actions">${menu}</div></td>
       </tr>`;
@@ -5187,19 +5460,32 @@
     return state.userAdmin.catalogos;
   }
 
-  async function renderUsuarios(){
+  const clientVisibilityLabels = {
+    ENCARGADO: "Encargado / Supervisor",
+    SUPERVISOR: "Gerente"
+  };
+
+  async function renderUsuarios(isCurrent){
+    if (!isCurrent) {
+      const revision = ++filterRevision;
+      const module = state.current;
+      isCurrent = () => revision === filterRevision && module === state.current;
+    }
     if(state.role!=="COORDINADOR") throw new Error("Solo Coordinación puede administrar usuarios.");
     setHeading("Clientes y personal", "Administra clientes, sedes, colaboradores y accesos del sistema.");
     const f=state.userAdmin;
     const [d,catalogs]=await Promise.all([api(`/api/usuarios?${userReportParams()}`),ensureUserCatalogs()]);
+    if (!isCurrent()) return;
     f.total=d.pagination?.total||0;f.paginas=d.pagination?.paginas||1;f.pagina=d.pagination?.pagina||1;
     const s=d.summary||{};
     state.peopleCounts.usuarios=normalizeNumber(s.total||d.pagination?.total);
     await ensurePeopleCounts("usuarios");
+    if (!isCurrent()) return;
     const roles=(catalogs.roles||[]).map(x=>`<option value="${esc(x.id)}" ${String(f.rol_id)===String(x.id)?"selected":""}>${esc(x.nombre)}</option>`).join("");
     const rows=(d.items||[]).map(x=>{
       const blocked=String(x.estado||"").toUpperCase()==="BLOQUEADO";
       const menu=peopleActionMenu([
+        x.visibilidad?{label:"Visibilidad de cliente",icon:"shield-check",action:"visibilidad-usuario",id:x.id,attrs:`data-visibility="${esc(x.visibilidad)}"`}:null,
         {label:"Editar usuario",icon:"pencil",action:"editar-usuario",id:x.id},
         {label:"Restablecer contraseña",icon:"key-round",action:"restablecer-usuario",id:x.id},
         blocked?{label:"Desbloquear acceso",icon:"unlock-keyhole",action:"desbloquear-usuario",id:x.id}:null,
@@ -5209,6 +5495,9 @@
       return `<tr>
         <td>${entityAvatarLink(x.nombre||x.usuario||"Usuario",{entity:x,subtitle:x.usuario?`@${x.usuario}`:"Usuario del sistema",className:"people-user-identity"},"ver-usuario",x.id)}</td>
         <td><span class="people-role-badge">${esc(formatDisplayLabel(x.rol||"—"))}</span></td>
+        <td data-label="Autorización">${x.visibilidad
+          ? `<span class="people-role-badge user-visibility-badge">${esc(clientVisibilityLabels[x.visibilidad] || "Sin especificar")}</span>`
+          : '<span class="people-muted">No aplica</span>'}</td>
         <td><div class="people-contact-cell"><span class="people-contact-detail" title="${esc(x.correo||"Sin correo registrado")}">${esc(x.correo||"Sin correo registrado")}</span></div></td>
         <td><div class="people-date-cell">${x.ultimo_acceso?fmt(x.ultimo_acceso):`<span class="people-muted">Sin acceso reciente</span>`}</div></td>
         <td>${userStatusView(x)}</td>
@@ -5234,31 +5523,22 @@
       <section class="people-metrics">${peopleMetric("Usuarios activos",s.activos,"Acceso habilitado")}${peopleMetric("Bloqueados",s.bloqueados,"Requieren revisión")}${peopleMetric("Acceso reciente",s.acceso_30_dias,"Últimos 30 días")}</section>
       <section class="people-context"><div><h2>Usuarios del sistema</h2><p>Gestiona credenciales, roles y acceso al portal.</p></div></section>
       ${portalNote}${filters}${alert}
-      <section class="people-table-section"><div class="people-table-toolbar"><div><h3>Usuarios</h3><span>${normalizeNumber(d.pagination?.total)} resultados</span></div></div>${rows.length?`<div class="people-table-scroll se-table-responsive-scope"><table class="people-table se-wide-table"><thead><tr><th>Usuario</th><th>Rol</th><th>Correo electrónico</th><th>Último acceso</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`:`<div class="people-empty"><i data-lucide="users-round"></i><h3>No encontramos usuarios con estos filtros.</h3><p>Prueba cambiando Estado, Rol o el rango de fechas.</p><button class="btn small" type="button" data-action="usuarios-limpiar"><i data-lucide="rotate-ccw"></i><span>Limpiar filtros</span></button></div>`}${userPagination(d.pagination||{})}</section>
+      <section class="people-table-section"><div class="people-table-toolbar"><div><h3>Usuarios</h3><span>${normalizeNumber(d.pagination?.total)} resultados</span></div></div>${rows.length?`<div class="people-table-scroll se-table-responsive-scope"><table class="people-table se-wide-table users-visibility-table"><thead><tr><th>Usuario</th><th>Rol</th><th>Autorización</th><th>Correo electrónico</th><th>Último acceso</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`:`<div class="people-empty"><i data-lucide="users-round"></i><h3>No encontramos usuarios con estos filtros.</h3><p>Prueba cambiando Estado, Rol o el rango de fechas.</p><button class="btn small" type="button" data-action="usuarios-limpiar"><i data-lucide="rotate-ccw"></i><span>Limpiar filtros</span></button></div>`}${userPagination(d.pagination||{})}</section>
     </div>`;
     window.lucide?.createIcons();
     const form=$("#userReportFilters");
-    const applyUserFilters=async (live=false) => {
-      const search=form.elements.namedItem("q");
-      const caret=live ? search?.selectionStart : null;
-      const data=Object.fromEntries(new FormData(form).entries());
+    const applyUserFilters = () => {
+      clearTimeout(smartSearchTimer);
+      const data = Object.fromEntries(new FormData(form).entries());
       Object.assign(f,{q:String(data.q||""),rol_id:String(data.rol_id||""),estado:String(data.estado||""),fecha_desde:String(data.fecha_desde||""),fecha_hasta:String(data.fecha_hasta||""),tamano:Number(data.tamano||10),orden:String(data.orden||f.orden||"FECHA"),direccion:String(data.direccion||f.direccion||"DESC"),pagina:1});
-      if(live) await renderUsuarios();
-      else await withContextualLoader(()=>renderUsuarios(),"Actualizando usuarios...","Usuarios actualizados");
-      if(live && state.current==="usuarios") {
-        const next=$("#userReportFilters [name=q]");
-        if(next){next.focus();if(caret!==null)next.setSelectionRange(caret,caret);}
-      }
+      refreshFilteredView(renderUsuarios, ++filterRevision, state.current).catch(err=>showToast(err.message,"error"));
     };
-    form?.addEventListener("submit",e=>{e.preventDefault();clearTimeout(userSearchTimer);applyUserFilters().catch(err=>showToast(err.message,"error"));});
-    form?.querySelector('[name="q"]')?.addEventListener("input",()=>{
-      clearTimeout(userSearchTimer);
-      userSearchTimer=window.setTimeout(()=>applyUserFilters(true).catch(err=>showToast(err.message,"error")),220);
+    form?.addEventListener("submit", event => {
+      event.preventDefault();
+      applyUserFilters();
     });
-    form?.addEventListener("change",e=>{
-      if(e.target.name==="q")return;
-      clearTimeout(userSearchTimer);
-      applyUserFilters().catch(err=>showToast(err.message,"error"));
+    form?.addEventListener("change", event => {
+      if (event.target.name !== "q") applyUserFilters();
     });
   }
 
@@ -5314,7 +5594,7 @@
       <div class="field full" data-owner="cliente"><label>Nombre completo de la persona *</label><input name="nombre_completo" maxlength="180" placeholder="Ej. Juan Pérez" value="${esc(current?.nombre_contacto||(userRolePortalById(roleId)==='CLIENTE'?current?.nombre:"")||"")}"></div>
       <div class="field" data-owner="cliente"><label>Cargo de la persona</label><input name="cargo_contacto" maxlength="120" value="${esc(current?.cargo_contacto||"")}" placeholder="Ej. Encargado de mantenimiento"></div>
       <div class="field" data-owner="cliente"><label>Teléfono de la persona</label><input name="telefono_contacto" maxlength="20" value="${esc(current?.telefono_contacto||"")}" placeholder="Ej. +502 5555 5555"></div>
-      <div class="field full" data-owner="cliente"><div class="notice-card"><strong>Accesos por sucursal</strong><p>Después de crear esta cuenta, abrí Gestionar → Sucursales autorizadas para elegir las sedes que tendrá a cargo.</p></div></div>
+      <div class="field full" data-owner="cliente"><div class="notice-card"><strong>Visibilidad de cliente</strong><p>Las cuentas nuevas ven sus propios registros. Podés cambiar la autorización desde el menú de acciones del usuario.</p></div></div>
       ${current?`<div class="field full"><label class="switch-row"><input type="checkbox" name="activo" ${current.activo?"checked":""}><span>Cuenta activa</span></label><small>Desactivar una cuenta cierra sus sesiones activas.</small></div>`:`<div class="user-form-section full"><span>02</span><strong>Seguridad inicial</strong></div><div class="field"><label>Contraseña temporal</label><div class="password-control"><input type="password" name="contrasena" minlength="8" autocomplete="new-password" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div><small>Mayúscula, minúscula y número.</small><button class="btn small" type="button" data-generate-password><i data-lucide="wand-sparkles"></i> Generar contraseña segura</button></div><div class="field"><label>Confirmar contraseña</label><div class="password-control"><input type="password" name="confirmacion" minlength="8" autocomplete="new-password" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div></div>`}
       <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit"><i data-lucide="save"></i> ${current?"Guardar cambios":"Crear usuario"}</button></div></div>
     </form>`);
@@ -5324,37 +5604,37 @@
     window.lucide?.createIcons();
   }
 
-  async function manageUserBranches(usuarioId){
-    const [userResponse, branchResponse]=await Promise.all([
-      api(`/api/usuarios/${usuarioId}`),api(`/api/usuarios/${usuarioId}/sedes-autorizadas`)
-    ]);
-    const u=userResponse.item||{},branches=branchResponse.items||[];
-    const rows=branches.map(x=>`<label class="switch-row" style="padding:10px 0;border-bottom:1px solid var(--border,#dde4ef);display:flex;gap:10px;align-items:center">
-      <input type="checkbox" data-sede-id="${esc(x.sucursal_id)}" ${x.asignada?"checked":""} ${!x.sucursal_activa?"disabled":""}>
-      <span><strong>${esc(x.sucursal||"Sede")}</strong><small style="display:block">${esc(x.codigo||"")}${!x.sucursal_activa?" · Sede inactiva":""}</small></span>
-    </label>`).join("")||'<p class="muted">Esta empresa todavía no tiene sucursales registradas.</p>';
-    openModal(`Sucursales · ${u.usuario||"Usuario"}`,`<form id="clientBranchAssignments" class="form-grid" autocomplete="off">
-      <div class="field full"><div class="user-form-intro"><span><i data-lucide="map-pinned"></i></span><div><strong>${esc(u.nombre_contacto||u.nombre||u.usuario||"Cuenta de cliente")}</strong><p>${esc(u.cliente||"Empresa cliente")} · Marcá las sucursales que administra esta persona.</p></div></div></div>
-      <div class="field full"><div class="notice-card"><strong>Configuración de permisos</strong><p>Estas asignaciones se guardan en SQL Server. El aislamiento de información por sucursal requiere completar la actualización de todas las consultas del portal cliente antes de publicar el sistema.</p></div></div>
-      <div class="field full"><div class="form-actions" style="margin:0;justify-content:flex-start"><button class="btn primary" type="button" data-action="nueva-sede-usuario" data-id="${esc(usuarioId)}" data-cliente-id="${esc(u.cliente_id||branches[0]?.cliente_id||"")}"><i data-lucide="plus"></i> ${branches.length?"Agregar otra sucursal":"Crear primera sucursal"}</button></div></div>
-      <div class="field full"><div style="max-height:350px;overflow-y:auto;padding:0 6px">${rows}</div></div>
-      <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit" ${!branches.length?"disabled":""}>Guardar asignaciones</button></div></div>
+  function manageClientVisibility(usuarioId, currentMode){
+    openModal("Visibilidad de cliente", `<form id="clientVisibilityForm" class="form-grid">
+      <div class="field full">
+        <label for="clientRecordVisibility">Visibilidad de solicitudes y órdenes</label>
+        <select id="clientRecordVisibility" name="visibilidad">${optionList([
+          ["ENCARGADO", `${clientVisibilityLabels.ENCARGADO} · solo sus registros`],
+          ["SUPERVISOR", `${clientVisibilityLabels.SUPERVISOR} · todos los registros de su empresa`]
+        ], 0, x => x[1], currentMode || "ENCARGADO")}</select>
+      </div>
+      <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit">Guardar permisos</button></div></div>
     </form>`);
-    const form=$("#clientBranchAssignments");
-    form?.addEventListener("submit",async e=>{
-      e.preventDefault();const submit=form.querySelector('button[type="submit"]');submit.disabled=true;
-      const cambios=branches.filter(x=>!!form.querySelector(`[data-sede-id="${x.sucursal_id}"]`)?.checked!==!!x.asignada);
-      try{
-        for(const x of cambios){
-          const activo=!!form.querySelector(`[data-sede-id="${x.sucursal_id}"]`)?.checked;
-          await api(`/api/usuarios/${usuarioId}/sedes-autorizadas/${x.sucursal_id}`,{method:"POST",body:{activo}});
-        }
-        showToast(`${cambios.length} asignaciones actualizadas.`);
-        closeModal();
-      }catch(err){showToast(err.message,"error");await manageUserBranches(usuarioId);}
-      finally{submit.disabled=false;}
-    });window.lucide?.createIcons();
+    const form = $("#clientVisibilityForm");
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      const submit = form.querySelector('button[type="submit"]');
+      submit.disabled = true;
+      try {
+        await api(`/api/usuarios/${usuarioId}/visibilidad-cliente`, {
+          method: "PATCH", body: {visibilidad: form.elements.visibilidad.value}
+        });
+      } catch (err) {
+        showToast(err.message, "error");
+        submit.disabled = false;
+        return;
+      }
+      showToast("Permisos de la cuenta actualizados.");
+      closeModal();
+      if (state.current === "usuarios") renderUsuarios().catch(err => showToast(err.message, "error"));
+    });
   }
+
 
   async function openUserDetail(id){
     const d=await api(`/api/usuarios/${id}`),u=d.item||{};
@@ -5366,7 +5646,7 @@
         <div class="info-item"><span>Fecha de registro</span><strong>${fmt(u.creado_en)}</strong></div><div class="info-item"><span>Último acceso</span><strong>${fmt(u.ultimo_acceso)}</strong></div>
         <div class="info-item"><span>Intentos fallidos</span><strong>${normalizeNumber(u.intentos_fallidos)}</strong></div><div class="info-item"><span>Cambio de contraseña</span><strong>${u.requiere_cambio_contrasena?"Pendiente":"Al día"}</strong></div>
       </div>
-      <div class="user-detail-actions"><a class="btn" href="/api/usuarios/${encodeURIComponent(u.id)}/reporte.pdf" download><i data-lucide="file-down"></i> Descargar PDF</a>${u.cliente_id?`<button class="btn" data-action="sucursales-usuario" data-id="${esc(u.id)}"><i data-lucide="map-pinned"></i> Sucursales autorizadas</button>`:""}<button class="btn" data-action="editar-usuario" data-id="${esc(u.id)}"><i data-lucide="pencil"></i> Editar</button><button class="btn" data-action="restablecer-usuario" data-id="${esc(u.id)}"><i data-lucide="key-round"></i> Restablecer contraseña</button>${u.bloqueado?`<button class="btn" data-action="desbloquear-usuario" data-id="${esc(u.id)}"><i data-lucide="unlock-keyhole"></i> Desbloquear</button>`:""}<button class="btn ${u.activo?"danger":"primary"}" data-action="cambiar-estado-usuario" data-id="${esc(u.id)}" data-active="${u.activo?"0":"1"}" data-name="${esc(u.usuario)}"><i data-lucide="${u.activo?"user-round-x":"user-round-check"}"></i> ${u.activo?"Desactivar":"Activar"}</button></div>
+      <div class="user-detail-actions"><a class="btn" href="/api/usuarios/${encodeURIComponent(u.id)}/reporte.pdf" download><i data-lucide="file-down"></i> Descargar PDF</a>${u.cliente_id?`<button class="btn" data-action="visibilidad-usuario" data-id="${esc(u.id)}" data-visibility="${esc(d.visibilidad||"ENCARGADO")}"><i data-lucide="shield-check"></i> Visibilidad de cliente</button>`:""}<button class="btn" data-action="editar-usuario" data-id="${esc(u.id)}"><i data-lucide="pencil"></i> Editar</button><button class="btn" data-action="restablecer-usuario" data-id="${esc(u.id)}"><i data-lucide="key-round"></i> Restablecer contraseña</button>${u.bloqueado?`<button class="btn" data-action="desbloquear-usuario" data-id="${esc(u.id)}"><i data-lucide="unlock-keyhole"></i> Desbloquear</button>`:""}<button class="btn ${u.activo?"danger":"primary"}" data-action="cambiar-estado-usuario" data-id="${esc(u.id)}" data-active="${u.activo?"0":"1"}" data-name="${esc(u.usuario)}"><i data-lucide="${u.activo?"user-round-x":"user-round-check"}"></i> ${u.activo?"Desactivar":"Activar"}</button></div>
       <div class="user-detail-columns"><section><h3 class="section-title">Sesiones recientes</h3><div class="admin-session-list">${sessions}</div></section><section><h3 class="section-title">Actividad de auditoría</h3><ul class="admin-audit-list">${events}</ul></section></div>`);
     window.lucide?.createIcons();
   }
@@ -5382,9 +5662,10 @@
     window.lucide?.createIcons();
   }
 
-  async function renderEquipos(){
+  async function renderEquipos(isCurrent = () => true){
     setHeading("Equipo y mantenimiento", "Inventario técnico, disponibilidad y mantenimiento interno.");
-    const all=(await loadAllPaged("equipos","/api/equipos")).items;
+    const all=(await loadAllPaged("equipos","/api/equipos", false, isCurrent)).items;
+    if (!isCurrent()) return;
     const categories=listFacet("equipos","categoria",smartUnique(all,x=>x.Categoria||x.categoria||""));
     const states=listFacet(state.current,"estado",smartUnique(all,x=>String(x.Estado||x.estado||"").toUpperCase()));
     const result=smartListData("equipos",all,{
@@ -5413,13 +5694,14 @@
       </tr>`;
     });
     const equipmentHeaders=["Equipo / código","Categoría / marca","Estado / fallas","Resguardo habitual","Acciones"];
-    content.innerHTML=`${equipmentMaintenanceTabs("equipos")}${summary}<section class="panel smart-list-panel equipment-panel coord-data-surface"><div class="panel-header equipment-heading"><div><span class="coord-section-kicker">INVENTARIO</span><h2>Equipo</h2><p class="muted">Estado operativo y resguardo habitual por separado. Los equipos permanecen en su bodega o vehículo registrado hasta que cambies su ficha.</p></div>${canManageEquipment?`<button class="btn primary" type="button" data-action="nuevo-equipo"><i data-lucide="circle-plus"></i> Registrar equipo</button>`:""}</div><div class="panel-body">${smartControls("equipos",{placeholder:"Código, equipo, vehículo, bodega, marca o serie",filters:[{name:"estado",label:"Estado",options:states},{name:"categoria",label:"Categoría",options:categories},{name:"resguardo",label:"Resguardo",options:[["BODEGA","Bodega"],["VEHICULO","Vehículo"],["SIN_DEFINIR","Por definir"]]}],sorts:[["nombre","Equipo"],["codigo","Código"],["estado","Estado"],["ubicacion","Resguardo"],["fallas","Fallas abiertas"]]})}${smartResultsMeta(result,"equipos")}</div>${table(equipmentHeaders,rows,"No hay equipos que coincidan con los filtros.")}${smartPager("equipos",result)}</section>`;
+    content.innerHTML=`${equipmentMaintenanceTabs("equipos")}${summary}<section class="panel smart-list-panel equipment-panel coord-data-surface"><div class="panel-header equipment-heading"><div><span class="coord-section-kicker">Inventario</span><h2>Equipo</h2><p class="muted">Estado operativo y resguardo habitual por separado. Los equipos permanecen en su bodega o vehículo registrado hasta que cambies su ficha.</p></div>${canManageEquipment?`<button class="btn primary" type="button" data-action="nuevo-equipo"><i data-lucide="circle-plus"></i> Registrar equipo</button>`:""}</div><div class="panel-body">${smartControls("equipos",{placeholder:"Código, equipo, vehículo, bodega, marca o serie",filters:[{name:"estado",label:"Estado",options:states},{name:"categoria",label:"Categoría",options:categories},{name:"resguardo",label:"Resguardo",options:[["BODEGA","Bodega"],["VEHICULO","Vehículo"],["SIN_DEFINIR","Por definir"]]}],sorts:[["nombre","Equipo"],["codigo","Código"],["estado","Estado"],["ubicacion","Resguardo"],["fallas","Fallas abiertas"]]})}${smartResultsMeta(result,"equipos")}</div>${table(equipmentHeaders,rows,"No hay equipos que coincidan con los filtros.")}${smartPager("equipos",result)}</section>`;
     window.lucide?.createIcons();
   }
 
-  async function renderMantenimientos(){
+  async function renderMantenimientos(isCurrent = () => true){
     setHeading("Equipo y mantenimiento", "Inventario técnico, disponibilidad y mantenimiento interno.");
-    const all=(await loadAllPaged("mantenimientos","/api/mantenimientos")).items;
+    const all=(await loadAllPaged("mantenimientos","/api/mantenimientos", false, isCurrent)).items;
+    if (!isCurrent()) return;
     const types=smartUnique(all,x=>String(x.tipo||"").toUpperCase());
     const states=listFacet(state.current,"estado",smartUnique(all,x=>String(x.Estado||x.estado||"").toUpperCase()));
     const result=smartListData("mantenimientos",all,{
@@ -5448,9 +5730,10 @@
 
   function maintenanceForm(){return portalUI.planMaintenance();}
 
-  async function renderVacaciones(){
-    setHeading("Vacaciones", "Consulta de solicitudes de vacaciones.");
-    const all=(await loadAllPaged("vacaciones","/api/vacaciones")).items;
+  async function renderVacaciones(isCurrent = () => true){
+    setHeading("Horarios y vacaciones", "Consulta los turnos y las vacaciones de la semana.");
+    const all=(await loadAllPaged("vacaciones","/api/vacaciones", false, isCurrent)).items;
+    if (!isCurrent()) return;
     const states=listFacet(state.current,"estado",smartUnique(all,x=>String(x.Estado||x.estado||"").toUpperCase()));
     const result=smartListData("vacaciones",all,{
       defaults:{orden:"solicitada",direccion:"DESC"},
@@ -5465,7 +5748,9 @@
       <td><div class="se-description" title="${esc(x.Motivo||x.motivo||"—")}">${esc(x.Motivo||x.motivo||"—")}</div></td>
       <td class="se-table-actions">${button("Abrir","detalle-vacacion",x.id)}</td>
     </tr>`);
-    content.innerHTML=`<section class="panel smart-list-panel"><div class="panel-header"><div><h2>${state.role==="TECNICO"?"Mis solicitudes de vacaciones":"Solicitudes de vacaciones"}</h2><p class="muted">Busca por empleado o motivo y filtra por estado.</p></div>${button("Solicitar vacaciones","nueva-vacacion")}</div><div class="panel-body">${smartControls("vacaciones",{placeholder:"Empleado, motivo u observaciones",filters:[{name:"estado",label:"Estado",options:states.map(value=>[value,formatDisplayLabel(value)])}],sorts:[["solicitada","Fecha de solicitud"],["inicio","Inicio"],["empleado","Empleado"],["estado","Estado"]]})}${smartResultsMeta(result,"solicitudes")}</div>${table(["Empleado / solicitud","Período","Estado","Motivo","Acción"],rows,"No hay vacaciones que coincidan con los filtros.")}${smartPager("vacaciones",result)}</section>`;
+    content.innerHTML=`<section class="se-week-panel" data-staff-calendar aria-label="Calendario de horarios y vacaciones"><p class="se-week-empty">Cargando calendario…</p></section><section class="panel smart-list-panel"><div class="panel-header"><div><h2>${state.role==="TECNICO"?"Mis solicitudes de vacaciones":"Solicitudes de vacaciones"}</h2><p class="muted">Busca por empleado o motivo y filtra por estado.</p></div>${state.role==="TECNICO"?button("Solicitar vacaciones","nueva-vacacion"):""}</div><div class="panel-body">${smartControls("vacaciones",{placeholder:"Empleado, motivo u observaciones",filters:[{name:"estado",label:"Estado",options:states.map(value=>[value,formatDisplayLabel(value)])}],sorts:[["solicitada","Fecha de solicitud"],["inicio","Inicio"],["empleado","Empleado"],["estado","Estado"]]})}${smartResultsMeta(result,"solicitudes")}</div>${table(["Empleado / solicitud","Período","Estado","Motivo","Acción"],rows,"No hay vacaciones que coincidan con los filtros.")}${smartPager("vacaciones",result)}</section>`;
+    const calendar = content.querySelector("[data-staff-calendar]");
+    if (calendar) staffCalendar(calendar);
     window.lucide?.createIcons();
   }
 
@@ -5503,9 +5788,10 @@
   }
 
 
-  async function renderCatalogoMaestro(){
+  async function renderCatalogoMaestro(isCurrent = () => true){
     setHeading("Catálogo maestro", "Centraliza los trabajos y precios de referencia que coordinación utiliza al preparar cotizaciones.");
     const all=(await loadAllPaged("catalogo","/api/catalogo-maestro")).items;
+    if (!isCurrent()) return;
     state.masterCatalog=all;
     const categories=smartUnique(all,x=>x.categoria||"");
     const active=all.filter(x=>x.activo).length,withPrice=all.filter(x=>Number(x.precio||0)>0).length;
@@ -5536,9 +5822,33 @@
   }
 
   const quotePrintSelection={active:false,ids:new Set()};
-  async function renderCotizaciones(){
+  async function renderPendingQuotes(root, page=1) {
+    root.setAttribute("aria-busy","true");
+    try {
+      const data=await api(`/api/cotizaciones/ordenes-pendientes?pagina=${page}&tamano=5`,{seCache:"no-store"});
+      if(!root.isConnected)return;
+      modulePending.ordenes_sin_cotizar=data.total;
+      renderNav();
+      root.hidden=!data.total;
+      if(!data.total)return;
+      root.innerHTML=`<div class="se-quote-pending-head"><div><h2 class="se-pending-dot">Órdenes por cotizar · ${data.total}</h2><p>Acción pendiente: realizar la cotización para estas órdenes.</p></div></div>
+        <ul class="se-quote-pending-list">${data.items.map(item=>`<li><div><strong>${esc(item.numero)}</strong><small>${esc([item.cliente,item.sede,item.tipo].filter(Boolean).join(" · "))}</small></div>${button("Realizar cotización","cotizar-orden",item.id)}</li>`).join("")}</ul>
+        ${data.paginas>1?`<div class="se-quote-pending-pager"><button class="btn small" type="button" data-pending-page="${data.pagina-1}" ${data.pagina<=1?"disabled":""}>Anterior</button><span>${data.pagina} de ${data.paginas}</span><button class="btn small" type="button" data-pending-page="${data.pagina+1}" ${data.pagina>=data.paginas?"disabled":""}>Siguiente</button></div>`:""}`;
+      root.querySelectorAll("[data-pending-page]").forEach(button=>button.addEventListener("click",()=>{button.disabled=true;renderPendingQuotes(root,Number(button.dataset.pendingPage));}));
+    }catch(error){
+      if(!root.isConnected)return;
+      root.hidden=false;
+      root.innerHTML=`<div class="se-quote-pending-head"><div><h2>Órdenes por cotizar</h2><p>${esc(error.message)}</p></div><button type="button" class="btn">Reintentar</button></div>`;
+      root.querySelector("button").onclick=()=>renderPendingQuotes(root,page);
+    }finally{
+      root.removeAttribute("aria-busy");
+    }
+  }
+
+  async function renderCotizaciones(isCurrent = () => true){
     setHeading("Cotizaciones", state.role === "CLIENTE" ? "Consulta las cotizaciones de tu empresa, con o sin orden de trabajo." : "Gestiona propuestas, versiones y aprobaciones de clientes.");
     const all=filterSelectedDate("cotizaciones",(await loadAllPaged("cotizaciones","/api/cotizaciones")).items);
+    if (!isCurrent()) return;
 
     if (state.role !== "COORDINADOR") {
       const states=listFacet(state.current,"estado",smartUnique(all,x=>String(x.Estado||x.estado||"").toUpperCase()));
@@ -5572,7 +5882,7 @@
     };
     const tabs=[
       ["TODAS","Todas"],["PENDIENTES","Pendientes"],["ENVIADAS","Enviadas"],["APROBADAS","Aprobadas"],["RECHAZADAS","Rechazadas"],
-      ...(tabCounts.BORRADORES ? [["BORRADORES","Borradores"]] : [])
+      ...(tabCounts.BORRADORES ? [["BORRADORES","Por enviar"]] : [])
     ];
 
     let prepared=all.filter(item=>{
@@ -5592,21 +5902,30 @@
     const rows=result.items.map(x=>{
       const st=quoteStateKey(x.Estado||x.estado);
       const sendable=["BORRADOR","OBSERVADA","CONFIRMADA"].includes(st);
-      const actions=[`<button class="quote-action-button" type="button" data-action="ver-expediente-cotizacion" data-id="${esc(x.id)}"><i data-lucide="eye"></i><span>Ver detalle</span></button>`,`<button class="quote-action-button" type="button" data-action="reporte-trabajo-cotizacion" data-id="${esc(x.id)}"><i data-lucide="history"></i><span>Seguimiento y entrega</span></button>`];
-      if(sendable && !x.cliente_nuevo) actions.push(`<button class="quote-action-button quote-action-primary" type="button" data-action="enviar-cotizacion" data-id="${esc(x.id)}"><i data-lucide="send"></i><span>Enviar</span></button>`);
-      if(x.orden_id) actions.push(`<button class="quote-action-button" type="button" data-action="ver-orden" data-id="${esc(x.orden_id)}"><i data-lucide="eye"></i><span>Ver OT</span></button>`);
-      actions.push(`<a class="quote-action-button quote-action-pdf" href="/api/cotizaciones/${esc(x.id)}/reporte-trabajo.pdf" download><i data-lucide="file-clock"></i><span>Reporte de trabajo</span></a>`);actions.push(`<a class="quote-action-button quote-action-pdf" href="/api/cotizaciones/${esc(x.id)}/pdf" download><i data-lucide="file-down"></i><span>Cotización PDF</span></a>`);
+      const quoteMenuId=`quote-actions-${x.id}`;
+      const menuActions=[
+        `<button class="quote-menu-action quote-menu-detail" type="button" data-action="ver-expediente-cotizacion" data-id="${esc(x.id)}"><i data-lucide="eye"></i><span>Ver detalle</span></button>`,
+        `<button class="quote-menu-action quote-menu-followup" type="button" data-action="reporte-trabajo-cotizacion" data-id="${esc(x.id)}"><i data-lucide="history"></i><span>Seguimiento y entrega</span></button>`
+      ];
+      if(sendable && !x.cliente_nuevo) menuActions.push(`<button class="quote-menu-action" type="button" data-action="enviar-cotizacion" data-id="${esc(x.id)}"><i data-lucide="send"></i><span>Enviar</span></button>`);
+      if(x.orden_id) menuActions.push(`<button class="quote-menu-action" type="button" data-action="ver-orden" data-id="${esc(x.orden_id)}"><i data-lucide="external-link"></i><span>Ver OT</span></button>`);
+      menuActions.push(`<a class="quote-menu-action" href="/api/cotizaciones/${esc(x.id)}/reporte-trabajo.pdf" download><i data-lucide="file-clock"></i><span>Reporte de trabajo</span></a>`);
+      menuActions.push(`<a class="quote-menu-action" href="/api/cotizaciones/${esc(x.id)}/pdf" download><i data-lucide="file-down"></i><span>Cotización PDF</span></a>`);
+      const actions=`<button class="quote-action-button quote-action-detail" type="button" data-action="ver-expediente-cotizacion" data-id="${esc(x.id)}"><i data-lucide="eye"></i><span>Ver detalle</span></button>
+        <button class="quote-action-button quote-action-followup" type="button" data-action="reporte-trabajo-cotizacion" data-id="${esc(x.id)}"><i data-lucide="history"></i><span>Seguimiento y entrega</span></button>
+        <button class="quote-action-more" type="button" popovertarget="${quoteMenuId}" aria-label="Más acciones para ${esc(x.numero||`Cotización #${x.id}`)}" aria-haspopup="true" aria-controls="${quoteMenuId}" aria-expanded="false"><i data-lucide="ellipsis"></i></button>
+        <div class="quote-action-menu" id="${quoteMenuId}" popover="auto" role="group" aria-label="Acciones de ${esc(x.numero||`Cotización #${x.id}`)}">${menuActions.join("")}</div>`;
       const client=renderAvatarIdentity(x.cliente||"Cliente",{entity:x,className:"quote-client-identity",subtitle:[x.sede,x.orden||x.orden_fisica].filter(Boolean).join(' · ')||"Sin OT vinculada"});
       return `<tr>
         ${quotePrintSelection.active?`<td data-label="Seleccionar"><input class="quote-print-check" type="checkbox" value="${esc(x.id)}" aria-label="Seleccionar ${esc(x.numero)}" ${quotePrintSelection.ids.has(Number(x.id))?'checked':''}></td>`:''}
-        <td data-label="Documento"><div class="quote-document"><strong>${esc(x.numero||`Cotización #${x.id}`)}</strong><div><span>${esc(x.nombre||'Cotización')} · ${quoteDateShort(x.emision||x.creada)} • Versión ${esc(x.version||"—")}</span><em>ACTUAL</em></div></div></td>
+        <td data-label="Documento"><div class="quote-document"><strong>${esc(x.numero||`Cotización #${x.id}`)}</strong><div><span>${esc(x.nombre||'Cotización')} · ${quoteDateShort(x.emision||x.creada)} • Versión ${esc(x.version||"—")}</span><em>Actual</em></div></div></td>
         <td data-label="Cliente">${client}</td>
         <td data-label="Finanzas y estado"><div class="quote-finance"><strong>${money(x.Total||x.total,x.Moneda||x.moneda)}</strong>${quoteStatusBadge(st)}</div></td>
-        <td data-label="Acciones"><div class="quote-row-actions">${actions.join("")}</div></td>
+        <td data-label="Acciones"><div class="quote-row-actions">${actions}</div></td>
       </tr>`;
     }).join("");
 
-    const tableMarkup=result.total?`<div class="quote-table-scroll"><table class="quote-table"><thead><tr>${quotePrintSelection.active?'<th>Elegir</th>':''}<th>Documento</th><th>Cliente</th><th>Finanzas y estado</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table></div>${quotePager(result)}`:`<div class="quote-empty"><span><i data-lucide="receipt-text"></i></span><h3>No encontramos cotizaciones con estos filtros.</h3></div>`;
+    const tableMarkup=result.total?`<div class="quote-table-scroll"><table class="quote-table ${quotePrintSelection.active?'quote-table--selection':''}"><thead><tr>${quotePrintSelection.active?'<th>Elegir</th>':''}<th>Documento</th><th>Cliente</th><th>Finanzas y estado</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table></div>${quotePager(result)}`:`<div class="quote-empty"><span><i data-lucide="receipt-text"></i></span><h3>No encontramos cotizaciones con estos filtros.</h3></div>`;
 
     const quoteSortValue=prefs.orden==="total"?(prefs.direccion==="ASC"?"TOTAL_ASC":"TOTAL_DESC"):(prefs.direccion==="ASC"?"FECHA_ASC":"FECHA_DESC");
     content.innerHTML=`<section class="quotes-workspace">
@@ -5615,6 +5934,7 @@
         <div class="quote-header-actions"><button class="btn" type="button" data-action="quote-print-mode"><i data-lucide="printer"></i><span>${quotePrintSelection.active?'Cancelar selección':'Imprimir varias'}</span></button>${quotePrintSelection.active?`<button class="btn primary" type="button" data-action="quote-print-selected"><i data-lucide="files"></i><span>Imprimir seleccionadas (${quotePrintSelection.ids.size})</span></button>`:''}<button class="quotes-create-button" type="button" data-action="nueva-cotizacion" aria-label="Nueva cotización"><i data-lucide="plus"></i><span>Nueva cotización</span></button></div>
       </header>
 
+      <section class="se-quote-pending" data-quotes-pending hidden aria-label="Órdenes por cotizar"></section>
       <div class="quotes-tabs-row">
         <nav class="quotes-tabs" aria-label="Estado de cotizaciones">${tabs.map(([value,label])=>`<button type="button" class="quote-tab ${selectedTab===value?"active":""}" data-action="quote-tab" data-value="${value}"><span>${esc(label)}</span><strong>${tabCounts[value]}</strong></button>`).join("")}</nav>
         <button class="quotes-catalog-link" type="button" data-context-module="catalogo"><i data-lucide="book-open-check"></i><span>Catálogo y precios</span></button>
@@ -5632,98 +5952,32 @@
         ${tableMarkup}
       </section>
     </section>`;
+    content.querySelectorAll('.quote-action-menu').forEach(menu=>{
+      const trigger=content.querySelector(`[popovertarget="${menu.id}"]`);
+      if(!trigger) return;
+      menu.addEventListener('toggle',()=>{
+        const open=menu.matches(':popover-open');
+        trigger.setAttribute('aria-expanded',String(open));
+        if(!open) return;
+        const rect=trigger.getBoundingClientRect();
+        const width=menu.offsetWidth;
+        const height=menu.offsetHeight;
+        menu.style.left=`${Math.max(8,Math.min(rect.right-width,window.innerWidth-width-8))}px`;
+        menu.style.top=`${rect.bottom+height+8<=window.innerHeight?rect.bottom+5:Math.max(8,rect.top-height-5)}px`;
+      });
+      menu.addEventListener('click',event=>{
+        if(event.target.closest('button,a')) menu.hidePopover();
+      });
+    });
     content.querySelectorAll('.quote-print-check').forEach(input=>input.addEventListener('change',()=>{const id=Number(input.value);if(input.checked){if(quotePrintSelection.ids.size>=30){input.checked=false;return showToast('Puedes imprimir hasta 30 cotizaciones a la vez.','error');}quotePrintSelection.ids.add(id);}else quotePrintSelection.ids.delete(id);const label=content.querySelector('[data-action="quote-print-selected"] span');if(label)label.textContent=`Imprimir seleccionadas (${quotePrintSelection.ids.size})`;}));
+    renderPendingQuotes(content.querySelector("[data-quotes-pending]"));
     window.lucide?.createIcons();
   }
 
 
-  function quoteFlowPhoto(item){
-    const src=String(item.ruta||"");
-    if(!src)return "";
-    return `<a class="quote-collage-item" href="${esc(src)}" target="_blank" rel="noopener"><img src="${esc(src)}" alt="Evidencia de servicio" loading="lazy"><span><i data-lucide="maximize-2"></i> Ver imagen</span>${item.etapa?`<small>${esc(item.etapa)}</small>`:""}</a>`;
-  }
-
   async function openClientQuoteFlow(id){
     if(state.role!=="CLIENTE") return navigate("cotizaciones");
-    setHeading("Expediente de cotización", "Solicitud, ejecución del servicio y propuesta comercial en orden cronológico.");
-    content.innerHTML=`<section class="panel"><div class="quote-flow-loading"><span class="spinner"></span><h3>Cargando expediente...</h3><p>Estamos reuniendo la solicitud, la orden, las evidencias y la cotización.</p></div></section>`;
-    try{
-      const d=await api(`/api/cotizaciones/${id}/expediente`);
-      const x=d.item||{}, evidence=d.evidencias||[], lines=d.detalles||[];
-      const quoteState=String(x.cotizacion_estado||"").toUpperCase();
-      const photos=evidence.length?evidence.map(quoteFlowPhoto).join(""):`<div class="quote-collage-empty"><i data-lucide="images"></i><strong>Collage pendiente</strong><span>Las fotografías del trabajo aparecerán aquí cuando hayan sido cargadas a la orden.</span></div>`;
-      const lineRows=lines.map(l=>`<tr><td>${esc(l.numero_linea||"—")}</td><td>${esc(l.descripcion||"—")}</td><td>${esc(l.cantidad??"—")}</td><td>${String(l.tipo_articulo).toUpperCase()==='BIEN'?'Bien':'Servicio'}</td><td>${money(l.precio_unitario,x.moneda)}</td><td>${money(l.total_linea,x.moneda)}</td></tr>`);
-      const canRespond=quoteState==="ENVIADA";
-      content.innerHTML=`
-        <div class="quote-flow-backbar"><button class="btn" type="button" data-action="volver-cotizaciones"><i data-lucide="arrow-left"></i> Volver a cotizaciones</button><span>${badge(quoteState)}</span></div>
-        <section class="quote-flow-hero">
-          <div><small>EXPEDIENTE DEL SERVICIO</small><h2>${esc(x.nombre_cotizacion||x.numero_cotizacion||`Cotización #${id}`)}</h2><p>${esc(x.numero_cotizacion||'')} · ${esc(x.cliente||'')}${x.sede?' · '+esc(x.sede):''}${x.numero_orden?' · OT '+esc(x.numero_orden):''}${x.numero_orden_papel?' · OT física '+esc(x.numero_orden_papel):''}</p></div>
-          <div class="quote-flow-hero-total"><small>Total cotizado</small><strong>${money(x.total,x.moneda)}</strong><span>Versión ${esc(x.numero_version||"—")}</span></div>
-        </section>
-        ${x.orden_id?`
-        <section class="quote-flow-steps" aria-label="Flujo de la cotización">
-          <article class="quote-flow-step is-done"><span>1</span><div><small>ORIGEN</small><strong>Solicitud</strong><p>Lo que el cliente reportó inicialmente.</p></div></article>
-          <div class="quote-flow-line"></div>
-          <article class="quote-flow-step is-done"><span>2</span><div><small>EJECUCIÓN</small><strong>Orden de trabajo</strong><p>Atención realizada y evidencias del servicio.</p></div></article>
-          <div class="quote-flow-line"></div>
-          <article class="quote-flow-step is-done"><span>3</span><div><small>PROPUESTA</small><strong>Cotización</strong><p>Detalle económico y documento descargable.</p></div></article>
-        </section>
-
-        <section class="quote-stage-card quote-stage-request">
-          <div class="quote-stage-number">01</div>
-          <div class="quote-stage-heading"><span><i data-lucide="file-plus-2"></i></span><div><small>SOLICITUD DE SERVICIO</small><h2>${esc(x.tipo_servicio||"Servicio solicitado")}</h2><p>Registrada ${fmt(x.solicitud_creada)}</p></div></div>
-          <div class="quote-stage-grid">
-            <div class="quote-stage-main"><h3>Problema reportado</h3><p>${esc(x.solicitud_descripcion||"Sin descripción registrada.")}</p></div>
-            <div class="quote-stage-facts">
-              <div><small>Solicitud</small><strong>#${esc(x.solicitud_id||"—")}</strong></div>
-              <div><small>Clasificación</small><strong>${esc(x.clasificacion||"—")}</strong></div>
-              <div><small>Urgencia</small><strong>${esc(x.nivel_urgencia||"—")}</strong></div>
-              <div><small>Sede</small><strong>${esc(x.sede||"—")}</strong></div>
-              <div class="wide"><small>Dirección</small><strong>${esc([x.direccion,x.municipio,x.departamento].filter(Boolean).join(", ")||"—")}</strong></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="quote-stage-card quote-stage-order">
-          <div class="quote-stage-number">02</div>
-          <div class="quote-stage-heading"><span><i data-lucide="clipboard-check"></i></span><div><small>ORDEN DE TRABAJO</small><h2>${esc(x.numero_orden||`OT #${x.orden_id||"—"}`)}</h2><p>${badge(x.orden_estado||"EN PROCESO")}</p></div></div>
-          <div class="quote-order-summary">
-            <div><small>Prioridad</small><strong>${esc(x.prioridad||"—")}</strong></div>
-            <div><small>Programada</small><strong>${fmt(x.programada_para)}</strong></div>
-            <div><small>Inicio</small><strong>${fmt(x.iniciada_en)}</strong></div>
-            <div><small>Finalización</small><strong>${fmt(x.finalizada_en)}</strong></div>
-          </div>
-          ${x.observaciones_coordinacion?`<div class="quote-order-note"><i data-lucide="message-square-text"></i><div><small>Observación de coordinación</small><p>${esc(x.observaciones_coordinacion)}</p></div></div>`:""}
-          <div class="quote-collage-head"><div><small>EVIDENCIA DEL SERVICIO</small><h3>Collage de imágenes</h3></div><div class="actions"><span>${evidence.length} foto${evidence.length===1?"":"s"}</span>${x.orden_id&&evidence.length?`<a class="btn small" href="/api/ordenes/${esc(x.orden_id)}/collage.jpg" target="_blank" rel="noopener"><i data-lucide="images"></i> Ver collage automático</a><a class="btn small primary" href="/api/ordenes/${esc(x.orden_id)}/collage.jpg?download=1" download><i data-lucide="download"></i> Descargar</a>`:""}</div></div>
-          <div class="quote-collage-grid">${photos}</div>
-        </section>
-
-        `:`<section class="quote-stage-card quote-stage-request"><div class="quote-stage-heading"><span><i data-lucide="file-text"></i></span><div><small>PROPUESTA COMERCIAL</small><h2>${esc(x.nombre_cotizacion||'Cotización sin OT del sistema')}</h2><p>${x.sede?'Sede: '+esc(x.sede)+'. ':''}${x.numero_orden_papel?'OT física: '+esc(x.numero_orden_papel)+'. ':''}La propuesta se preparó directamente para el cliente.</p></div></div></section>`}
-        <section class="quote-stage-card quote-stage-quote">
-          <div class="quote-stage-number">03</div>
-          <div class="quote-stage-heading"><span><i data-lucide="receipt-text"></i></span><div><small>COTIZACIÓN</small><h2>${esc(x.numero_cotizacion||`Cotización #${id}`)}</h2><p>Emitida ${fmt(x.fecha_emision)} · vence ${fmt(x.fecha_expiracion)}</p></div></div>
-          <div class="quote-commercial-grid">
-            <div><small>Estado</small><strong>${esc(quoteState||"—")}</strong></div>
-            <div><small>Moneda</small><strong>${esc(x.moneda||"GTQ")}</strong></div>
-            <div><small>Condición</small><strong>${esc(x.condicion_pago||"—")}</strong></div>
-            <div><small>Versión</small><strong>${esc(x.numero_version||"—")}</strong></div>
-          </div>
-          <div class="quote-lines-panel">${table(["#","Descripción","Cantidad","Tipo","Precio unitario","Total"],lineRows,"No hay líneas registradas en la cotización.")}</div>
-          <div class="quote-totals">
-            <div><span>Subtotal</span><strong>${money(x.subtotal,x.moneda)}</strong></div>
-            <div><span>Descuento</span><strong>${money(x.descuento_total,x.moneda)}</strong></div>
-            <div><span>Impuesto</span><strong>${money(x.impuesto_total,x.moneda)}</strong></div>
-            <div class="grand"><span>Total</span><strong>${money(x.total,x.moneda)}</strong></div>
-          </div>
-          ${x.observaciones_cliente?`<div class="quote-client-observation"><small>Tu respuesta / observación</small><p>${esc(x.observaciones_cliente)}</p></div>`:""}
-          <div class="quote-download-bar"><div><i data-lucide="file-down"></i><div><strong>Cotización en PDF</strong><span>Descarga una copia del documento con los datos vigentes de esta versión.</span></div></div><div class="actions"><a class="btn primary" href="/api/cotizaciones/${id}/pdf" download><i data-lucide="download"></i> Descargar cotización</a>${canRespond?button("Responder cotización","responder-cotizacion",id):""}</div></div>
-        </section>`;
-      try{const report=await api(`/api/cotizaciones/${id}/reporte-trabajo`,{seCache:"reload"});const section=document.createElement("section");section.className="quote-flow-work-report";section.innerHTML=portalUI.workReportContent(report,id);content.appendChild(section);}catch(error){console.warn("No se pudo cargar el seguimiento de la cotización",error);}
-      window.lucide?.createIcons();
-    }catch(err){
-      content.innerHTML=`<section class="panel"><div class="empty-state"><h3>No se pudo abrir el expediente</h3><p>${esc(err.message)}</p><button class="btn primary" type="button" data-action="volver-cotizaciones">Volver</button></div></section>`;
-      window.lucide?.createIcons();
-    }
+    return window.SepriguaQuoteExpediente(uiContext,id);
   }
 
   async function quoteForm(preselectedOrderId=""){return portalUI.quoteForm(preselectedOrderId);}
@@ -5741,24 +5995,24 @@
     }
     if(action==="responder-cotizacion"){
       openModal("Responder cotización",`<form id="quoteResponse" class="form-grid"><div class="field"><label>Respuesta</label><select name="respuesta"><option value="">Seleccionar respuesta...</option><option value="ACEPTADA">Aceptar sin cambios</option><option value="CAMBIOS">Solicitar revisión / cambio de precio</option><option value="RECHAZADA">Rechazar</option></select></div><div class="field full"><label>Observaciones</label><textarea name="observaciones" placeholder="Describe cambios o motivo de rechazo cuando aplique"></textarea></div><div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary">Enviar respuesta</button></div></div></form>`);
-      $("#quoteResponse").addEventListener("submit",async e=>{e.preventDefault();const f=e.currentTarget,btn=f.querySelector('button[type="submit"],button.btn.primary');if(f.dataset.sending)return;const body=Object.fromEntries(new FormData(f).entries());if(!body.respuesta)return showToast("Seleccioná una respuesta.","error");if(body.respuesta==="ACEPTADA"&&String(body.observaciones||"").trim())return showToast("Si solicitás cambios elegí 'Solicitar revisión', no 'Aceptar'.","error");if(["CAMBIOS","RECHAZADA"].includes(body.respuesta)&&!String(body.observaciones||"").trim())return showToast("Describí los cambios o el motivo.","error");f.dataset.sending="1";if(btn)btn.disabled=true;try{const result=await api(`/api/cotizaciones/${id}/responder`,{method:"POST",body});showToast(result.message||"Respuesta registrada.");closeModal();navigate("cotizaciones",{force:true});}catch(err){showToast(err.message,"error");}finally{delete f.dataset.sending;if(btn?.isConnected)btn.disabled=false;}});return;
+      $("#quoteResponse").addEventListener("submit",async e=>{e.preventDefault();const f=e.currentTarget,btn=f.querySelector('button[type="submit"],button.btn.primary');if(f.dataset.sending)return;const body=Object.fromEntries(new FormData(f).entries());if(!body.respuesta)return showToast("Seleccioná una respuesta.","error");if(body.respuesta==="ACEPTADA"&&String(body.observaciones||"").trim())return showToast("Si solicitás cambios elegí 'Solicitar revisión', no 'Aceptar'.","error");if(["CAMBIOS","RECHAZADA"].includes(body.respuesta)&&!String(body.observaciones||"").trim())return showToast("Describí los cambios o el motivo.","error");f.dataset.sending="1";if(btn)btn.disabled=true;try{const result=await api(`/api/cotizaciones/${id}/responder`,{method:"POST",body});showToast(result.message||"Respuesta registrada.");invalidateApiCache(["/api/documentos","/api/cotizaciones"]);invalidateListCache("documentos");closeModal();if(content.querySelector(".qe-expediente")) await openClientQuoteFlow(id); else await navigate("cotizaciones",{force:true});}catch(err){showToast(err.message,"error");}finally{delete f.dataset.sending;if(btn?.isConnected)btn.disabled=false;}});return;
     }
   }
 
   function documentHubHeader(tab) {
     // Un solo expediente personal: archivos privados sin OT y documentos laborales.
     // Se mantiene la vista de documentos del servicio completamente separada.
-    const serviceTab = state.role !== "TECNICO"
-      ? `<button class="document-hub-tab ${tab==="servicio"?"active":""}" type="button" data-action="documentos-tab" data-tab="servicio"><i data-lucide="file-check-2"></i><span><strong>Documentos del servicio</strong><small>OT, reportes y entregables</small></span></button>`
+    const serviceTab = true
+      ? `<button class="document-hub-tab ${tab==="servicio"?"active":""}" type="button" data-action="documentos-tab" data-tab="servicio" aria-selected="${tab==="servicio"}"><i data-lucide="file-check-2"></i><span><strong>Documentos del servicio</strong><small>OT, reportes y entregables</small></span></button>`
       : "";
     const laborTitle = "Expediente personal";
-    const laborDetail = "Documentos privados, sin OT";
-    const laborTab = `<button class="document-hub-tab ${tab==="laboral"?"active":""}" type="button" data-action="documentos-tab" data-tab="laboral"><i data-lucide="folder-user"></i><span><strong>${laborTitle}</strong><small>${laborDetail}</small></span></button>`;
+    const laborDetail = state.role==="COORDINADOR" ? "Archivos propios y recibidos · sin OT" : "Documentos compartidos · sin OT";
+    const laborTab = `<button class="document-hub-tab ${tab==="laboral"?"active":""}" type="button" data-action="documentos-tab" data-tab="laboral" aria-selected="${tab==="laboral"}"><i data-lucide="folder-user"></i><span><strong>${laborTitle}</strong><small>${laborDetail}</small></span></button>`;
     const heading = state.role === "COORDINADOR" ? "Centro de documentos" : "Mis documentos";
     const note = state.role === "COORDINADOR"
       ? "Consulta los documentos del servicio y los expedientes personales en un solo lugar."
       : "Consulta tu expediente personal y los documentos asociados a servicios.";
-    return `<section class="document-hub ${state.role==="CLIENTE"?"client-document-hub":""}"><div class="document-hub-copy"><span class="document-hub-icon"><i data-lucide="folders"></i></span><div><span class="document-hub-kicker">ARCHIVO DIGITAL</span><h2>${heading}</h2><p>${note}</p></div></div><div class="document-hub-tabs">${serviceTab}${laborTab}</div></section>`;
+    return `<section class="document-hub ${state.role==="CLIENTE"?"client-document-hub":""}"><div class="document-hub-copy"><div><h2>${heading}</h2><p>${note}</p></div></div><div class="document-hub-tabs" role="tablist" aria-label="Tipos de documentos">${serviceTab}${laborTab}</div></section>`;
   }
 
   // Expediente único. Las cuentas cargan sus propios archivos y el backend
@@ -5768,7 +6022,7 @@
   async function genericDocumentUploadForm(){
     const coordinador=state.role==="COORDINADOR";
     openModal("Subir documento",`<form id="genericDocumentUploadForm" class="form-grid" enctype="multipart/form-data">
-      <div class="field full"><div class="document-upload-note"><i data-lucide="shield-check"></i><div><strong>Tu expediente personal, sin vincular a una OT.</strong><span>${coordinador?"Este archivo podrá ser consultado por los coordinadores.":"Este archivo solo podrá ser consultado por tu cuenta y los coordinadores."} Se aceptan PDF, imágenes, Word, Excel, CSV, XML o TXT (máximo 12 MB).</span></div></div></div>
+      <div class="field full"><div class="document-upload-note"><i data-lucide="shield-check"></i><div><strong>Tu expediente personal, sin vincular a una OT.</strong><span>${coordinador?"Este archivo podrá ser consultado por los coordinadores.":"Tú y Coordinación pueden consultarlo; Coordinación puede compartirlo temporalmente con usuarios autorizados."} Se aceptan PDF, imágenes, Word, Excel, CSV, XML o TXT (máximo 12 MB).</span></div></div></div>
       <div class="field full"><label>Archivo<input type="file" name="archivo" accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx,.csv,.xml,.txt" required></label></div>
       <div class="field full"><label>Descripción (opcional)<textarea name="descripcion" maxlength="500" placeholder="Descripción del documento"></textarea></label></div>
       <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit">Guardar documento</button></div></div>
@@ -5788,7 +6042,7 @@
 
   async function documentShareForm(id){
     const [people, access]=await Promise.all([
-      api("/api/archivos-usuario/destinatarios"),
+      api(`/api/archivos-usuario/destinatarios?archivo_id=${encodeURIComponent(id)}`),
       api(`/api/archivos-usuario/${id}/accesos`)
     ]);
     const active=(access.items||[]).filter(x=>x.vigente);
@@ -5800,7 +6054,7 @@
       ${activeIds.has(Number(x.id))?`<span class="document-share-current">Ya tiene acceso</span>`:""}
     </label>`).join("");
     openModal("Compartir documento",`<form id="documentShareForm" class="document-share-form">
-      <div class="document-share-intro"><span><i data-lucide="users-round"></i></span><div><strong>Elige quién puede ver este documento</strong><p>Selecciona varios clientes o técnicos. Cada persona tendrá que iniciar sesión y el permiso vencerá automáticamente.</p></div></div>
+      <div class="document-share-intro"><span><i data-lucide="users-round"></i></span><div><strong>Elige quién puede ver este documento</strong><p>Coordinación administra los accesos por persona y tiempo limitado, incluso para archivos recibidos. Los archivos de una empresa cliente no se comparten con otras empresas.</p></div></div>
       <div class="document-share-toolbar"><label class="document-share-search"><i data-lucide="search"></i><input type="search" id="documentShareSearch" placeholder="Buscar por usuario o rol" autocomplete="off" aria-label="Buscar destinatarios"></label><label class="document-share-duration"><span>Tiempo de acceso</span><select name="horas"><option value="1">1 hora</option><option value="24" selected>24 horas</option><option value="168">7 días</option><option value="720">30 días</option></select></label></div>
       <div class="document-share-pick-head"><strong>Destinatarios</strong><span id="documentShareCount">0 seleccionados</span></div>
       <div class="document-share-people">${cards||`<p class="muted">No hay cuentas activas de cliente o técnico.</p>`}</div>
@@ -5884,6 +6138,22 @@
     }catch(error){showToast(error.message,"error");if(trigger.isConnected)trigger.disabled=false;}
   }
 
+  function documentDetailButton(x){
+    const snapshot={nombre:x.nombre||x.numero||`Documento #${x.id}`,tipo:x.tipo||x.formato||x.categoria||'Documento',
+      estado:x.Estado||x.estado||(x.activo?'Activo':'Archivado'),titular:x.titular||x.cliente||'—',
+      fecha:x.creado||x.generado||x.entregado||'',categoria:x.categoria||'—',referencia:x.numero_documento||x.numero||'—',
+      orden:x.orden||'—',observaciones:x.observaciones||x.descripcion||''};
+    return `<button class="btn small" type="button" data-action="ver-detalle-documento" data-document="${encodeURIComponent(JSON.stringify(snapshot))}"><i data-lucide="eye"></i> Ver</button>`;
+  }
+  function openDocumentDetail(trigger){
+    let x;try{x=JSON.parse(decodeURIComponent(trigger.dataset.document||''));}catch{return;}
+    openModal('Detalle del documento',`${window.SepriguaDetail.section('Información del documento',[
+      ['Estado',badge(x.estado)],['Titular',esc(x.titular)],['Fecha',x.fecha?fmt(x.fecha):'—'],
+      ['Categoría',esc(x.categoria)],['Referencia',esc(x.referencia)],['OT relacionada',esc(x.orden)]
+    ],'file-text')}${x.observaciones?window.SepriguaDetail.prose('Observaciones',esc(x.observaciones)):''}`,
+    {detailHeader:{kicker:esc(x.tipo),title:x.nombre,meta:[x.titular,x.fecha?fmt(x.fecha):''].filter(Boolean).join(' · '),status:x.estado,icon:'file-text'}});
+  }
+
   async function renderPersonalDocuments(){
     const focused=state.role==="COORDINADOR"?String(state.documentos.empleadoId||""):"";
     const personal=await api("/api/archivos-usuario");
@@ -5928,12 +6198,12 @@
       const canEdit=(personalFile&&!shared) || (!personalFile&&x.activo&&(state.role==="COORDINADOR"||!x.verificado));
       const edit=canEdit?`<button class="btn small" type="button" data-action="editar-documento-personal" data-id="${Number(x.id)}" data-origin="${esc(x.origen)}" data-name="${esc(x.nombre)}" data-description="${esc(x.descripcion)}" data-number="${esc(x.numero_documento||"")}" data-notes="${esc(x.observaciones||"")}" data-issued="${esc(x.fecha_emision||"")}" data-expires="${esc(x.fecha_vencimiento||"")}"><i data-lucide="pencil"></i> Editar</button>`:"";
       const remove=(!shared&&(personalFile || state.role==="COORDINADOR" || !x.verificado))?`<button class="btn small danger" type="button" data-action="eliminar-documento-personal" data-id="${Number(x.id)}" data-origin="${esc(x.origen)}" data-name="${esc(x.nombre)}"><i data-lucide="trash-2"></i> Eliminar</button>`:"";
-      const share=personalFile&&state.role==="COORDINADOR"&&Number(x.usuario_id)===Number(state.user?.usuario_id)?`<button class="btn small" type="button" data-action="compartir-archivo-usuario" data-id="${Number(x.id)}"><i data-lucide="user-round-check"></i> Compartir</button>`:"";
-      return `<tr><td><strong>${esc(x.nombre)}</strong>${shared?`<small class="table-subline">Compartido temporalmente · vence ${fmt(x.acceso_expira)}</small>`:""}${x.descripcion?`<small class="table-subline">${esc(x.descripcion)}</small>`:""}</td>${state.role==="COORDINADOR"?`<td><strong>${esc(x.titular)}</strong><small class="table-subline">${esc(x.rol)}</small></td>`:""}<td>${fmt(x.creado)}</td><td>${x.activo?`<span class="badge green">ACTIVO</span>`:`<span class="badge">ARCHIVADO</span>`}</td><td><div class="actions compact">${download}${share}${edit}${verify}${archive}${remove}</div></td></tr>`;
+      const share=personalFile&&x.activo&&state.role==="COORDINADOR"?`<button class="btn small" type="button" data-action="compartir-archivo-usuario" data-id="${Number(x.id)}"><i data-lucide="user-round-check"></i> Compartir</button>`:"";
+      return `<tr><td><strong>${esc(x.nombre)}</strong>${shared?`<small class="table-subline">Compartido temporalmente · vence ${fmt(x.acceso_expira)}</small>`:""}${x.descripcion?`<small class="table-subline">${esc(x.descripcion)}</small>`:""}</td>${state.role==="COORDINADOR"?`<td><strong>${esc(x.titular)}</strong><small class="table-subline">${esc(x.rol)}</small></td>`:""}<td>${fmt(x.creado)}</td><td>${x.activo?`<span class="badge green">ACTIVO</span>`:`<span class="badge">ARCHIVADO</span>`}</td><td><div class="actions compact">${documentDetailButton(x)}${download}${share}${edit}${verify}${archive}${remove}</div></td></tr>`;
     });
     const columns=state.role==="COORDINADOR"?["Documento","Titular","Fecha","Estado","Acciones"]:["Documento","Fecha","Estado","Acciones"];
     const focusedNote=focused?`<div class="document-upload-note"><i data-lucide="user-round"></i><div><strong>Expediente de empleado seleccionado</strong><span>Los documentos existentes del colaborador se consultan aquí. Para volver a tu expediente y al listado general, presioná «Ver todos».</span></div></div>`:"";
-    return `<section class="panel smart-list-panel personal-documents-panel"><div class="panel-header"><div><h2>Expediente personal</h2><p class="muted">Un solo expediente para tus documentos, sin necesidad de una orden de trabajo. Los archivos se comparten únicamente según los permisos de cada cuenta.</p></div><div class="actions">${focused?`<button class="btn" type="button" data-action="limpiar-expediente-personal">Ver todos</button>`:`<button class="btn primary" type="button" data-action="subir-archivo-general"><i data-lucide="file-up"></i> Subir documento</button>`}</div></div>${focusedNote}${legacyWarning}<div class="panel-body">${smartControls("expediente-unico",{placeholder:"Buscar por documento o titular",filters:[{name:"vigencia",label:"Estado",options:[["ACTIVO","Activo"],["ARCHIVADO","Archivado"]]}],sorts:[["creado","Fecha"],["nombre","Documento"],["titular","Titular"]]})}${smartResultsMeta(result,"documentos")}</div>${table(columns,rows,"Todavía no hay documentos en este expediente.")}${smartPager("expediente-unico",result)}</section>`;
+    return `<section class="panel smart-list-panel personal-documents-panel"><div class="panel-header"><div><h2>Expediente personal</h2><p class="muted">Un solo expediente para tus documentos, sin necesidad de una orden de trabajo. El titular y Coordinación pueden consultarlos; los demás solo si reciben acceso temporal.</p></div><div class="actions">${focused?`<button class="btn" type="button" data-action="limpiar-expediente-personal">Ver todos</button>`:`<button class="btn primary" type="button" data-action="subir-archivo-general"><i data-lucide="file-up"></i> Subir documento</button>`}</div></div>${focusedNote}${legacyWarning}<div class="panel-body">${smartControls("expediente-unico",{placeholder:"Buscar por documento o titular",filters:[{name:"vigencia",label:"Estado",options:[["ACTIVO","Activo"],["ARCHIVADO","Archivado"]]}],sorts:[["creado","Fecha"],["nombre","Documento"],["titular","Titular"]]})}${smartResultsMeta(result,"documentos")}</div>${table(columns,rows,"Todavía no hay documentos en este expediente.")}${smartPager("expediente-unico",result)}</section>`;
   }
 
   async function clientDocumentUploadForm(){
@@ -5981,13 +6251,15 @@
 
   function documentServiceActions(item){
     const clientUpload=String(item.origen||"").toUpperCase()==="CLIENTE";
+    if(["COTIZACION_PDF","REPORTE_OT_PDF"].includes(String(item.tipo_registro||"").toUpperCase()))return "";
     if(state.role!=="COORDINADOR" && !(state.role==="CLIENTE" && clientUpload))return "";
     const attrs=`data-id="${Number(item.id)}" data-origin="${clientUpload?"CLIENTE":"SEPRIGUA"}" data-name="${esc(item.numero||"Documento")}" data-description="${esc(item.descripcion||"")}"`;
     return `<button class="btn small" type="button" data-action="editar-documento-servicio" ${attrs}><i data-lucide="pencil"></i> Editar</button><button class="btn small danger" type="button" data-action="eliminar-documento-servicio" ${attrs}><i data-lucide="trash-2"></i> Eliminar</button>`;
   }
 
   async function renderServiceDocuments() {
-    const all=filterSelectedDate("documentos",(await loadAllPaged("documentos","/api/documentos")).items);
+    // Expediente documental permanente: NO filtrar por la fecha elegida en el calendario global.
+    const all=(await loadAllPaged("documentos","/api/documentos")).items;
     const states=smartUnique(all,x=>String(x.Estado||x.estado||"").toUpperCase());
     const categories=smartUnique(all,x=>String(x.categoria||"").toUpperCase());
     const origins=smartUnique(all,x=>String(x.origen||"").toUpperCase());
@@ -5999,29 +6271,54 @@
     });
 
     if(state.role==="CLIENTE"){
-      const rows=result.items.map(x=>{
-        const own=String(x.origen||"").toUpperCase()==="CLIENTE";
-        return `<tr><td><div class="document-name-cell"><strong>${esc(x.numero||`Documento #${x.id}`)}</strong><small>${esc(x.descripcion||x.formato||x.categoria||"Documento")}</small></div></td><td><span class="document-origin-badge ${own?"client":"seprigua"}"><i data-lucide="${own?"user-round":"building-2"}"></i>${own?"Enviado por ti":"Compartido por SEPRIGUA"}</span></td><td>${esc(x.orden||"—")}</td><td>${managementBadge(x.Estado||x.estado)}</td><td>${fmt(x.generado||x.entregado)}</td><td><div class="actions compact">${documentDownloadLink(x)}${documentServiceActions(x)}</div></td></tr>`;
-      });
-      return `<section class="panel smart-list-panel client-documents-panel"><div class="panel-header"><div><h2>Archivos disponibles</h2><p class="muted">Aquí solo aparecen tus archivos y los documentos de SEPRIGUA habilitados para tu empresa.</p></div></div><div class="panel-body">${smartControls("documentos",{placeholder:"Documento, servicio o formato",filters:[{name:"origen",label:"Origen",options:origins},{name:"estado",label:"Estado",options:states}],sorts:[["generado","Fecha"],["documento","Documento"],["formato","Formato"],["estado","Estado"]]})}${smartResultsMeta(result,"documentos")}</div>${table(["Documento","Origen","Servicio","Estado","Fecha","Acciones"],rows,"No hay documentos que coincidan con los filtros.")}${smartPager("documentos",result)}</section>`;
+      // Una tarjeta por OT. Documentos previos o sin OT permanecen accesibles.
+      // No inventar entregables: solo mostrar archivos que entrega /api/documentos.
+      const groups=new Map();
+      for(const x of result.items){
+        const key=String(x.orden||'').trim()||'SIN_OT';
+        if(!groups.has(key))groups.set(key,[]);
+        groups.get(key).push(x);
+      }
+      const cards=[...groups.entries()].map(([order,files])=>{
+        const quote=files.find(x=>String(x.tipo_registro||'').toUpperCase()==='COTIZACION_PDF');
+        const report=files.find(x=>String(x.tipo_registro||'').toUpperCase()==='REPORTE_OT_PDF');
+        const quoteId=quote&&Number(quote.id)<0?Math.abs(Number(quote.id)):0;
+        const quoteAction=quoteId?`<button class="btn small" type="button" data-action="ver-expediente-cotizacion" data-id="${quoteId}"><i data-lucide="eye"></i> Ver cotización</button>`:'';
+        const filesHtml=files.map(x=>{
+          const kind=String(x.tipo_registro||'').toUpperCase();
+          const filename=String(x.numero||'Documento');
+          const source=String(x.ruta||'');
+          const validUrl=/^\/api\/[a-z0-9/_?.=&%-]+$/i.test(source);
+          const href=validUrl?esc(source):'';
+          const status=String(x.estado||x.Estado||'DISPONIBLE');
+          const fileIcon=kind==='COTIZACION_PDF'?'file-text':kind==='REPORTE_OT_PDF'?'clipboard-check':'file';
+          const action=validUrl?`<a class="btn small" href="${href}" target="_blank" rel="noopener noreferrer" aria-label="Ver ${esc(filename)}"><i data-lucide="eye"></i> Ver</a><a class="btn small" href="${href}" download aria-label="Descargar ${esc(filename)}"><i data-lucide="download"></i> Descargar</a>`:'';
+          return `<div class="se-service-archive__file"><span class="se-service-archive__file-icon"><i data-lucide="${fileIcon}"></i></span><div class="se-service-archive__file-copy"><strong>${esc(x.formato||filename)}</strong><small>${esc(filename)} · ${fmt(x.generado||x.entregado)}</small></div><span class="se-service-archive__file-status">${esc(displayEnumText(status))}</span><div class="se-service-archive__file-actions">${action}${documentServiceActions(x)}</div></div>`;
+        }).join('');
+        const stages=[['1','Solicitud',order!=='SIN_OT'],['2','Orden de trabajo',order!=='SIN_OT'],['3','Cotización',!!quote],['4','Entregables',!!report]];
+        return `<article class="se-service-archive__item"><div class="se-service-archive__head"><span class="se-service-archive__icon"><i data-lucide="folder-check"></i></span><div class="se-service-archive__copy"><small>${order==='SIN_OT'?'DOCUMENTOS INDEPENDIENTES':'ORDEN DE TRABAJO'}</small><strong>${esc(order==='SIN_OT'?'Sin OT vinculada':order)} · ${files.length} documento${files.length===1?'':'s'}</strong></div><div class="se-service-archive__head-actions">${quoteAction}</div></div><div class="se-service-archive__stages">${stages.map(([number,label,done])=>`<div class="se-service-archive__stage ${done?'is-ready':''}"><b>${done?'✓':number}</b><span>${label}</span></div>`).join('')}</div><div class="se-service-archive__files">${filesHtml}</div></article>`;
+      }).join('');
+      const empty=`<section class="panel"><div class="panel-body"><div class="empty-state"><i data-lucide="folder-open"></i><h3>Todavía no hay documentos disponibles</h3><p>Las cotizaciones aceptadas y los reportes finales aparecerán aquí cuando correspondan a servicios de tus sedes autorizadas. Los documentos personales se encuentran en la otra pestaña.</p></div></div></section>`;
+      return `<section class="panel smart-list-panel client-documents-panel"><div class="panel-header"><div><h2>Documentos de mis servicios</h2><p class="muted">Descarga cotizaciones aceptadas, reportes y documentos vinculados a tus órdenes, sin perderlos al cambiar la fecha del calendario.</p></div></div><div class="panel-body">${smartControls("documentos",{placeholder:"Buscar por documento, OT o servicio",filters:[{name:"origen",label:"Origen",options:origins},{name:"estado",label:"Estado",options:states}],sorts:[["generado","Fecha"],["documento","Documento"],["estado","Estado"]]})}${smartResultsMeta(result,"documentos")}</div>${cards?`<div class="panel-body"><div class="se-service-archive">${cards}</div></div>`:empty}${smartPager("documentos",result)}</section>`;
     }
 
     const rows=result.items.map(x=>`<tr>
       <td><div class="se-cell-stack"><div class="document-name-cell"><strong>${esc(x.numero||`#${x.id}`)}</strong><small>${esc(x.descripcion||x.formato||"Documento")}</small></div><span class="document-origin-badge ${String(x.origen||"").toUpperCase()==="CLIENTE"?"client":"seprigua"}">${esc(String(x.origen||"SEPRIGUA").replaceAll("_"," "))}</span></div></td>
       <td><div class="se-cell-stack"><strong class="mono">${esc(x.orden)}</strong><span class="se-cell-muted">${esc(x.cliente)}</span></div></td>
       <td><div class="se-cell-stack">${managementBadge(x.Estado||x.estado)}<span class="se-cell-muted">${fmt(x.generado)}</span></div></td>
-      <td class="se-table-actions"><div class="actions compact">${documentDownloadLink(x)}${documentServiceActions(x)}</div></td>
+      <td class="se-table-actions"><div class="actions compact">${documentDetailButton(x)}${documentDownloadLink(x)}${documentServiceActions(x)}</div></td>
     </tr>`);
-    return `<section class="panel smart-list-panel"><div class="panel-header"><div><h2>Documentos del servicio</h2><p class="muted">Documentos emitidos por SEPRIGUA y archivos enviados por clientes.</p></div></div><div class="panel-body">${smartControls("documentos",{placeholder:"Documento, formato, OT o cliente",filters:[{name:"origen",label:"Origen",options:origins},{name:"estado",label:"Estado",options:states},{name:"categoria",label:"Categoría",options:categories}],sorts:[["generado","Fecha"],["documento","Documento"],["cliente","Cliente"],["formato","Formato"],["estado","Estado"]]})}${smartResultsMeta(result,"documentos")}</div>${table(["Documento / origen","Orden / cliente","Estado / fecha","Acciones"],rows,"No hay documentos que coincidan con los filtros.",true)}${smartPager("documentos",result)}</section>`;
+    return `<section class="panel smart-list-panel"><div class="panel-header"><div><h2>Documentos del servicio</h2><p class="muted">Cotizaciones aceptadas, reportes de OT finalizadas y archivos de servicio. Los PDF se generan con la información vigente, sin duplicarlos.</p></div></div><div class="panel-body">${smartControls("documentos",{placeholder:"Documento, formato, OT o cliente",filters:[{name:"origen",label:"Origen",options:origins},{name:"estado",label:"Estado",options:states},{name:"categoria",label:"Categoría",options:categories}],sorts:[["generado","Fecha"],["documento","Documento"],["cliente","Cliente"],["formato","Formato"],["estado","Estado"]]})}${smartResultsMeta(result,"documentos")}</div>${table(["Documento / origen","Orden / cliente","Estado / fecha","Acciones"],rows,"No hay documentos que coincidan con los filtros.",true)}${smartPager("documentos",result)}</section>`;
   }
 
 
-  async function renderDocumentos(){
+  async function renderDocumentos(isCurrent = () => true){
     if(!["servicio","laboral"].includes(state.documentos.tab))state.documentos.tab="laboral";
-    if(state.role==="TECNICO" && state.documentos.tab==="servicio")state.documentos.tab="laboral";
+    // Los técnicos ven documentos de las OT que tienen asignadas.
     setHeading(state.role==="COORDINADOR"?"Documentos":"Mis documentos","Documentos del servicio y expediente personal, cada uno con sus permisos.");
     const hub=documentHubHeader(state.documentos.tab);
     const body=state.documentos.tab==="servicio"?await renderServiceDocuments():await renderPersonalDocuments();
+    if (!isCurrent()) return;
     content.innerHTML=hub+body;
     window.lucide?.createIcons();
   }
@@ -6065,7 +6362,7 @@
       host.innerHTML = `<div class="notification-empty"><span><i data-lucide="bell-off"></i></span><h3>No hay notificaciones</h3><p>No hay avisos que coincidan con los filtros actuales.</p></div>${smartPager("notificaciones",result)}`;
       window.lucide?.createIcons(); return;
     }
-    const noticeCard = (x, isHistory = false) => { const display = notificationDisplay(x); return `<article class="notification-card ${x.leida ? "is-read" : "is-unread"} ${isHistory ? "notification-history-item" : ""}"><div class="notification-card-icon"><i data-lucide="${notificationIcon(x.tipo)}"></i></div><div class="notification-card-copy"><div class="notification-card-title"><strong>${esc(display.title)}</strong>${x.leida ? `<span class="read-label">Leída</span>` : `<span class="unread-label">Sin leer</span>`}</div><p>${esc(display.message)}</p><div class="notification-card-meta"><span>${esc(notificationReadableText(x.tipo || "Aviso"))}</span><span>•</span><time>${fmt(x.creada)}</time>${x.canal ? `<span>•</span><span>${esc(notificationReadableText(x.canal))}</span>` : ""}</div></div><div class="notification-card-actions">${notificationTargetButton(x)}${!x.leida ? button("Marcar como leída", "leer-notificacion", x.id) : ""}</div></article>`; };
+    const noticeCard = (x, isHistory = false) => { const display = notificationDisplay(x); return `<article class="notification-card ${x.leida ? "is-read" : "is-unread"} ${isHistory ? "notification-history-item" : ""}"><div class="notification-card-icon"><i data-lucide="${notificationIcon(x.tipo)}"></i></div><div class="notification-card-copy"><div class="notification-card-title"><strong>${esc(display.title)}</strong>${x.leida ? `<span class="read-label">Leída</span>` : `<span class="unread-label">Sin leer</span>`}</div><p>${esc(display.message)}</p>${[x.referencia,x.sede_aviso,x.servicio_aviso].some(Boolean)?`<div class="se-notice-context">${[...new Set([x.referencia,x.sede_aviso,x.servicio_aviso].filter(Boolean))].map(value=>`<span>${esc(value)}</span>`).join(" · ")}</div>`:""}<div class="notification-card-meta"><span>${esc(notificationReadableText(x.tipo || "Aviso"))}</span><span>•</span><time>${fmt(x.creada)}</time>${x.canal ? `<span>•</span><span>${esc(notificationReadableText(x.canal))}</span>` : ""}</div></div><div class="notification-card-actions">${notificationTargetButton(x)}${!x.leida ? button("Marcar como leída", "leer-notificacion", x.id) : ""}</div></article>`; };
     host.innerHTML = result.items.map(group => {
       const head = group._items[0], count = group._items.length;
       const label = notificationGroupLabel(group);
@@ -6075,10 +6372,11 @@
   }
 
 
-  async function renderNotificaciones(){
+  async function renderNotificaciones(isCurrent = () => true){
     setHeading("Notificaciones", "Avisos de solicitudes, asignaciones, órdenes, cambios de alcance y cotizaciones.");
     let loaded=await loadAllPaged("notificaciones","/api/notificaciones?filtro=TODAS",true);
     if(await syncCancellationNotifications(loaded.items||[])) loaded=await loadAllPaged("notificaciones","/api/notificaciones?filtro=TODAS",true);
+    if (!isCurrent()) return;
     state.notifications=filterSelectedDate("notificaciones",loaded.items||[]);
     const unread=state.notifications.filter(x=>!x.leida).length,total=state.notifications.length,read=total-unread;
     state.unreadNotifications=unread;
@@ -6186,7 +6484,7 @@
         <div class="role-access-actions">${r.protegido?'<span class="protected-role-note"><i data-lucide="lock-keyhole"></i><span><strong>Acceso total protegido</strong><small>Este rol conserva acceso completo al sistema.</small></span></span>':`<button class="btn small role-edit-button" type="button" data-role-edit="${esc(r.id)}"><i data-lucide="pencil"></i><span>Editar rol y módulos</span><i data-lucide="arrow-right"></i></button>`}</div>
       </article>`;
     }).join("");
-    content.innerHTML=`<section class="roles-access-hero"><div class="roles-access-hero-main"><span class="roles-access-hero-icon"><i data-lucide="shield-check"></i></span><div><span class="section-kicker">CONTROL DE ACCESO</span><h2>Permisos por rol y por módulo</h2><p>Administra quién puede entrar a cada área del portal sin alterar la operación del sistema.</p></div></div><button class="btn primary roles-create-button" type="button" id="newRoleAccess"><i data-lucide="shield-plus"></i><span>Crear rol</span></button></section>
+    content.innerHTML=`<section class="roles-access-hero"><div class="roles-access-hero-main"><div><h2>Permisos por rol y por módulo</h2><p>Administra quién puede entrar a cada área del portal sin alterar la operación del sistema.</p></div></div><button class="btn primary roles-create-button" type="button" id="newRoleAccess"><i data-lucide="shield-plus"></i><span>Crear rol</span></button></section>
       <section class="roles-access-summary"><article class="role-summary-card role-summary-blue"><span><i data-lucide="shield-user"></i></span><div><small>Roles registrados</small><strong>${roles.length}</strong><p>Perfiles disponibles en el portal</p></div></article><article class="role-summary-card role-summary-cyan"><span><i data-lucide="sparkles"></i></span><div><small>Personalizados</small><strong>${custom}</strong><p>Roles creados por Coordinación</p></div></article><article class="role-summary-card role-summary-green"><span><i data-lucide="users-round"></i></span><div><small>Cuentas vinculadas</small><strong>${assigned}</strong><p>Usuarios asignados a roles</p></div></article></section>
       <section class="panel roles-access-panel"><div class="panel-header roles-access-panel-head"><div><span class="section-kicker">ROLES DEL SISTEMA</span><h2>Perfiles y permisos</h2><p class="muted">Coordinador mantiene acceso total; Técnico y Cliente pueden ajustarse por módulos.</p></div><span class="roles-security-pill"><i data-lucide="lock-keyhole"></i> Acceso protegido</span></div><div class="panel-body roles-access-list">${rows||'<div class="empty-state">No hay roles registrados.</div>'}</div></section>`;
     $("#newRoleAccess")?.addEventListener("click",()=>roleAccessForm());
@@ -6283,9 +6581,8 @@
       : `${accountValue("Código de empleado",p.empleado_codigo,"badge-check")}${accountValue("Puesto",p.puesto,"briefcase-business")}${accountValue("Disponibilidad",p.disponibilidad,"activity")}${accountValue("Teléfono",p.telefono,"phone")}${accountValue("Teléfono alterno",p.telefono_alterno,"phone-call")}${accountValue("Correo",p.correo_personal,"mail")}`;
     const sessions=(sessionsData.items||[]).map(x=>`<article class="session-card ${x.actual?"current":""}"><span class="session-device"><i data-lucide="monitor-smartphone"></i></span><div class="session-copy"><div><strong>${esc(describeAgent(x.agente))}</strong>${x.actual?`<span class="session-current">Sesión actual</span>`:""}</div><p>${esc(x.ip||"IP no disponible")} · inició ${fmt(x.iniciada)}</p><small>Expira ${fmt(x.expira)}</small></div></article>`).join("")||`<div class="empty-state">No hay sesiones activas para mostrar.</div>`;
     content.innerHTML=`
-      <section class="account-hero-card"><div class="account-avatar${p.foto_url?" has-profile-photo":""}">${p.foto_url?`<img class="account-profile-photo" src="${esc(p.foto_url)}" alt="Fotografía de perfil">`:`<i data-lucide="user-round"></i>`}</div><div class="account-hero-copy"><span>${esc(({COORDINADOR:"Coordinador",TECNICO:"Técnico",CLIENTE:"Cliente"})[state.role] || state.role.replaceAll("_"," "))}</span><h2>${esc(p.nombre||state.user.nombre||state.user.usuario)}</h2><p>${esc(p.usuario||state.user.usuario)}${p.cliente?` · ${esc(p.cliente)}`:""}</p></div><div class="account-status"><span></span> Cuenta activa</div></section>
       <div class="account-grid">
-        <section class="panel account-panel photo-profile-panel"><div class="panel-header"><div><h2>Fotografía de perfil</h2><p class="muted">La imagen se guarda en la base de datos y se comparte en tus avatares.</p></div></div><div class="panel-body profile-photo-controls"><div class="profile-photo-preview-frame"><img class="account-profile-photo profile-photo-preview" src="${esc(p.foto_url||"")}" alt="Vista previa de tu fotografía" ${p.foto_url?"":"hidden"}><div class="profile-photo-placeholder" ${p.foto_url?"hidden":""}><i data-lucide="camera"></i><strong>Mi perfil</strong></div></div><div class="profile-photo-form"><label for="profilePhotoInput">Selecciona una imagen JPG, PNG o WEBP</label><input id="profilePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" ${p.foto_cambio_bloqueado?"disabled":""}><small class="profile-photo-help">Recorta y ajusta tu imagen antes de guardarla. Primera carga libre; después, un cambio cada minuto. Máximo 5 MB.</small>${p.foto_cambio_bloqueado?`<small class="profile-photo-cooldown">Podrás cambiarla nuevamente a las ${esc(new Date(p.foto_cambio_disponible_en).toLocaleTimeString("es-GT",{hour:"numeric",minute:"2-digit",second:"2-digit"}))}.</small>`:""}<button class="btn primary small" type="button" data-action="subir-foto-perfil" ${p.foto_cambio_bloqueado?"disabled":""}>Guardar fotografía</button></div></div></section>
+        <section class="panel account-panel photo-profile-panel"><div class="panel-header"><div><h2>Fotografía de perfil</h2><p class="muted">La imagen se guarda en la base de datos y se comparte en tus avatares.</p></div></div><div class="panel-body profile-photo-controls"><div class="profile-photo-preview-frame"><img class="account-profile-photo profile-photo-preview" src="${esc(p.foto_url||"")}" alt="Vista previa de tu fotografía" ${p.foto_url?"":"hidden"}><div class="profile-photo-placeholder" ${p.foto_url?"hidden":""}><i data-lucide="camera"></i><strong>Mi perfil</strong></div></div><div class="profile-photo-form"><label for="profilePhotoInput">Selecciona una imagen JPG, PNG o WEBP</label><input id="profilePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" ${p.foto_cambio_bloqueado?"disabled":""}><small class="profile-photo-help">Recorta y ajusta tu imagen antes de guardarla. Primera carga libre; después, un cambio cada 30 días. Máximo 5 MB.</small>${p.foto_cambio_bloqueado?`<small class="profile-photo-cooldown">Podrás cambiarla nuevamente el ${esc(new Date(p.foto_cambio_disponible_en).toLocaleDateString("es-GT"))}.</small>`:""}<button class="btn primary small" type="button" data-action="subir-foto-perfil" ${p.foto_cambio_bloqueado?"disabled":""}>Guardar fotografía</button></div></div></section>
         <section class="panel account-panel"><div class="panel-header account-profile-header"><div><h2>Información del perfil</h2><p class="muted">Tus datos personales y de contacto.</p></div><button class="btn small account-edit-button" type="button" data-action="editar-mi-perfil"><i data-lucide="pencil"></i><span>Editar mi información</span></button></div><div class="panel-body"><div class="account-data-grid">${accountValue("Nombre",p.nombre,"user-round")}${accountValue("Usuario",p.usuario,"at-sign")}${accountValue("Rol",state.role.replaceAll("_"," "),"shield-check")}${accountValue("Último acceso",fmt(p.ultimo_acceso),"clock-3")}${roleDetails}</div></div></section>
         <section class="panel account-panel"><div class="panel-header account-profile-header"><div><h2>Acceso al portal</h2><p class="muted">Tu correo de acceso se puede actualizar aquí.</p></div><button class="btn small account-edit-button" type="button" data-action="editar-correo-acceso"><i data-lucide="pencil"></i><span>Editar correo</span></button></div><div class="panel-body"><div class="account-data-grid">${accountValue("Correo de acceso",p.correo_acceso,"mail")}${accountValue("Usuario",p.usuario,"at-sign")}</div><div class="private-account-note"><i data-lucide="shield-check"></i><span>Solo el correo de acceso es editable en esta sección. El nombre de usuario, rol, permisos y estado de la cuenta continúan bajo administración de Coordinación.</span></div></div></section>
         <section class="panel account-panel password-panel"><div class="panel-header"><div><h2>Seguridad y contraseña</h2><p class="muted">Para cambiarla debes confirmar primero tu contraseña actual.</p></div></div><div class="panel-body"><form id="passwordForm" class="account-form"><div class="field"><label>Contraseña actual</label><div class="password-control"><input type="password" name="actual" autocomplete="current-password" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div></div><div class="field"><label>Nueva contraseña</label><div class="password-control"><input type="password" name="nueva" autocomplete="new-password" minlength="8" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div><small>Mínimo 8 caracteres, con mayúscula, minúscula y número.</small></div><div class="field"><label>Confirmar nueva contraseña</label><div class="password-control"><input type="password" name="confirmacion" autocomplete="new-password" minlength="8" required><button type="button" class="password-toggle" data-toggle-password aria-label="Mostrar contraseña"><i data-lucide="eye"></i></button></div></div><div class="form-actions"><button class="btn primary" type="submit">Cambiar contraseña</button></div></form></div></section>
@@ -6295,18 +6592,6 @@
         <section class="panel account-panel sessions-panel"><div class="panel-header"><div><h2>Sesiones activas</h2><p class="muted">Revisa desde dónde está abierta tu cuenta.</p></div><button class="btn small danger" type="button" data-action="cerrar-otras-sesiones" ${(sessionsData.items||[]).filter(x=>!x.actual).length?"":"disabled"}>Cerrar otras sesiones</button></div><div class="panel-body"><div class="session-list">${sessions}</div></div></section>
       </div>`;
     window.lucide?.createIcons();
-    if(p.foto_cambio_bloqueado && p.foto_cambio_disponible_en){
-      const espera=Math.max(0,new Date(p.foto_cambio_disponible_en).getTime()-Date.now()+750);
-      setTimeout(()=>{
-        if(state.current!=="cuenta")return;
-        const foto=$("#profilePhotoInput"),guardar=$('[data-action="subir-foto-perfil"]');
-        if(foto)foto.disabled=false;
-        if(guardar)guardar.disabled=false;
-        const aviso=$(".profile-photo-cooldown");
-        if(aviso)aviso.textContent="Ya puedes cambiar tu fotografía.";
-        if(state.account)state.account.foto_cambio_bloqueado=false;
-      },Math.min(espera,2147483647));
-    }
     $("#personalCursorToggle")?.addEventListener("change", event => window.SEPRIGUACursors?.setEnabled(event.currentTarget.checked));
 
     const photoInput = $("#profilePhotoInput");
@@ -6340,7 +6625,7 @@
         if (me?.user) state.user = me.user;
         syncPrototypeChrome();
         invalidateViewCache("cuenta");
-        showToast("Fotografía guardada. Podrás cambiarla nuevamente en un minuto.");
+        showToast("Fotografía guardada. Podrás cambiarla nuevamente en 30 días.");
         const preview = $(".profile-photo-preview");
         if (preview?.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
         await renderCuenta();
@@ -6355,7 +6640,7 @@
 
   // Auditoría utiliza paginación REAL: el navegador nunca descarga todas las páginas.
   // Los contadores se refieren explícitamente a los diez registros visibles.
-  async function renderAuditoria(){
+  async function renderAuditoria(isCurrent = () => true){
     setHeading("Auditoría", "Registro de altas, cambios y bajas realizados dentro del sistema.");
     const prefs=smartPrefs("auditoria",{orden:"fecha",direccion:"DESC",tamano:10});
     prefs.tamano=10;
@@ -6366,6 +6651,7 @@
       fecha_desde:historicalDate()||undefined,fecha_hasta:historicalDate()||undefined
     };
     const data=await api(smartWithParams("/api/auditoria",params),{seCache:"reload"});
+    if (!isCurrent()) return;
     const all=Array.isArray(data.items)?data.items:[];
     const page=Math.max(1,Number(data.pagina||1));
     const hasMore=Boolean(data.hay_mas);
@@ -6451,13 +6737,17 @@
     const actions=[`<button class="btn small" data-action="ver-orden" data-id="${esc(x.orden_id)}"><i data-lucide="clipboard-list"></i> Ver OT</button>`];
     if(coord)actions.push(`<button class="btn small primary" data-action="configurar-garantia" data-id="${esc(x.orden_id)}"><i data-lucide="calendar-clock"></i> ${x.garantia_id?'Editar plazo':'Configurar garantía'}</button>`);
     const activeReviewStates=['PENDIENTE','EN_REVISION','PENDIENTE_AUTORIZACION','AUTORIZADA_CLIENTE','GARANTIA_APROBADA'];
-    if(!coord&&active&&!activeReviewStates.includes(req))actions.push(`<button class="btn small primary" data-action="solicitar-revision-garantia" data-id="${esc(x.garantia_id)}"><i data-lucide="shield-question"></i> Solicitar revisión</button>`);
-    if(!coord&&req==='PENDIENTE_AUTORIZACION'&&x.solicitud_garantia_id)actions.push(`<button class="btn small primary" data-action="decision-garantia-cliente" data-id="${esc(x.solicitud_garantia_id)}"><i data-lucide="circle-dollar-sign"></i> Autorizar o rechazar cobro</button>`);
+    if(!coord&&!x.solo_lectura&&active&&!activeReviewStates.includes(req))actions.push(`<button class="btn small primary" data-action="solicitar-revision-garantia" data-id="${esc(x.garantia_id)}"><i data-lucide="shield-question"></i> Solicitar revisión</button>`);
+    if(!coord&&!x.solo_lectura&&req==='PENDIENTE_AUTORIZACION'&&x.solicitud_garantia_id)actions.push(`<button class="btn small primary" data-action="decision-garantia-cliente" data-id="${esc(x.solicitud_garantia_id)}"><i data-lucide="circle-dollar-sign"></i> Autorizar o rechazar cobro</button>`);
     if(x.revision_orden_id)actions.push(`<button class="btn small" data-action="ver-orden" data-id="${esc(x.revision_orden_id)}"><i data-lucide="search-check"></i> Ver OT de revisión</button>`);
     if(x.orden_cobro_id)actions.push(`<button class="btn small" data-action="ver-orden" data-id="${esc(x.orden_cobro_id)}"><i data-lucide="clipboard-plus"></i> Ver nueva OT</button>`);
-    return `<article class="warranty-card ${expired?'expired':''} ${pending?'pending':''}">
-      <div class="warranty-card-top"><div class="warranty-order-icon"><i data-lucide="shield-check"></i></div><div class="warranty-card-title"><span>${esc(x.numero_orden||`OT #${x.orden_id}`)}</span><h3>${esc(x.tipo_servicio||'Servicio')}</h3><p>${esc(x.cliente||'')} ${x.sede?`· ${esc(x.sede)}`:''}</p></div>${warrantyStateBadge(x)}</div>
-      <div class="warranty-meta"><div><small>Finalizada</small><strong>${fmt(x.finalizada_en)}</strong></div><div><small>Inicio garantía</small><strong>${x.inicio_garantia?fmt(x.inicio_garantia):'—'}</strong></div><div><small>Vencimiento</small><strong>${x.fin_garantia?fmt(x.fin_garantia):'—'}</strong></div><div><small>Plazo</small><strong>${x.dias_garantia?`${esc(x.dias_garantia)} días`:'—'}</strong></div></div>
+    return `<article class="warranty-card se-detail-warranty ${expired?'expired':''} ${pending?'pending':''}">
+      ${window.SepriguaDetail.hero(esc(x.numero_orden||`OT #${x.orden_id}`),esc(x.tipo_servicio||'Servicio'),[x.cliente,x.sede].filter(Boolean).map(esc).join(' · '),warrantyStateBadge(x),'shield-check')}
+      ${window.SepriguaDetail.section('Información de la garantía',[
+        ['Cliente',esc(x.cliente||'—')],['Sede',esc(x.sede||'—')],['Estado',warrantyStateBadge(x)],
+        ['Finalizada',fmt(x.finalizada_en)],['Inicio garantía',x.inicio_garantia?fmt(x.inicio_garantia):'—'],
+        ['Vencimiento',x.fin_garantia?fmt(x.fin_garantia):'—'],['Plazo',x.dias_garantia?`${esc(x.dias_garantia)} días`:'—']
+      ],'shield-check')}
       ${countdown}
       ${active?`<div class="warranty-progress"><span style="width:${progress}%"></span></div>`:''}
       ${reqBadge}
@@ -6466,7 +6756,9 @@
   }
 
   async function warrantyConfigForm(orderId){
-    const x=state.warranties.find(item=>Number(item.orden_id)===Number(orderId));
+    if(state.role!=="COORDINADOR" || !moduleAllowed("garantia")) return;
+    const data=await api("/api/garantias",{seCache:"reload"});
+    const x=(data.items||[]).find(item=>Number(item.orden_id)===Number(orderId));
     if(!x)return showToast('No se encontró la OT finalizada.','error');
     openModal(`${x.garantia_id?'Editar':'Configurar'} garantía · ${x.numero_orden}`,`<form id="warrantyConfigForm" class="form-grid">
       <div class="field full"><div class="warranty-rule-note"><i data-lucide="timer-reset"></i><div><strong>La garantía siempre cuenta desde la finalización original de la OT.</strong><span>Cambiar el plazo no reinicia el contador desde hoy.</span></div></div></div>
@@ -6475,7 +6767,7 @@
       <div class="field full"><label>Observaciones <small>(opcional)</small></label><textarea name="observaciones" maxlength="600" placeholder="Condiciones o alcance de la garantía...">${esc(x.observaciones_garantia||'')}</textarea></div>
       <div class="field full"><div class="form-actions"><button class="btn" type="button" data-close-modal>Cancelar</button><button class="btn primary" type="submit">Guardar garantía</button></div></div>
     </form>`);
-    $('#warrantyConfigForm').addEventListener('submit',async e=>{e.preventDefault();const submit=e.currentTarget.querySelector('button[type="submit"]');submit.disabled=true;try{const r=await api(`/api/garantias/${orderId}/configurar`,{method:'POST',body:Object.fromEntries(new FormData(e.currentTarget).entries())});showToast(r.message||'Garantía configurada.');closeModal();await renderGarantia();}catch(err){showToast(err.message,'error');submit.disabled=false;}});
+    $('#warrantyConfigForm').addEventListener('submit',async e=>{e.preventDefault();const submit=e.currentTarget.querySelector('button[type="submit"]');submit.disabled=true;try{const r=await api(`/api/garantias/${orderId}/configurar`,{method:'POST',body:Object.fromEntries(new FormData(e.currentTarget).entries())});showToast(r.message||'Garantía configurada.');closeModal();if(state.current==='garantia') await renderGarantia();}catch(err){showToast(err.message,'error');submit.disabled=false;}});
   }
 
   async function warrantyRequestForm(guaranteeId){
@@ -6557,13 +6849,15 @@
     $('#warrantyClientAuthorize').addEventListener('click',()=>decide('AUTORIZAR'));$('#warrantyClientReject').addEventListener('click',()=>decide('NO_AUTORIZAR'));window.lucide?.createIcons();
   }
 
-  async function renderGarantia(){
+  async function renderGarantia(isCurrent = () => true){
     const coord=state.role==='COORDINADOR';
     setHeading(coord?'Garantías':'Mi garantía',coord?'Configura el plazo sobre OTs ya finalizadas y da seguimiento a las revisiones del mismo trabajo.':'Consulta tus trabajos finalizados, el tiempo restante y solicita una revisión sobre la OT original.');
     let d=state.listCache.garantia?.meta;
     if(!d){d=await api('/api/garantias');state.listCache.garantia={items:d.items||[],meta:d};}
+    if (!isCurrent()) return;
     state.warranties=d.items||[];state.warrantyRequests=d.solicitudes||[];
     const s=d.resumen||{};
+    if(coord){modulePending.garantia=warrantyPendingTotal(s);renderNav();}
     const warrantyStates=smartUnique(state.warranties,x=>String(x.estado_garantia||'PENDIENTE_CONFIGURACION').toUpperCase());
     const warrantyResult=smartListData("garantia",state.warranties,{defaults:{orden:"finalizada",direccion:"DESC"},search:x=>[x.numero_orden,x.tipo_servicio,x.cliente,x.sede,x.estado_garantia,x.estado_solicitud],filters:{estado:x=>String(x.estado_garantia||'PENDIENTE_CONFIGURACION').toUpperCase()},sort:{finalizada:x=>smartDateValue(x.finalizada_en),orden:x=>x.numero_orden||"",cliente:x=>x.cliente||"",estado:x=>x.estado_garantia||""}});
     const stats=`<section class="stats-grid warranty-stats"><article class="stat-card stat-blue"><div class="stat-icon"><i data-lucide="clipboard-check"></i></div><div class="stat-copy"><span>OT finalizadas</span><strong>${normalizeNumber(s.finalizadas)}</strong></div></article><article class="stat-card stat-green"><div class="stat-icon"><i data-lucide="shield-check"></i></div><div class="stat-copy"><span>Garantías activas</span><strong>${normalizeNumber(s.activas)}</strong></div></article><article class="stat-card stat-amber"><div class="stat-icon"><i data-lucide="hourglass"></i></div><div class="stat-copy"><span>${coord?'Por configurar':'Pendientes'}</span><strong>${normalizeNumber(s.pendientes_configurar)}</strong></div></article><article class="stat-card stat-red"><div class="stat-icon"><i data-lucide="clock-alert"></i></div><div class="stat-copy"><span>Vencidas</span><strong>${normalizeNumber(s.vencidas)}</strong></div></article></section>`;
@@ -6594,24 +6888,43 @@
     }
   });
 
-  document.addEventListener("input", e => {
-    const auditInput=e.target.closest("[data-audit-filter]");
-    if(auditInput){
-      const prefs=smartPrefs("auditoria",{orden:"fecha",direccion:"DESC",tamano:10});
-      prefs.filtros=Object.assign({},prefs.filtros,{[auditInput.dataset.auditFilter]:auditInput.value});
-      prefs.pagina=1;
-      clearTimeout(smartSearchTimer);
-      smartSearchTimer=setTimeout(()=>rerenderSmartList("auditoria",true).catch(err=>showToast(err.message,"error")),320);
-      return;
-    }
-    const input=e.target.closest("[data-smart-q]");
-    if(!input)return;
-    const key=input.dataset.smartQ;const prefs=smartPrefs(key);prefs.q=input.value;prefs.pagina=1;
+  function queueFilterSearch(event) {
+    const input = event.target.closest(filterSearchSelector);
+    if (!input || !content.contains(input)) return;
     clearTimeout(smartSearchTimer);
-    smartSearchTimer=setTimeout(()=>rerenderSmartList(key,true).catch(err=>showToast(err.message,"error")),220);
-  });
+    const revision = ++filterRevision;
+    if (event.isComposing || event.type === "compositionstart") return;
+    const module = state.current;
+    const key = input.dataset.auditFilter ? "auditoria" : input.dataset.smartQ;
+    if (key) {
+      const prefs = smartPrefs(key);
+      if (input.dataset.auditFilter) {
+        prefs.filtros = {...prefs.filtros, [input.dataset.auditFilter]:input.value};
+      } else {
+        prefs.q = input.value;
+      }
+      prefs.pagina = 1;
+    } else {
+      state.userAdmin.q = input.value;
+      state.userAdmin.pagina = 1;
+    }
+    smartSearchTimer = window.setTimeout(() => {
+      if (!input.isConnected || revision !== filterRevision || module !== state.current) return;
+      const refresh = key ? rerenderSmartList(key, revision) : refreshFilteredView(renderUsuarios, revision, module);
+      refresh.catch(err => showToast(err.message, "error"));
+    }, 220);
+  }
+
+  document.addEventListener("input", queueFilterSearch);
+  document.addEventListener("compositionstart", queueFilterSearch);
+  document.addEventListener("compositionend", queueFilterSearch);
 
   document.addEventListener("change", e => {
+    const personnelAvailability = e.target.closest("[data-personnel-availability]");
+    if (personnelAvailability) {
+      savePersonalAvailability(personnelAvailability).catch(error=>showToast(error.message,"error"));
+      return;
+    }
     if(e.target.id==="weeklyReportDate"){
       state.weeklyReportDate=e.target.value;
       saveViewSnapshot("dashboard");
@@ -6660,6 +6973,16 @@
     const direction=e.target.closest("[data-smart-direction]");
     if(direction){const key=direction.dataset.smartKey;const prefs=smartPrefs(key);prefs.direccion=direction.value;prefs.pagina=1;rerenderSmartList(key).catch(err=>showToast(err.message,"error"));}
   });
+
+  document.addEventListener("click", event => {
+    const menu = event.target.closest(".people-action-menu");
+    const action = event.target.closest(".people-action-item");
+    for (const openMenu of document.querySelectorAll(".people-action-menu[open]")) {
+      if (openMenu === menu && !action) continue;
+      if (openMenu === menu) openMenu.querySelector("summary")?.focus();
+      openMenu.open = false;
+    }
+  }, true);
 
   document.addEventListener("click", async e => {
     const roleNav=e.target.closest("[data-role-nav]");
@@ -6754,6 +7077,11 @@
       if(a==="dashboard-ver-capacidad") return navigate("equipo_mantenimiento");
       if(a==="dashboard-ver-resumen") return navigate("personas");
       if(a==="dashboard-ver-ordenes"||a==="volver-ordenes") return navigate("ordenes",{force:true});
+      if(a==="dashboard-period") {
+        state.dashboardPeriod=b.dataset.value;
+        state.dashboardRecentPage=1;
+        return renderDashboard();
+      }
       if(a==="dashboard-recent-page") { state.dashboardRecentPage=Math.max(1, Number(b.dataset.page||1)); return renderDashboard(); }
       if(a==="smart-page") { const key=b.dataset.listKey; const prefs=smartPrefs(key); prefs.pagina=Math.max(1,Number(b.dataset.page||1)); return rerenderSmartList(key); }
       if(a==="smart-reset") { const key=b.dataset.listKey; resetSmartPrefs(key); return rerenderSmartList(key); }
@@ -6779,7 +7107,6 @@
           return openSedes(clienteId);
         }catch(error){showToast(error.message,"error");return;}
       }
-      if(a==="nueva-sede-usuario") return adminSedeForm(b.dataset.clienteId,null,id);
       if(a==="nuevo-cliente") return clientForm();
       if(a==="ver-cliente") return openClientDetail(id);
       if(a==="editar-cliente") return clientForm(id);
@@ -6789,7 +7116,7 @@
         const result=await api(`/api/clientes/${id}/estado`,{method:"POST",body:{activo:activate}});
         showToast(result.message||"Estado del cliente actualizado.");closeModal();state.userAdmin.catalogos=null;state.catalogs={};return renderClientes();
       }
-      if(a==="documentos-tab") { state.documentos.tab=b.dataset.tab||"servicio"; if(state.documentos.tab!=="laboral")state.documentos.empleadoId=""; return renderDocumentos(); }
+      if(a==="documentos-tab") { state.documentos.tab=b.dataset.tab||"servicio"; if(state.documentos.tab!=="laboral")state.documentos.empleadoId=""; invalidateApiCache(["/api/documentos","/api/archivos-usuario"]); return renderDocumentos(); }
       if(a==="editar-documento-personal"||a==="editar-documento-servicio") return documentEditForm(b);
       if(a==="compartir-archivo-usuario") return documentShareForm(Number(id));
       if(a==="eliminar-documento-personal"||a==="eliminar-documento-servicio") return deleteDocumentFromView(b);
@@ -6817,7 +7144,7 @@
       if(a==="nuevo-usuario") return userForm();
       if(a==="ver-usuario") return openUserDetail(id);
       if(a==="editar-usuario") return userForm(id);
-      if(a==="sucursales-usuario") return manageUserBranches(id);
+      if(a==="visibilidad-usuario") return manageClientVisibility(id,b.dataset.visibility);
       if(a==="restablecer-usuario") return resetUserPassword(id);
       if(a==="cambiar-estado-usuario") return confirmUserState(id,b.dataset.active==="1",b.dataset.name||"");
       if(a==="confirmar-estado-usuario") {
@@ -6850,6 +7177,7 @@
         showToast(item.activo?"Trabajo desactivado.":"Trabajo activado.");return renderCatalogoMaestro();
       }
       if(a==="nueva-solicitud") return requestForm(); if(a==="configurar-garantia") return warrantyConfigForm(id); if(a==="solicitar-revision-garantia") return warrantyRequestForm(id); if(a==="estado-solicitud-garantia") return warrantyRequestStatusForm(id); if(a==="decision-garantia-cliente") return warrantyClientDecisionForm(id); if(a==="refrescar-garantias"){invalidateListCache("garantia");return renderGarantia();} if(a==="ver-solicitud") return openRequest(id); if(a==="crear-ot-solicitud"){closeModal();return orderForm(id);} if(a==="nueva-orden") return orderForm();
+      if(a==="ver-detalle-documento") return openDocumentDetail(b);
       if(state.current==="agenda"&&state.agenda?.dirty&&["ver-orden","asignar-tecnico","cotizar-orden"].includes(a)){showToast("Guardá o restablecé la planificación antes de abrir otra acción.","error");return;}
       if(a==="ver-orden") return openOrder(id,"resumen",true);
       if(a==="registrar-salida-ot") {await api(`/api/ordenes/${id}/en-camino`,{method:"POST",body:{}});showToast("Salida hacia la sede registrada.");return openOrder(id,"resumen",true);}
@@ -6869,7 +7197,6 @@
         return;
       }
       if(a==="ver-sedes") return openSedes(id); if(a==="nuevo-mantenimiento") return maintenanceForm(); if(a==="nueva-cotizacion") return quoteForm(); if(a==="ver-expediente-cotizacion") return openClientQuoteFlow(id); if(a==="volver-cotizaciones") return navigate("cotizaciones",{force:true}); if(["enviar-cotizacion","responder-cotizacion"].includes(a)) return quoteAction(a,id);
-      if(a==="guardar-disponibilidad"){const sel=$(`.availability[data-id="${CSS.escape(id)}"]`);await api(`/api/personal/${id}/disponibilidad`,{method:"PATCH",body:{disponibilidad:sel.value}});showToast("Disponibilidad actualizada.");return renderPersonal();}
       if(a==="leer-notificacion"){
         await api(`/api/notificaciones/${id}/leer`,{method:"POST",body:{}});showToast("Notificación leída.");
         resetNotificationViews();
@@ -6928,6 +7255,10 @@
       return;
     }
     state.dashboardRecentPage = 1;
+    if (state.current === "dashboard") {
+      state.dashboardAnchor=event.detail?.date || "";
+      state.dashboardPeriod=event.detail?.date ? "dia" : "actual";
+    }
     if (event.detail?.date && state.current === "agenda") state.agenda.fecha = event.detail.date;
     state.viewCache.clear();
     // Reutiliza las consultas originales: la selección de fecha solo filtra registros visibles.
@@ -6977,6 +7308,13 @@
   $("#logoutButton").addEventListener("click",confirmLogout);
   document.addEventListener("keydown", e => {
     if (e.key !== "Escape") return;
+    const rowMenu = document.querySelector(".people-action-menu[open]");
+    if (rowMenu) {
+      rowMenu.open = false;
+      rowMenu.querySelector("summary")?.focus();
+      e.preventDefault();
+      return;
+    }
     if (!modalBackdrop.hidden) {
       if (modalProtection.locked) warnProtectedModal();
       else closeModal();
@@ -6987,10 +7325,11 @@
       menuButton?.focus?.({preventScroll:true});
     }
   });
-  const uiContext={api,state,esc,fmt,money,badge,button,table,openModal,closeModal,showToast,setHeading,content,navigate,openClientQuoteFlow,openOrder,refreshCancellationNotifications};
+  const uiContext={api,state,esc,fmt,money,badge,button,table,openModal,closeModal,showToast,setHeading,content,navigate,openClientQuoteFlow,openOrder,refreshCancellationNotifications,moduleAllowed,adminSedeForm};
   const inventoryUI=window.SepriguaInventoryUI(uiContext);
   uiContext.inventoryUI=inventoryUI;
   const portalUI=window.SepriguaUI(uiContext),operationsUI=window.SepriguaOperations(uiContext);
+  const staffCalendar=window.SepriguaStaffCalendar(uiContext);
   // Otros formularios y acciones también reconstruyen #appContent directamente.
   // Observamos sólo sus hijos inmediatos para recuperar el banner sin interferir
   // con las filas, modales ni los cambios parciales dentro de cada módulo.

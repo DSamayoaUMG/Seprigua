@@ -96,3 +96,11 @@
   .se-tour-launcher,.se-tour-spotlight {transition:none}
   .se-tour-bubble {animation:none}
 }
+
+/* Deja libre el botón de guía mientras se muestra un mensaje del portal. */
+#toast {
+  z-index: 20032;
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  max-width: min(390px, calc(100vw - 36px));
+  overflow-wrap: anywhere;
+}

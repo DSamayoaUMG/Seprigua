@@ -219,3 +219,34 @@ body[data-role="tecnico"] .smart-quick-pill.blue.active{border-color:#0C5A99;bac
 .document-share-list{display:grid;gap:8px;margin-top:10px}.document-share-entry{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #cddff0;border-radius:12px;background:#f5f9fe;color:#143d69}.document-share-entry span{min-width:0;overflow-wrap:anywhere}@media(max-width:560px){.document-share-entry{align-items:stretch;flex-direction:column}.document-share-entry .btn{align-self:flex-start}}
 /* Evita que la ayuda flotante tape acciones de los formularios en pantallas pequenas. */
 #modalBackdrop:not([hidden]) ~ #seTourLauncher{display:none!important}
+
+/* SEPRIGUA · expediente compacto y documentos vinculados (2026-11-11). */
+.quote-expediente-compact{display:grid;gap:10px;min-width:0;width:100%;max-width:100%}
+.quote-expediente-compact .quote-flow-backbar{margin:0!important}
+.quote-expediente-actions{position:sticky;top:6px;z-index:17;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:11px 14px;background:var(--se-surface,#fff);border:1px solid var(--se-border,#d4e2f0);border-radius:12px;box-shadow:0 5px 20px rgba(12,62,115,.10)}
+.quote-expediente-actions>div:first-child{display:grid;gap:2px;min-width:0}
+.quote-expediente-actions strong{font-weight:850;font-size:14px;color:var(--se-text-strong,#0b3764)}
+.quote-expediente-actions span{font-size:12px;color:var(--se-muted,#64748b)}
+.quote-expediente-actions .actions{display:flex;gap:7px;flex-wrap:wrap;margin:0}
+.quote-expediente-compact .se-detail-hero{min-height:0!important;padding:14px 16px!important}
+.quote-expediente-compact .quote-flow-steps{margin:0!important;gap:7px!important}
+.quote-expediente-compact .quote-flow-step{min-height:0!important;padding:10px 12px!important}
+.quote-expediente-compact .quote-flow-step p{font-size:11px!important;margin:0!important}
+.quote-expediente-compact .quote-stage-card{position:relative;min-height:0!important;margin:0!important;padding:13px 15px!important;overflow:hidden}
+.quote-expediente-compact .quote-stage-heading{gap:10px!important;margin:0 0 9px!important}
+.quote-expediente-compact .quote-stage-heading h2{font-size:17px!important;line-height:1.25!important;margin:0!important}
+.quote-expediente-compact .quote-stage-heading p{font-size:12px!important;margin:3px 0 0!important}
+.quote-expediente-compact .quote-stage-grid{gap:9px!important}
+.quote-expediente-compact .quote-stage-main{padding:10px 12px!important}
+.quote-expediente-compact .quote-stage-main h3{font-size:12px!important;margin:0 0 5px!important}
+.quote-expediente-compact .quote-stage-main p{font-size:12px!important;margin:0!important}
+.quote-expediente-compact .quote-stage-number{width:27px!important;height:27px!important;font-size:11px!important}
+.quote-expediente-compact .se-detail-row,.quote-expediente-compact .se-detail-rows>div{min-height:0!important;padding-top:8px!important;padding-bottom:8px!important}
+.quote-expediente-compact .quote-commercial-grid{gap:6px!important;margin:8px 0!important}
+.quote-expediente-compact .quote-commercial-grid>div{padding:8px 10px!important}
+.quote-expediente-compact .quote-lines-panel{max-height:310px;overflow:auto}
+.quote-expediente-compact .quote-collage-grid{max-height:290px;overflow:auto}
+.quote-expediente-compact .quote-download-bar{padding:10px!important;gap:8px!important}
+.document-hub-tabs .document-hub-tab[aria-selected="true"]{border-color:#2b7ec3!important;box-shadow:inset 0 0 0 1px #2b7ec3,0 4px 13px rgba(21,101,178,.08)!important}
+.document-hub-tabs .document-hub-tab[aria-selected="false"]{opacity:.83}
+@media(max-width:720px){.quote-expediente-actions{position:relative;top:auto;align-items:stretch}.quote-expediente-actions .actions{width:100%}.quote-expediente-actions .actions>.btn{flex:1;justify-content:center}.quote-expediente-compact .quote-stage-card{padding:11px!important}}

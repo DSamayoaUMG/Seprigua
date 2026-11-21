@@ -24,7 +24,8 @@
   <link rel="apple-touch-icon" href="/assets/pwa/seprigua-192.png">
   <title>Sistema | SEPRIGUA</title>
   
-<link id="systemStyles" rel="stylesheet" href="/css/sistema.css?v=20261031-qa-v2" onload="document.documentElement.classList.add('se-css-ready')" onerror="document.documentElement.classList.add('se-css-failed')">
+<link id="systemStyles" rel="stylesheet" href="/css/sistema.css?v=20261111-documentos-v1" onload="document.documentElement.classList.add('se-css-ready')" onerror="document.documentElement.classList.add('se-css-failed')">
+  <link rel="stylesheet" href="/css/http-module-errors.css?v=20261111-http-status-v1">
   <link rel="stylesheet" href="/css/responsive-fixes.css?v=20261019-reporte-semanal-v1">
   <link rel="stylesheet" href="/css/calendar-agenda.css?v=20261025-hover-colores-v1">
   <link rel="stylesheet" href="/css/avatar-identity.css?v=20261020-karla-merge-v1">
@@ -41,24 +42,31 @@
   <link rel="stylesheet" href="/css/select-controls.css?v=20261025-v1">
   <link rel="stylesheet" href="/css/filter-panels-unified.css?v=20261025-v3">
   <link rel="stylesheet" href="/css/people-clients-refinement.css?v=20261025-v1">
-  <link rel="stylesheet" href="/css/module-banner-dots.css?v=20261104-gabi-merge-1">
-  <link rel="stylesheet" href="/css/guided-tour.css?v=20261104-gabi-merge-1">
-  <link rel="stylesheet" href="/css/quote-editor.css?v=20261105-gabi-visual-v1">
+  <link rel="stylesheet" href="/css/module-banner-dots.css?v=20261107-banners-unificados-1">
+  <link rel="stylesheet" href="/css/guided-tour.css?v=20261112-filtros-guia">
+  <link rel="stylesheet" href="/css/quote-editor.css?v=20261115-buscar-cliente">
   <link rel="stylesheet" href="/css/work-report.css?v=20261101-entrega-v1">
-  <link rel="stylesheet" href="/css/mobile-qa-refinement.css?v=20261031-v3">
-  <link rel="stylesheet" href="/css/inventory-flow.css?v=20261101-v1">
+  <link rel="stylesheet" href="/css/mobile-qa-refinement.css?v=20261111-menu-v1">
+  <link rel="stylesheet" href="/css/inventory-flow.css?v=20261106-v2">
   <link rel="stylesheet" href="/css/filter-modal-refinement.css?v=20261102-v5">
-  <link rel="stylesheet" href="/css/sidebar-refresh.css?v=20261103-gabi-v2">
+  <link rel="stylesheet" href="/css/sidebar-refresh.css?v=20261106-scroll-fit-v1">
   <link rel="stylesheet" href="/css/seprigua-loader.css?v=20261103-gabi-v2">
   <link rel="stylesheet" href="/css/custom-cursors.css?v=20261104-gabi-merge-1">
-  <link rel="stylesheet" href="/css/form-controls-global.css?v=20261104-gabi-merge-1">
-  <link rel="stylesheet" href="/css/gestion-refinement.css?v=20261104-gabi-merge-1">
+  <link rel="stylesheet" href="/css/form-controls-global.css?v=20261106-dragdrop-1">
+  <link rel="stylesheet" href="/css/gestion-refinement.css?v=20261112-autorizacion-usuarios">
   <link rel="stylesheet" href="/css/modals-global.css?v=20261104-gabi-merge-1">
   <link rel="stylesheet" href="/css/sidebar-role-compact.css?v=20261104-gabi-merge-1">
   <link rel="stylesheet" href="/css/tables-layout-fix.css?v=20261105-v2">
-  <link rel="stylesheet" href="/css/typography-normalization.css?v=20261104-gabi-merge-1">
+  <link rel="stylesheet" href="/css/typography-normalization.css?v=20261106-mayusculas-puntuales-1">
   <link rel="stylesheet" href="/css/visual-balance.css?v=20261104-gabi-merge-1">
+  <link rel="stylesheet" href="/css/detail-surfaces.css?v=20261107-agenda-controls-v2">
+  <link rel="stylesheet" href="/css/listings-saas.css?v=20261106-v1">
+  <link rel="stylesheet" href="/css/global-motion.css?v=20261106-v2">
+  <link rel="stylesheet" href="/css/quotes-table-refinement.css?v=20261107-v1">
+  <link rel="stylesheet" href="/css/quote-expediente-steps.css?v=20261110-v1">
   <script src="/java/compat-performance.js?v=1"></script>
+  <link rel="stylesheet" href="/css/document-service-cards.css?v=20261111-docs-ui-1">
+  <link rel="stylesheet" href="/css/weekly-operations.css?v=20261116-copiar-semana">
 </head>
 <body class="seprigua-hoja-v4 ui-booting">
   <div class="system-shell" id="systemShell">
@@ -189,24 +197,29 @@
   <div class="toast" id="toast" hidden></div>
 
   <script src="/java/vendor/lucide.min.js?v=1"></script>
+  <script src="/java/detail-ui.js?v=20261111-restored-v1"></script>
   <script src="/java/avatar-identity.js?v=20261020-perfiles-v1"></script>
   <script src="/java/global-loader.js?v=20261103-gabi-v2"></script>
-  <script src="/java/inventory-ui.js?v=20261101-v1"></script>
-  <script src="/java/portal-ui.js?v=20261101-entrega-v1"></script>
-  <script src="/java/quote-editor.js?v=20261102-compartir-v5"></script>
-  <script src="/java/operations-ui.js?v=20261104-gabi-merge-1"></script>
+  <script src="/java/inventory-ui.js?v=20261106-banner-v1"></script>
+  <script src="/java/portal-ui.js?v=20261114-horarios"></script>
+  <script src="/java/quote-editor.js?v=20261115-tabular"></script>
+  <script src="/java/operations-ui.js?v=20261116-copiar-semana"></script>
   <script src="/java/profile-photo-crop.js?v=20261104-gabi-merge-1"></script>
   <script src="/java/custom-cursors.js?v=20261104-gabi-merge-1"></script>
-  <script src="/java/sistema.js?v=20261105-foto-minuto-v5"></script>
-  <script src="/java/sidebar.js?v=35-scroll-real-nav"></script>
+  <script src="/java/quote-expediente.js?v=20261112-visibilidad-cliente"></script>
+  <script src="/java/staff-calendar.js?v=20261116-copiar-semana"></script>
+  <script src="/java/sistema.js?v=20261116-copiar-semana"></script>
+  <script src="/java/sidebar.js?v=20261106-scroll-fit-v1"></script>
   <script src="/java/centro-control-ui.js?v=20261025-hover-colores-v1"></script>
-  <script src="/java/filter-ui-enterprise.js?v=20261104-gabi-merge-1"></script>
-  <script src="/java/form-fields-global.js?v=20261104-gabi-merge-1"></script>
+  <script src="/java/filter-ui-enterprise.js?v=20261106-selects-3"></script>
+  <script src="/java/form-fields-global.js?v=20261106-dragdrop-1"></script>
   <script src="/java/theme.js?v=3"></script>
   <script src="/java/calendar-fields.js?v=20261104-gabi-merge-1"></script>
-  <script src="/java/guided-tour.js?v=20261104-gabi-merge-1"></script>
+  <script src="/java/guided-tour.js?v=20261112-flujo-guiado"></script>
 </body>
 </html>
+
+
 
 
 
